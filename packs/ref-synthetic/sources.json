@@ -1,0 +1,83 @@
+{
+  "packId": "ref-synthetic",
+  "version": "0.1.0",
+  "skeleton": "mixamo",
+  "note": "사람의 모션 캡처가 아니다. 함수가 만든 기준 클립이고, 파이프라인과 계약을 검사하려고 둔다.",
+  "clips": [
+    {
+      "id": "walk-forward",
+      "name": {
+        "ko": "앞으로 걷기",
+        "en": "Walk forward"
+      },
+      "license": "CC0-1.0",
+      "source": {
+        "tool": "peoplemaker/make-fixture-pack",
+        "synthetic": true
+      },
+      "tags": [
+        "walk"
+      ]
+    },
+    {
+      "id": "walk-inplace",
+      "name": {
+        "ko": "제자리 걷기",
+        "en": "Walk in place"
+      },
+      "license": "CC0-1.0",
+      "source": {
+        "tool": "peoplemaker/make-fixture-pack",
+        "synthetic": true
+      },
+      "tags": [
+        "walk"
+      ]
+    },
+    {
+      "id": "walk-fast",
+      "name": {
+        "ko": "빠르게 걷기",
+        "en": "Walk fast"
+      },
+      "license": "CC0-1.0",
+      "source": {
+        "tool": "peoplemaker/make-fixture-pack",
+        "synthetic": true
+      },
+      "tags": [
+        "walk"
+      ]
+    },
+    {
+      "id": "idle",
+      "name": {
+        "ko": "가만히 서 있기",
+        "en": "Idle"
+      },
+      "license": "CC0-1.0",
+      "source": {
+        "tool": "peoplemaker/make-fixture-pack",
+        "synthetic": true
+      },
+      "tags": [
+        "idle"
+      ]
+    },
+    {
+      "id": "sit-down",
+      "name": {
+        "ko": "앉기",
+        "en": "Sit down"
+      },
+      "license": "CC0-1.0",
+      "source": {
+        "tool": "peoplemaker/make-fixture-pack",
+        "synthetic": true
+      },
+      "tags": [
+        "sit"
+      ]
+    }
+  ]
+}

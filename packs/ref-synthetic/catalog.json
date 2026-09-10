@@ -1,0 +1,139 @@
+{
+  "packId": "ref-synthetic",
+  "version": "0.1.0",
+  "skeleton": "mixamo",
+  "builtBy": "peoplemaker/build-pack",
+  "clips": [
+    {
+      "id": "idle",
+      "name": {
+        "ko": "가만히 서 있기",
+        "en": "Idle"
+      },
+      "license": "CC0-1.0",
+      "source": {
+        "tool": "peoplemaker/make-fixture-pack",
+        "synthetic": true
+      },
+      "tags": [
+        "idle"
+      ],
+      "durationS": 4,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m"
+    },
+    {
+      "id": "sit-down",
+      "name": {
+        "ko": "앉기",
+        "en": "Sit down"
+      },
+      "license": "CC0-1.0",
+      "source": {
+        "tool": "peoplemaker/make-fixture-pack",
+        "synthetic": true
+      },
+      "tags": [
+        "sit"
+      ],
+      "durationS": 2.4,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m"
+    },
+    {
+      "id": "walk-fast",
+      "name": {
+        "ko": "빠르게 걷기",
+        "en": "Walk fast"
+      },
+      "license": "CC0-1.0",
+      "source": {
+        "tool": "peoplemaker/make-fixture-pack",
+        "synthetic": true
+      },
+      "tags": [
+        "walk"
+      ],
+      "durationS": 1,
+      "rootMotion": "travel",
+      "speedMps": 1.9,
+      "contacts": [
+        {
+          "atS": 0.383,
+          "part": "foot-r",
+          "kind": "plant"
+        },
+        {
+          "atS": 0.883,
+          "part": "foot-l",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m"
+    },
+    {
+      "id": "walk-forward",
+      "name": {
+        "ko": "앞으로 걷기",
+        "en": "Walk forward"
+      },
+      "license": "CC0-1.0",
+      "source": {
+        "tool": "peoplemaker/make-fixture-pack",
+        "synthetic": true
+      },
+      "tags": [
+        "walk"
+      ],
+      "durationS": 1.2,
+      "rootMotion": "travel",
+      "speedMps": 1.35,
+      "contacts": [
+        {
+          "atS": 0.467,
+          "part": "foot-r",
+          "kind": "plant"
+        },
+        {
+          "atS": 1.067,
+          "part": "foot-l",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m"
+    },
+    {
+      "id": "walk-inplace",
+      "name": {
+        "ko": "제자리 걷기",
+        "en": "Walk in place"
+      },
+      "license": "CC0-1.0",
+      "source": {
+        "tool": "peoplemaker/make-fixture-pack",
+        "synthetic": true
+      },
+      "tags": [
+        "walk"
+      ],
+      "durationS": 1.2,
+      "rootMotion": "in-place",
+      "contacts": [
+        {
+          "atS": 0.467,
+          "part": "foot-r",
+          "kind": "plant"
+        },
+        {
+          "atS": 1.067,
+          "part": "foot-l",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m"
+    }
+  ],
+  "note": "사람의 모션 캡처가 아니다. 함수가 만든 기준 클립이고, 파이프라인과 계약을 검사하려고 둔다."
+}
