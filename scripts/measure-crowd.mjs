@@ -18,7 +18,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createClipPlayer } from '../src/web/clipPlayer.mjs';
-import { buildGLB, FIXTURES } from './make-fixture-pack.mjs';
+import { buildGLB, FIXTURES } from '../src/lib/fixtureRig.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PACK = path.join(ROOT, 'packs', 'ref-synthetic');

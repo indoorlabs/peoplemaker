@@ -40,6 +40,59 @@ export const MEASURED = {
   kneeTotalBones: 8000,
 };
 
+/**
+ * 브라우저 실측 — **GPU 까지 포함한 값**.
+ *
+ * 위(MEASURED)는 Node 에서 잰 CPU 몫이다. 화면에 세우면 드로우콜과 정점
+ * 스키닝이 더해지는데, 그것은 브라우저에서만 잴 수 있다 (demo/main.js 의
+ * `__renderBench` — rAF 를 안 쓰고 동기 루프 + gl.finish 로 잰다. 창이
+ * 가려지면 브라우저가 rAF 를 1Hz 로 묶어서 재기가 아예 안 되기 때문이다).
+ *
+ *   사람  뼈   총 뼈   드로우콜   ms/프레임
+ *    200  11   2,200      201       2.76
+ *    100  65   6,500      101       7.33
+ *    800  11   8,800      801      18.89
+ *    200  65  13,000      201      17.09
+ *
+ * **벽이 둘이다.** 800명×뼈11(드로우콜 801)과 200명×뼈65(드로우콜 201)가
+ * 거의 같은 비용이다 — 앞은 드로우콜이, 뒤는 뼈가 벽이다. Node 에서는 뼈만
+ * 보였는데, 화면에서는 사람 수 자체가 드로우콜로 값을 매긴다.
+ *
+ * 그래서 LOD 리그(뼈 줄이기)만으로는 모자라고, **드로우콜을 줄이는 단계**가
+ * 있어야 한다 — TIERS.impostor 가 pending 인 이유가 이것이다.
+ *
+ * **주의: 이 몸은 정점이 520개다.** 진짜 캐릭터는 5,000~15,000이므로 정점
+ * 스키닝 몫은 여기서 훨씬 작게 잡혀 있다. 드로우콜과 뼈 몫은 구조적이라
+ * 그대로지만, 삼각형 몫은 진짜 메시로 다시 재야 한다.
+ */
+export const BROWSER_MEASURED = {
+  date: '2026-09-10',
+  machine: 'AMD Ryzen 7 8845HS · Radeon 780M',
+  runtime: 'Chromium (Playwright) · three r186 · pixelRatio 1',
+  method: 'demo/main.js __renderBench — 동기 루프 120프레임 + gl.finish, vsync·합성 제외',
+  bodyVertices: 520,
+  points: [
+    { people: 200, bones: 11, drawCalls: 201, ms: 2.76 },
+    { people: 100, bones: 65, drawCalls: 101, ms: 7.33 },
+    { people: 800, bones: 11, drawCalls: 801, ms: 18.89 },
+    { people: 200, bones: 65, drawCalls: 201, ms: 17.09 },
+  ],
+  note: '몸 정점 520개짜리다. 진짜 캐릭터(5,000~15,000)면 삼각형 몫이 커진다 — 다시 재야 한다.',
+};
+
+/**
+ * P1 의 끝나는 조건에 대한 답 — **지금 구조로는 아슬아슬하다.**
+ *
+ * "사람 200명이 60fps" 는 뼈 65개 리그에서 17.1ms 다 (58fps). 그런데 그것은
+ * 몸이 정점 520개일 때이고, 진짜 캐릭터를 쓰면 넘는다. 사람마다 드로우콜
+ * 하나인 구조를 그대로 두고는 못 넘는다는 뜻이다.
+ */
+export const P1_VERDICT = {
+  target: '200명 60fps',
+  measured: '200명 · 뼈 65 · 17.1ms (58fps) · 몸 정점 520',
+  verdict: '구조를 안 바꾸면 진짜 메시에서 못 넘는다 — 드로우콜을 줄이는 단계가 필요하다',
+};
+
 /** 이 수를 넘으면 뼈 하나당 비용이 뛴다 (사람 × 뼈). */
 export const KNEE_TOTAL_BONES = MEASURED.kneeTotalBones;
 

@@ -16,7 +16,8 @@
 
 import { runGate } from './gate-lib.mjs';
 import {
-  TIERS, MEASURED, KNEE_TOTAL_BONES, boneCostNs, frameCostMs, affordable, planCrowd,
+  TIERS, MEASURED, BROWSER_MEASURED, P1_VERDICT,
+  KNEE_TOTAL_BONES, boneCostNs, frameCostMs, affordable, planCrowd,
 } from '../src/lib/crowdBudget.mjs';
 
 runGate('check-crowd', async (g) => {
@@ -30,6 +31,44 @@ runGate('check-crowd', async (g) => {
   n++;
   if (!(MEASURED.boneNs.aboveKnee > MEASURED.boneNs.belowKnee)) {
     g.fail('measured/knee', '문턱 위가 아래보다 싸다고 적혀 있다');
+  }
+
+  // ── 1-2. 브라우저 실측 ──
+  //
+  // Node 에서 잰 것은 CPU 몫뿐이다. 화면의 값은 따로 재야 하고, 그 값에도
+  // 출처가 있어야 한다. 그리고 **몸 정점 수**가 함께 적혀야 한다 — 정점이
+  // 520개인 몸으로 잰 값을 진짜 캐릭터에 그대로 쓰면 안 되기 때문이다.
+  {
+    for (const f of ['date', 'machine', 'runtime', 'method', 'bodyVertices']) {
+      n++;
+      if (!BROWSER_MEASURED[f]) g.fail(`browser/${f}`, `브라우저 실측에 ${f} 가 없다`);
+    }
+    n++;
+    if ((BROWSER_MEASURED.points || []).length < 3) {
+      g.fail('browser/points', '점이 셋도 안 된다 — 벽이 무엇인지 갈릴 수가 없다');
+    }
+    n++;
+    // **벽이 둘이라는 것**이 이 표의 주장이다. 드로우콜이 4배인 점과
+    // 뼈가 6배인 점이 비슷한 값이어야 그 주장이 선다.
+    const byCalls = BROWSER_MEASURED.points.find((p) => p.drawCalls >= 800);
+    const byBones = BROWSER_MEASURED.points.find((p) => p.bones >= 65 && p.people >= 200);
+    if (byCalls && byBones) {
+      const ratio = byCalls.ms / byBones.ms;
+      if (ratio < 0.5 || ratio > 2) {
+        g.fail('browser/two-walls',
+          `드로우콜이 벽인 점(${byCalls.ms}ms)과 뼈가 벽인 점(${byBones.ms}ms)이 ${ratio.toFixed(1)}배 차이다 — 둘 중 하나만 벽이라는 뜻이라 표의 설명이 틀렸다`);
+      }
+    } else g.fail('browser/two-walls', '두 벽을 견줄 점이 표에 없다');
+    n++;
+    // 사람이 늘면 비싸진다 — 같은 뼈 수에서.
+    const same = BROWSER_MEASURED.points.filter((p) => p.bones === 11).sort((a, b) => a.people - b.people);
+    if (same.length >= 2 && !(same[same.length - 1].ms > same[0].ms)) {
+      g.fail('browser/people', '사람이 늘었는데 안 비싸졌다');
+    }
+    n++;
+    if (!P1_VERDICT.measured || !P1_VERDICT.verdict) {
+      g.fail('browser/verdict', 'P1 의 끝나는 조건에 대한 답이 적혀 있지 않다');
+    }
   }
 
   // ── 2. 단계 선언이 말이 되는가 ──

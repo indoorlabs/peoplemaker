@@ -57,8 +57,10 @@ npm run check -- --update  기준선 재잠금
 
 ```
 클립 5개 (합성 기준 팩) → 재서 카탈로그 → three.js 가 읽고 사람을 세운다
-사람 여럿의 CPU 비용을 재서 예산 모델로 (뼈가 벽이다 — 사람이 아니라)
-게이트 5개 · 검사 147
+사람 여럿의 비용을 CPU·GPU 양쪽에서 재서 예산 모델로
+게이트 5개 · 검사 156
+
+데모: node scripts/serve-demo.mjs → http://localhost:5180/?people=200&bones=65
 ```
 
 아직 없는 것: 사람이 만든 진짜 클립(Mixamo 는 계정이 필요하다), 사이즈코리아

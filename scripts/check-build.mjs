@@ -13,7 +13,7 @@ import path from 'node:path';
 import { runGate, ROOT } from './gate-lib.mjs';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { deriveClip, TRAVEL_MIN_MPS, PLANT_MAX_Y_M, MEASURED_FIELDS } from '../src/lib/packBuild.mjs';
-import { FIXTURES, buildGLB } from './make-fixture-pack.mjs';
+import { FIXTURES, buildGLB } from '../src/lib/fixtureRig.mjs';
 
 /** 사양 하나를 만들어 바로 재 본다 — 파일을 안 거친다. */
 function roundTrip(spec, decl = {}) {
