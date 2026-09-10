@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+.env.*
+# 생성한 클립은 무겁다. 팩은 카탈로그(계약)만 저장소에 두고,
+# GLB 는 따로 배포한다 — 무엇을 뒀는지는 catalog.json 이 말한다.
+packs/*/clips/*.glb
+# 파이썬 파이프라인 (P2~)
+__pycache__
+*.pyc
+.venv

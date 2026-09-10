@@ -1,0 +1,13 @@
+{
+  "name": "peoplemaker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "공간에 사람을 넣는다 — spacemaker/urbanspace 가 함께 쓰는 사람 층",
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "check:pack": "node scripts/check-pack.mjs",
+    "check:anthropometry": "node scripts/check-anthropometry.mjs"
+  },
+  "license": "UNLICENSED"
+}
