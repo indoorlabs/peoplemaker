@@ -2,9 +2,15 @@ node_modules
 dist
 .env
 .env.*
-# 생성한 클립은 무겁다. 팩은 카탈로그(계약)만 저장소에 두고,
-# GLB 는 따로 배포한다 — 무엇을 뒀는지는 catalog.json 이 말한다.
+# 진짜 클립은 무겁고, 재배포가 금지된 것도 있다 (Mixamo). 팩은 카탈로그
+# (계약)만 저장소에 두고 GLB 는 따로 배포한다 — 무엇을 뒀는지는
+# catalog.json 이 말한다.
 packs/*/clips/*.glb
+
+# **기준 팩은 뺀다.** 우리가 함수로 만든 CC0 이고 다섯 개에 70KB 다.
+# 저장소에 없으면 `npm i github:indoorlabs/peoplemaker` 로 받은 쪽에
+# 카탈로그만 가고 클립이 없다 — 실제로 그렇게 깨졌다.
+!packs/ref-synthetic/clips/*.glb
 # 파이썬 파이프라인 (P2~)
 __pycache__
 *.pyc

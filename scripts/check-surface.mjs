@@ -11,6 +11,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { runGate, ROOT } from './gate-lib.mjs';
 import * as api from '../src/web/index.mjs';
 
@@ -97,6 +98,22 @@ runGate('check-surface', async (g) => {
     // 받는 쪽에 실제로 갈 파일 — src 와 packs 가 빠지면 설치해도 아무것도 없다.
     for (const need of ['src', 'packs']) {
       if (!(pkg.files || []).includes(need)) g.fail(`pkg/files/${need}`, `files 에 ${need} 가 없다`);
+    }
+    n++;
+    // **기준 팩의 클립이 저장소에 있는가.**
+    //
+    // `npm i github:...` 는 **git 이 들고 있는 것**을 가져간다. .gitignore 가
+    // GLB 를 빼고 있어서, 설치한 쪽에는 카탈로그만 가고 클립이 없었다 —
+    // 받아서 돌려 보고서야 알았다 (idle.glb 404). files 목록만 보면 멀쩡해
+    // 보이므로, git 이 실제로 들고 있는지를 물어야 한다.
+    const tracked = spawnSync('git', ['ls-files', 'packs/ref-synthetic/clips'], { cwd: ROOT, encoding: 'utf8' });
+    const glbs = (tracked.stdout || '').split('\n').filter((f) => f.endsWith('.glb'));
+    const onDisk = fs.existsSync(path.join(ROOT, 'packs/ref-synthetic/clips'))
+      ? fs.readdirSync(path.join(ROOT, 'packs/ref-synthetic/clips')).filter((f) => f.endsWith('.glb'))
+      : [];
+    if (glbs.length !== onDisk.length) {
+      g.fail('pkg/pack-clips',
+        `기준 팩의 클립이 디스크에 ${onDisk.length}개인데 git 은 ${glbs.length}개만 들고 있다 — 설치한 쪽에 안 간다`);
     }
   }
 
