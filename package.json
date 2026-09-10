@@ -9,5 +9,8 @@
     "check:pack": "node scripts/check-pack.mjs",
     "check:anthropometry": "node scripts/check-anthropometry.mjs"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "three": "^0.186.0"
+  }
 }
