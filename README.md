@@ -51,6 +51,47 @@ npm run check -- --update  기준선 재잠금
 그것도 **import 하지 않고 주입받는다** — 소비처가 이미 three 를 쓰고 있어서,
 이 저장소가 제 판을 끌어오면 한 페이지에 two 벌이 뜬다.
 
+## spacemaker · urbanspace 에서 쓰는 법
+
+밖에서 보는 문은 **`src/web/index.mjs` 하나**다. 안쪽 파일을 직접 가져가면
+내부를 고칠 때마다 남의 저장소가 깨진다 — 게이트가 그 문의 목록을 지킨다.
+
+three 는 **주입한다.** 소비처가 이미 쓰고 있는 판을 그대로 넘긴다 (이
+저장소가 제 판을 끌어오면 한 페이지에 두 벌이 뜬다).
+
+```js
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import {
+  loadPack, bakeFromPack, geometryOf,
+  createClipPlayer, createInstancedCrowd, planCrowd,
+} from 'peoplemaker/src/web/index.mjs';
+
+// 1. 팩을 받는다. 계약을 어긴 팩은 **여기서** 던진다.
+const pack = await loadPack({ url: '/packs/ref-synthetic', GLTFLoader });
+
+// 2. 몇 명을 어느 단계로 세울지 — 예산이 정한다 (CPU 4ms 기준)
+const plan = planCrowd(want, 4, ['full', 'instanced']);
+
+// 3. 가까운 사람 — 사람마다 스킨 메시
+const player = createClipPlayer({ THREE, SkeletonUtils, catalog: pack.catalog, gltfOf: pack.gltfOf });
+const p = player.spawn({ clipId: 'walk-forward', position: [x, 0, z] });
+player.walkAt(p, 1.1);            // 원하는 속도 → 클립과 재생 속도를 골라 준다
+
+// 4. 먼 사람 — 구운 자세, 드로우콜 하나
+const atlas = bakeFromPack(pack);
+const crowd = createInstancedCrowd({ THREE, geometry: geometryOf(pack), atlas, count: n });
+crowd.place(i, { position: [x, 0, z], headingRad: h, clipId: 'walk-forward' });
+
+// 5. 프레임마다
+player.update(dt);
+crowd.update(dt);
+```
+
+**배치·경로·활동 스케줄은 이 저장소가 안 한다** — 공간을 아는 쪽의 일이다.
+여기서 주는 것은 "이 사람이 지금 어떤 자세인가" 와 "몇 명까지 감당되는가" 다.
+
 ## 지금 어디까지 왔나
 
 `docs/plan-peoplemaker-ko.md` 의 P1 절반. 계약이 실물로 통과했다:
