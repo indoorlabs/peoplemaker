@@ -40,7 +40,31 @@ const RIG = [
   { name: 'mixamorig:RightFoot', t: [0, -0.42, 0], parent: 'mixamorig:RightLeg' },
 ];
 
-const idxOf = (name) => RIG.findIndex((b) => b.name === name);
+/**
+ * 뼈 수를 늘린 리그.
+ *
+ * 기준 리그는 뼈 11개인데 **진짜 Mixamo 리그는 65개**다 (손가락 30개가 그
+ * 대부분이다). 사람 하나의 CPU 비용은 뼈 수에 비례하므로, 11개로 잰 값을
+ * 그대로 쓰면 실제보다 여섯 배 싸게 본다.
+ *
+ * 늘리는 뼈는 손끝에 사슬로 단다 — 애니메이션 채널은 안 붙는다. 갱신 비용은
+ * 채널이 아니라 **뼈 수**가 정하기 때문이다 (Skeleton.update 는 모든 뼈의
+ * 행렬을 만든다).
+ */
+export function rigWith(boneCount) {
+  const rig = RIG.map((b) => ({ ...b }));
+  let parent = 'mixamorig:LeftArm';
+  let i = 0;
+  while (rig.length < boneCount) {
+    const name = `mixamorig:Extra${i}`;
+    rig.push({ name, t: [0, -0.03, 0], parent });
+    parent = i % 3 === 2 ? (i % 6 === 5 ? 'mixamorig:LeftArm' : 'mixamorig:RightArm') : name;
+    i++;
+  }
+  return rig;
+}
+
+const idxOf = (name, rig = RIG) => rig.findIndex((b) => b.name === name);
 
 /** x 축 회전 사원수 — 다리를 앞뒤로 흔드는 데만 쓴다. */
 const quatX = (rad) => [Math.sin(rad / 2), 0, 0, Math.cos(rad / 2)];
@@ -161,6 +185,7 @@ class Bin {
 }
 
 export function buildGLB(spec) {
+  const RIG_ = spec.bones ? rigWith(spec.bones) : RIG;
   const { times, hips, legs } = keyframes(spec);
   const json = {
     asset: { version: '2.0', generator: 'peoplemaker/make-fixture-pack' },
@@ -192,10 +217,10 @@ export function buildGLB(spec) {
   };
 
   // 뼈 노드
-  for (const b of RIG) json.nodes.push({ name: b.name, translation: b.t });
-  RIG.forEach((b, i) => {
+  for (const b of RIG_) json.nodes.push({ name: b.name, translation: b.t });
+  RIG_.forEach((b, i) => {
     if (b.parent == null) return;
-    const p = idxOf(b.parent);
+    const p = idxOf(b.parent, RIG_);
     (json.nodes[p].children ||= []).push(i);
   });
 
@@ -205,7 +230,7 @@ export function buildGLB(spec) {
   const joints = [];
   const weights = [];
   const idxs = [];
-  RIG.forEach((b, j) => {
+  RIG_.forEach((b, j) => {
     const w = b.name.includes('Hips') || b.name.includes('Spine') ? 0.11 : 0.05;
     const h = b.name.includes('Foot') ? 0.06 : 0.34;
     const base = pos.length / 3;
@@ -221,17 +246,17 @@ export function buildGLB(spec) {
   });
 
   // 역바인드 — 바인드 자세에서 뼈의 세계 변환의 역. 상대 위치를 누적한다.
-  const world = RIG.map((b) => {
+  const world = RIG_.map((b) => {
     let t = [...b.t];
     let cur = b.parent;
     while (cur != null) {
-      const p = RIG[idxOf(cur)];
+      const p = RIG_[idxOf(cur, RIG_)];
       t = [t[0] + p.t[0], t[1] + p.t[1], t[2] + p.t[2]];
       cur = p.parent;
     }
     return t;
   });
-  const ibm = new Float32Array(RIG.length * 16);
+  const ibm = new Float32Array(RIG_.length * 16);
   world.forEach((t, i) => {
     const m = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -t[0], -t[1], -t[2], 1];
     ibm.set(m, i * 16);
@@ -247,7 +272,7 @@ export function buildGLB(spec) {
     name: 'body',
     primitives: [{ attributes: { POSITION: aPos, JOINTS_0: aJoint, WEIGHTS_0: aWeight }, indices: aIdx }],
   });
-  json.skins.push({ inverseBindMatrices: aIbm, joints: RIG.map((_, i) => i), skeleton: 0 });
+  json.skins.push({ inverseBindMatrices: aIbm, joints: RIG_.map((_, i) => i), skeleton: 0 });
   json.nodes.push({ name: 'body', mesh: 0, skin: 0 });
   json.scenes[0].nodes = [0, json.nodes.length - 1];
 
@@ -260,9 +285,9 @@ export function buildGLB(spec) {
     samplers.push({ input: aTime, output: a, interpolation: 'LINEAR' });
     channels.push({ sampler: samplers.length - 1, target: { node, path } });
   };
-  push(idxOf('mixamorig:Hips'), 'translation', hips.translation, 3);
-  push(idxOf('mixamorig:Hips'), 'rotation', hips.rotation, 4);
-  for (const [name, vals] of Object.entries(legs)) push(idxOf(name), 'rotation', vals, 4);
+  push(idxOf('mixamorig:Hips', RIG_), 'translation', hips.translation, 3);
+  push(idxOf('mixamorig:Hips', RIG_), 'rotation', hips.rotation, 4);
+  for (const [name, vals] of Object.entries(legs)) push(idxOf(name, RIG_), 'rotation', vals, 4);
   json.animations.push({ name: spec.id, channels, samplers });
 
   const binData = bin.concat();
