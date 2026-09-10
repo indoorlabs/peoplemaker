@@ -4,10 +4,34 @@
   "private": true,
   "type": "module",
   "description": "공간에 사람을 넣는다 — spacemaker/urbanspace 가 함께 쓰는 사람 층",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/indoorlabs/peoplemaker.git"
+  },
+  "exports": {
+    ".": "./src/web/index.mjs",
+    "./lib": "./src/lib/index.mjs",
+    "./packs/*": "./packs/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "packs",
+    "docs",
+    "README.md",
+    "agents.md"
+  ],
   "scripts": {
     "check": "node scripts/check.mjs",
     "check:pack": "node scripts/check-pack.mjs",
-    "check:anthropometry": "node scripts/check-anthropometry.mjs"
+    "check:anthropometry": "node scripts/check-anthropometry.mjs",
+    "check:surface": "node scripts/check-surface.mjs",
+    "demo": "node scripts/serve-demo.mjs",
+    "build:fixture": "node scripts/make-fixture-pack.mjs && node scripts/build-pack.mjs ref-synthetic",
+    "measure:crowd": "node --expose-gc scripts/measure-crowd.mjs"
+  },
+  "peerDependencies": {
+    "three": ">=0.160.0"
   },
   "license": "UNLICENSED",
   "devDependencies": {

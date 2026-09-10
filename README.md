@@ -53,8 +53,18 @@ npm run check -- --update  기준선 재잠금
 
 ## spacemaker · urbanspace 에서 쓰는 법
 
-밖에서 보는 문은 **`src/web/index.mjs` 하나**다. 안쪽 파일을 직접 가져가면
-내부를 고칠 때마다 남의 저장소가 깨진다 — 게이트가 그 문의 목록을 지킨다.
+```bash
+npm i github:indoorlabs/peoplemaker
+```
+
+three 는 **peer 의존**이다 — 소비처가 이미 쓰는 판을 그대로 쓴다. 이
+저장소가 제 판을 끌어오면 한 페이지에 두 벌이 뜬다.
+
+밖에서 보는 문은 **`src/web/index.mjs` 하나**이고, 패키지의 진입점이 그것을
+가리킨다 (`import { loadPack } from 'peoplemaker'`). 순수 층만 필요하면
+`peoplemaker/lib` 로 들어온다 — three 가 안 딸려 온다. 안쪽 파일을 직접
+가져가면 내부를 고칠 때마다 남의 저장소가 깨진다 — 게이트가 그 문의 목록을
+지킨다.
 
 three 는 **주입한다.** 소비처가 이미 쓰고 있는 판을 그대로 넘긴다 (이
 저장소가 제 판을 끌어오면 한 페이지에 두 벌이 뜬다).
@@ -66,9 +76,11 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import {
   loadPack, bakeFromPack, geometryOf,
   createClipPlayer, createInstancedCrowd, planCrowd,
-} from 'peoplemaker/src/web/index.mjs';
+} from 'peoplemaker';
 
 // 1. 팩을 받는다. 계약을 어긴 팩은 **여기서** 던진다.
+//    팩 파일은 앱이 서비스하는 주소에 둔다 (node_modules 의 packs/ 를
+//    복사하거나, 따로 배포한 팩을 가리킨다).
 const pack = await loadPack({ url: '/packs/ref-synthetic', GLTFLoader });
 
 // 2. 몇 명을 어느 단계로 세울지 — 예산이 정한다 (CPU 4ms 기준)

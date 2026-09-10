@@ -66,6 +66,40 @@ runGate('check-surface', async (g) => {
     }
   }
 
+  // ── 2-2. 패키지가 그 문을 가리키는가 ──
+  //
+  // 소비처는 `npm i github:indoorlabs/peoplemaker` 로 받아 `peoplemaker` 를
+  // import 한다. exports 가 엉뚱한 데를 가리키면 그때서야 안다.
+  {
+    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+    n++;
+    if (!pkg.exports?.['.']) g.fail('pkg/exports', '패키지 진입점이 없다 — deep import 를 강요하게 된다');
+    else {
+      n++;
+      const entry = path.join(ROOT, pkg.exports['.']);
+      if (!fs.existsSync(entry)) g.fail('pkg/entry', `진입점 ${pkg.exports['.']} 이 없다`);
+      n++;
+      if (path.resolve(entry) !== path.resolve(path.join(ROOT, 'src/web/index.mjs'))) {
+        g.fail('pkg/entry-wrong', '진입점이 문(src/web/index.mjs)이 아니다');
+      }
+    }
+    n++;
+    // 순수 층 문도 따로 있어야 한다 — three 없이 계약만 검사하는 쪽이 쓴다.
+    const lib = pkg.exports?.['./lib'];
+    if (!lib || !fs.existsSync(path.join(ROOT, lib))) g.fail('pkg/lib', 'peoplemaker/lib 문이 없다');
+    n++;
+    // **three 는 peer 여야 한다.** 보통 의존으로 두면 소비처의 three 와 두
+    // 벌이 뜨고, instanceof 검사가 조용히 실패한다.
+    if (!pkg.peerDependencies?.three) g.fail('pkg/peer', 'three 가 peer 의존이 아니다');
+    n++;
+    if (pkg.dependencies?.three) g.fail('pkg/dep', 'three 를 보통 의존으로도 걸고 있다 — 두 벌이 뜬다');
+    n++;
+    // 받는 쪽에 실제로 갈 파일 — src 와 packs 가 빠지면 설치해도 아무것도 없다.
+    for (const need of ['src', 'packs']) {
+      if (!(pkg.files || []).includes(need)) g.fail(`pkg/files/${need}`, `files 에 ${need} 가 없다`);
+    }
+  }
+
   // ── 3. 문이 실제로 열리는가 ──
   //
   // 이름만 있고 안 되는 문이 가장 나쁘다 — 소비처가 붙이고 나서야 안다.
