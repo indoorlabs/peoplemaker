@@ -203,12 +203,13 @@ export function parentMap(doc) {
 }
 
 /**
- * 시각 t 에서 이 노드의 세계 좌표.
+ * 시각 t 에서 이 노드의 세계 변환 (열 우선 4x4).
  *
  * 발이 언제 땅에 닿는지를 재려면 이것이 있어야 한다 — 뼈의 국소 회전만
- * 봐서는 발이 어디 있는지 모른다.
+ * 봐서는 발이 어디 있는지 모른다. 자세를 텍스처로 구울 때도 같은 것이
+ * 필요하다 (lib/poseBake.mjs).
  */
-export function nodeWorldPos(doc, nodeIndex, sampled, parent) {
+export function nodeWorldMatrix(doc, nodeIndex, sampled, parent) {
   let m = null;
   let cur = nodeIndex;
   const guard = new Set();
@@ -225,7 +226,18 @@ export function nodeWorldPos(doc, nodeIndex, sampled, parent) {
     m = m ? mul(local, m) : local;
     cur = parent.get(cur);
   }
-  return m ? [m[12], m[13], m[14]] : [0, 0, 0];
+  return m || [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+}
+
+/** 그 변환의 위치만. */
+export function nodeWorldPos(doc, nodeIndex, sampled, parent) {
+  const m = nodeWorldMatrix(doc, nodeIndex, sampled, parent);
+  return [m[12], m[13], m[14]];
+}
+
+/** 행렬 곱 — 구워 낸 자세를 쓰는 쪽이 같은 규약(열 우선)으로 곱하게. */
+export function multiplyMat4(a, b) {
+  return mul(a, b);
 }
 
 /** 이름으로 노드 찾기 — 없으면 null (0 을 돌려주지 않는다: 0 은 유효한 색인이다). */

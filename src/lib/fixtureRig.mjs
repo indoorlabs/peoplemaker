@@ -217,21 +217,36 @@ export function buildGLB(spec) {
   // 살 — 뼈마다 상자 하나. 강체 스키닝(꼭짓점 하나가 뼈 하나에 100%)이라
   // 살가죽은 안 늘어나지만, **스킨 애니메이션 경로는 진짜**다.
   const pos = [];
+  const nrm = [];
   const joints = [];
   const weights = [];
   const idxs = [];
+  // 면마다 꼭짓점을 따로 둔다 — **법선을 주려면 그래야 한다.**
+  //
+  // 처음에는 꼭짓점 8개를 여섯 면이 나눠 썼다. 그러면 법선을 면마다 못 주고,
+  // 법선이 없으면 three 의 기본 재료가 사람을 **까맣게** 그린다 (화면으로
+  // 확인하다 알았다). 진짜 클립에는 법선이 다 있으므로, 없는 채로 두면
+  // 인스턴싱 셰이더의 버그도 여기서 안 드러난다.
+  const FACES = [
+    { n: [0, 1, 0], v: [[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]] },
+    { n: [0, -1, 0], v: [[-1, -1, 1], [1, -1, 1], [1, -1, -1], [-1, -1, -1]] },
+    { n: [0, 0, 1], v: [[-1, 0, 1], [1, 0, 1], [1, -1, 1], [-1, -1, 1]] },
+    { n: [0, 0, -1], v: [[1, 0, -1], [-1, 0, -1], [-1, -1, -1], [1, -1, -1]] },
+    { n: [1, 0, 0], v: [[1, 0, 1], [1, 0, -1], [1, -1, -1], [1, -1, 1]] },
+    { n: [-1, 0, 0], v: [[-1, 0, -1], [-1, 0, 1], [-1, -1, 1], [-1, -1, -1]] },
+  ];
   RIG_.forEach((b, j) => {
     const w = b.name.includes('Hips') || b.name.includes('Spine') ? 0.11 : 0.05;
     const h = b.name.includes('Foot') ? 0.06 : 0.34;
-    const base = pos.length / 3;
-    // 뼈 국소 좌표에서 상자 (뼈는 아래로 뻗는다)
-    for (const [sx, sy, sz] of [[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1], [-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1]]) {
-      pos.push(sx * w, sy * h, sz * w * 0.7);
-      joints.push(j, 0, 0, 0);
-      weights.push(1, 0, 0, 0);
-    }
-    for (const f of [[0, 1, 2], [0, 2, 3], [4, 6, 5], [4, 7, 6], [0, 4, 5], [0, 5, 1], [1, 5, 6], [1, 6, 2], [2, 6, 7], [2, 7, 3], [3, 7, 4], [3, 4, 0]]) {
-      idxs.push(base + f[0], base + f[1], base + f[2]);
+    for (const face of FACES) {
+      const base = pos.length / 3;
+      for (const [sx, sy, sz] of face.v) {
+        pos.push(sx * w, sy * h, sz * w * 0.7);
+        nrm.push(face.n[0], face.n[1], face.n[2]);
+        joints.push(j, 0, 0, 0);
+        weights.push(1, 0, 0, 0);
+      }
+      idxs.push(base, base + 1, base + 2, base, base + 2, base + 3);
     }
   });
 
@@ -253,14 +268,34 @@ export function buildGLB(spec) {
   });
 
   const aPos = acc(new Float32Array(pos), 'VEC3', 5126, { minmax: true, target: 34962 });
+  const aNrm = acc(new Float32Array(nrm), 'VEC3', 5126, { target: 34962 });
   const aJoint = acc(new Uint8Array(joints), 'VEC4', 5121, { target: 34962 });
   const aWeight = acc(new Float32Array(weights), 'VEC4', 5126, { target: 34962 });
   const aIdx = acc(new Uint16Array(idxs), 'SCALAR', 5123, { target: 34963 });
   const aIbm = acc(ibm, 'MAT4', 5126);
 
+  // **재질을 넣는다.**
+  //
+  // 안 넣으면 glTF 의 기본값이 쓰이는데, 그 기본값은 metallicFactor 1 이다 —
+  // 환경맵이 없는 장면에서 완전 금속은 **까맣게** 그려진다. 법선을 넣고도
+  // 사람이 검길래 찾아보고 알았다. 진짜 클립에는 재질이 있으므로, 없는 채로
+  // 두면 픽스처만 이상하게 보이고 원인을 딴 데서 찾게 된다.
+  json.materials = [{
+    name: 'body',
+    pbrMetallicRoughness: {
+      baseColorFactor: [0.72, 0.75, 0.80, 1],
+      metallicFactor: 0,
+      roughnessFactor: 0.9,
+    },
+  }];
+
   json.meshes.push({
     name: 'body',
-    primitives: [{ attributes: { POSITION: aPos, JOINTS_0: aJoint, WEIGHTS_0: aWeight }, indices: aIdx }],
+    primitives: [{
+      attributes: { POSITION: aPos, NORMAL: aNrm, JOINTS_0: aJoint, WEIGHTS_0: aWeight },
+      indices: aIdx,
+      material: 0,
+    }],
   });
   json.skins.push({ inverseBindMatrices: aIbm, joints: RIG_.map((_, i) => i), skeleton: 0 });
   json.nodes.push({ name: 'body', mesh: 0, skin: 0 });
