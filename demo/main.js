@@ -16,6 +16,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { createClipPlayer } from '../src/web/clipPlayer.mjs';
 import { buildGLB, FIXTURES } from '../src/lib/fixtureRig.mjs';
+import { parseGLB } from '../src/lib/gltf.mjs';
+import { bakeClip, bakeAtlas } from '../src/lib/poseBake.mjs';
+import { createInstancedCrowd } from '../src/web/instancedCrowd.mjs';
 
 const q = new URLSearchParams(location.search);
 const want = Number(q.get('people') || 200);
@@ -24,6 +27,9 @@ const packId = q.get('pack') || 'ref-synthetic';
 // 뼈 수를 흔들려면 팩의 클립이 아니라 **여기서 만든** 리그를 써야 한다.
 // 진짜 Mixamo 리그가 65개라, 11개짜리로 잰 값을 그대로 믿으면 안 된다.
 const boneOverride = Number(q.get('bones') || 0);
+// 'skinned' 사람마다 스킨 메시 (드로우콜 = 사람 수)
+// 'instanced' 구운 자세 + InstancedMesh (드로우콜 1)
+const mode = q.get('mode') || 'skinned';
 const hud = document.getElementById('hud');
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -58,28 +64,58 @@ const player = createClipPlayer({ THREE, SkeletonUtils, catalog, gltfOf: (id) =>
 // 사람을 격자로 세운다. 배치는 이 저장소의 일이 아니지만(README 의 경계),
 // **재려면 어딘가에 세워야** 하므로 가장 단순한 격자를 쓴다.
 const side = Math.ceil(Math.sqrt(want));
+const spot = (i) => [(i % side) * 1.6 - side * 0.8, 0, Math.floor(i / side) * 1.6 - side * 0.8];
 let verts = 0;
-for (let i = 0; i < want; i++) {
-  const p = player.spawn({
-    clipId: 'walk-forward',
-    position: [(i % side) * 1.6 - side * 0.8, 0, Math.floor(i / side) * 1.6 - side * 0.8],
-    headingRad: Math.PI,
-  });
-  p.mixer.update(Math.random() * p.clip.durationS);   // 위상을 흩는다
-  scene.add(p.root);
-  if (i === 0) p.root.traverse((o) => { if (o.isSkinnedMesh) verts += o.geometry.attributes.position.count; });
+let crowd = null;
+
+if (mode === 'instanced') {
+  // 구운 자세 + InstancedMesh — 드로우콜 하나.
+  const glbFor = (spec) => buildGLB({ ...spec, ...(boneOverride ? { bones: boneOverride } : {}) });
+  const walkSpec = FIXTURES.find((f) => f.id === 'walk-forward');
+  const idleSpec = FIXTURES.find((f) => f.id === 'idle');
+  const atlas = bakeAtlas([
+    { id: 'walk-forward', baked: bakeClip(parseGLB(glbFor(walkSpec))) },
+    { id: 'idle', baked: bakeClip(parseGLB(glbFor(idleSpec))) },
+  ]);
+  // 기하는 스킨 메시의 것을 그대로 쓴다 — 같은 살을 같은 자세로 그리는지
+  // 견주려면 둘이 같은 기하여야 한다.
+  const sample = gltfs.get('walk-forward');
+  let geom = null;
+  sample.scene.traverse((o) => { if (o.isSkinnedMesh && !geom) geom = o.geometry; });
+  verts = geom.attributes.position.count;
+  crowd = createInstancedCrowd({ THREE, geometry: geom, atlas, count: want });
+  for (let i = 0; i < want; i++) {
+    crowd.place(i, {
+      position: spot(i), headingRad: Math.PI,
+      clipId: 'walk-forward', timeOffsetS: Math.random() * atlas.clips[0].durationS,
+    });
+  }
+  scene.add(crowd.mesh);
+} else {
+  for (let i = 0; i < want; i++) {
+    const p = player.spawn({ clipId: 'walk-forward', position: spot(i), headingRad: Math.PI });
+    p.mixer.update(Math.random() * p.clip.durationS);   // 위상을 흩는다
+    scene.add(p.root);
+    if (i === 0) p.root.traverse((o) => { if (o.isSkinnedMesh) verts += o.geometry.attributes.position.count; });
+  }
 }
 
 camera.position.set(side * 0.9, side * 0.75 + 6, side * 1.4);
 camera.lookAt(0, 1, 0);
 
 let bones = 0;
-player.people[0]?.root.traverse((o) => { if (o.isBone) bones++; });
+if (crowd) {
+  const g0 = gltfs.get('walk-forward');
+  g0.scene.traverse((o) => { if (o.isBone) bones++; });
+} else {
+  player.people[0]?.root.traverse((o) => { if (o.isBone) bones++; });
+}
 
 const clock = new THREE.Clock();
+const advance = (dt) => (crowd ? crowd.update(dt) : player.update(dt));
 function tick() {
   requestAnimationFrame(tick);
-  player.update(clock.getDelta());
+  advance(clock.getDelta());
   renderer.render(scene, camera);
 }
 tick();
@@ -87,14 +123,16 @@ tick();
 // ── 재는 길 ──────────────────────────────────────────────────────
 
 window.__crowdStats = () => ({
-  사람: player.people.length,
+  사람: crowd ? want : player.people.length,
+  방식: mode,
   단계: tier,
   뼈: bones,
-  총뼈: bones * player.people.length,
+  총뼈: bones * (crowd ? want : player.people.length),
   몸정점: verts,
   드로우콜: renderer.info.render.calls,
   삼각형: renderer.info.render.triangles,
   프로그램: renderer.info.programs?.length ?? null,
+  ...(crowd ? { 자세텍스처: `${crowd.textureSize.width}×${crowd.textureSize.height}` } : {}),
 });
 
 // urbanspace 의 __frameTime 과 같은 규약 — rAF 가 묶였는지를 스스로 말한다.
@@ -140,7 +178,7 @@ window.__frameTime = (ms = 2000) => new Promise((resolve) => {
 window.__renderBench = (frames = 120) => {
   const gl = renderer.getContext();
   const dt = 1 / 60;
-  const step = () => { player.update(dt); renderer.render(scene, camera); };
+  const step = () => { advance(dt); renderer.render(scene, camera); };
   for (let i = 0; i < 20; i++) step();     // 데우기
   gl.finish();
   const t0 = performance.now();
@@ -155,9 +193,59 @@ window.__renderBench = (frames = 120) => {
   };
 };
 
+/**
+ * **GPU 시간을 진짜로 잰다.**
+ *
+ * `gl.finish()` 로는 안 된다 — 브라우저에서 그것은 명령을 GPU 프로세스로
+ * 보내는 데서 끝나고, 그린 것이 끝나기를 기다리지 않는다. 그래서 5,000명 ·
+ * 삼각형 390만 개가 0.127ms 로 읽혔다. 초당 30조 삼각형이라는 뜻이라,
+ * 그 수는 **그럴 리가 없다**는 것으로 스스로를 반증한다.
+ *
+ * WebGL2 의 EXT_disjoint_timer_query_webgl2 는 GPU 안에서 잰다. 이 확장이
+ * 없는 기계도 있으므로(브라우저 설정에 따라 꺼진다) 없으면 없다고 말한다 —
+ * 조용히 CPU 값을 GPU 값인 척 돌려주지 않는다.
+ */
+window.__gpuBench = async (frames = 60) => {
+  const gl = renderer.getContext();
+  const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+  const dt = 1 / 60;
+  const step = () => { advance(dt); renderer.render(scene, camera); };
+  for (let i = 0; i < 20; i++) step();
+
+  const cpu0 = performance.now();
+  if (!ext) {
+    for (let i = 0; i < frames; i++) step();
+    return { ...window.__crowdStats(), cpu프레임당ms: +((performance.now() - cpu0) / frames).toFixed(3), gpu: null,
+      못믿음: 'EXT_disjoint_timer_query_webgl2 가 없다 — GPU 시간은 못 쟀다' };
+  }
+  const q = gl.createQuery();
+  gl.beginQuery(ext.TIME_ELAPSED_EXT, q);
+  for (let i = 0; i < frames; i++) step();
+  gl.endQuery(ext.TIME_ELAPSED_EXT);
+  const cpuMs = (performance.now() - cpu0) / frames;
+
+  // 결과가 나올 때까지 기다린다. disjoint 가 뜨면 그 회차는 버린다 —
+  // GPU 가 중간에 다른 일로 끌려간 것이라 시간이 뜻을 잃는다.
+  for (let i = 0; i < 200; i++) {
+    if (gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) break;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  const disjoint = gl.getParameter(ext.GPU_DISJOINT_EXT);
+  const ok = gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE) && !disjoint;
+  const ns = ok ? gl.getQueryParameter(q, gl.QUERY_RESULT) : null;
+  gl.deleteQuery(q);
+  return {
+    ...window.__crowdStats(),
+    cpu프레임당ms: +cpuMs.toFixed(3),
+    gpu프레임당ms: ns == null ? null : +(ns / 1e6 / frames).toFixed(3),
+    ...(ok ? {} : { 못믿음: disjoint ? 'GPU 가 중간에 딴 일을 했다 (disjoint)' : '질의 결과가 안 왔다' }),
+    잰방법: 'EXT_disjoint_timer_query_webgl2 — GPU 안에서 잰 시간',
+  };
+};
+
 const s = window.__crowdStats();
 hud.textContent = [
-  `팩 ${packId} · 단계 ${tier}`,
+  `팩 ${packId} · ${mode}`,
   `사람 ${s.사람}  뼈 ${s.뼈}/인  총 ${s.총뼈.toLocaleString()}`,
   `몸 정점 ${s.몸정점}  드로우콜 ${s.드로우콜}`,
   '',

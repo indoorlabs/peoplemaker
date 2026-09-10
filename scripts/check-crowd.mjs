@@ -16,7 +16,7 @@
 
 import { runGate } from './gate-lib.mjs';
 import {
-  TIERS, MEASURED, BROWSER_MEASURED, P1_VERDICT,
+  TIERS, MEASURED, BROWSER_MEASURED, INSTANCED_MEASURED, INSTANCED_MS_PER_PERSON, P1_VERDICT,
   KNEE_TOTAL_BONES, boneCostNs, frameCostMs, affordable, planCrowd,
 } from '../src/lib/crowdBudget.mjs';
 
@@ -68,6 +68,60 @@ runGate('check-crowd', async (g) => {
     n++;
     if (!P1_VERDICT.measured || !P1_VERDICT.verdict) {
       g.fail('browser/verdict', 'P1 의 끝나는 조건에 대한 답이 적혀 있지 않다');
+    }
+  }
+
+  // ── 1-3. 인스턴싱 실측 ──
+  //
+  // 드로우콜을 하나로 줄이는 단계다. 이 표가 주장하는 것은 "사람마다
+  // 드로우콜을 두는 것이 벽이었다" 이고, 그것이 수로 서 있어야 한다.
+  {
+    for (const f of ['date', 'machine', 'method', 'bodyVertices']) {
+      n++;
+      if (!INSTANCED_MEASURED[f]) g.fail(`inst/${f}`, `인스턴싱 실측에 ${f} 가 없다`);
+    }
+    const pts = INSTANCED_MEASURED.points || [];
+    const skinned = pts.find((p) => p.mode === 'skinned' && p.people === 200);
+    const inst = pts.find((p) => p.mode === 'instanced' && p.people === 200);
+    n++;
+    if (!skinned || !inst) g.fail('inst/pair', '같은 구성을 두 방식으로 잰 점이 없다 — 견줄 수가 없다');
+    else {
+      n++;
+      // **드로우콜이 줄었는가.** 이것이 이 단계의 존재 이유다.
+      if (!(inst.drawCalls < skinned.drawCalls / 10)) {
+        g.fail('inst/draws', `드로우콜이 ${skinned.drawCalls} → ${inst.drawCalls} 다 — 한 자리로 줄어야 한다`);
+      }
+      n++;
+      if (!(inst.cpuMs < skinned.cpuMs / 10)) {
+        g.fail('inst/cpu', `CPU 가 ${skinned.cpuMs} → ${inst.cpuMs} 다 — 자릿수가 안 바뀌면 바꾼 뜻이 없다`);
+      }
+      n++;
+      // 그림은 같아야 한다 — 삼각형 수가 다르면 다른 것을 그린 것이다.
+      if (skinned.bones !== inst.bones) g.fail('inst/same', '두 방식이 다른 리그로 재어졌다');
+    }
+    n++;
+    // 사람당 값이 실측과 맞는가. 표를 고치면 이 수도 따라와야 한다.
+    const big = pts.find((p) => p.mode === 'instanced' && p.people >= 1000);
+    if (big) {
+      const perPerson = (big.cpuMs + big.gpuMs) / big.people;
+      if (Math.abs(perPerson - INSTANCED_MS_PER_PERSON) > INSTANCED_MS_PER_PERSON * 0.5) {
+        g.fail('inst/per-person',
+          `사람당 ${INSTANCED_MS_PER_PERSON}ms 라고 적었는데 실측은 ${perPerson.toFixed(5)}ms 다`);
+      }
+    } else g.fail('inst/per-person', '사람당 값을 확인할 큰 점이 없다');
+    n++;
+    if (!TIERS.instanced?.sharedDraw) g.fail('inst/tier', '인스턴싱 단계가 공유 드로우로 안 적혀 있다');
+    n++;
+    // **공짜가 아니다.**
+    //
+    // 공유 드로우를 셈에서 빼도록 코드를 깨 봤더니 게이트가 통과했다 —
+    // 인스턴싱 사람이 뼈로도 안 세어지고 사람당 값으로도 안 세어져서, 비용이
+    // **0** 이 됐기 때문이다. 예산이 0 인 층은 예산에 없는 층과 같다.
+    const many = frameCostMs([{ tier: 'instanced', count: 5000 }]);
+    const want = 5000 * INSTANCED_MS_PER_PERSON;
+    if (Math.abs(many.ms - want) > want * 0.5) {
+      g.fail('inst/not-free',
+        `인스턴싱 5,000명을 ${many.ms}ms 로 센다 — 사람당 실측(${INSTANCED_MS_PER_PERSON}ms)이면 ${want.toFixed(2)}ms 여야 한다`);
     }
   }
 
@@ -179,6 +233,20 @@ runGate('check-crowd', async (g) => {
     n++;
     const rich = planCrowd(300, 40);
     if (!(rich.dropped <= plan.dropped)) g.fail('plan/more-budget', '예산이 열 배인데 못 세운 사람이 안 준다');
+    n++;
+    // **싼 단계가 있으면 사람을 안 버린다.**
+    //
+    // 좋은 단계부터 채우던 때에는 5,000명 요청에 173명만 세우고 4,812명을
+    // 버렸다 — 인스턴싱으로는 다 세울 수 있는데도. 사람을 버리는 것보다
+    // 거칠게 세우는 것이 낫다.
+    const many = planCrowd(5000, 4, ['full', 'simple', 'instanced']);
+    if (many.dropped > 0) {
+      g.fail('plan/drop-first', `싼 단계가 있는데 ${many.dropped}명을 버린다`);
+    }
+    n++;
+    if (!many.mix.some((m) => m.tier === 'full')) {
+      g.fail('plan/upgrade', '남는 예산이 있는데 아무도 좋은 단계로 안 올린다');
+    }
     console.log(`  [군중] CPU 4ms · 300명 요청 → ${plan.mix.map((m) => `${m.tier} ${m.count}`).join(' · ')} · 못 세움 ${plan.dropped} (${plan.ms}ms)`);
   }
 

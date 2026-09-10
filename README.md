@@ -57,8 +57,12 @@ npm run check -- --update  기준선 재잠금
 
 ```
 클립 5개 (합성 기준 팩) → 재서 카탈로그 → three.js 가 읽고 사람을 세운다
-사람 여럿의 비용을 CPU·GPU 양쪽에서 재서 예산 모델로
-게이트 5개 · 검사 156
+사람 여럿의 비용을 CPU·GPU 양쪽에서 재고, 드로우콜을 하나로 줄였다
+게이트 6개 · 검사 191
+
+  200명 · 뼈 65   스킨드   드로우콜 201 · CPU 16.9ms · GPU 16.8ms
+                  인스턴싱 드로우콜   2 · CPU 0.04ms · GPU 0.84ms
+  5,000명         인스턴싱 드로우콜   2 · CPU 0.12ms · GPU 2.62ms
 
 데모: node scripts/serve-demo.mjs → http://localhost:5180/?people=200&bones=65
 ```
