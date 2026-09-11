@@ -23,6 +23,7 @@
 // three 를 쓰지 않는다. 팩을 만드는 쪽(Node)에서 돈다.
 
 import { sampleAnimation, animationDurationS, parentMap, nodeWorldMatrix, multiplyMat4 } from './gltf.mjs';
+import { appendAnimation } from './gltfWrite.mjs';
 
 // ── 뼈 이름 ──────────────────────────────────────────────────────
 
@@ -351,67 +352,21 @@ export function retargetClip(source, target, { fps = 30, animIndex = 0, sourceSk
 
 // ── 결과를 몸에 싣기 ─────────────────────────────────────────────
 
-/**
- * 대상 몸 문서에 옮긴 애니메이션을 얹어 새 문서로 — 원래 애니메이션은 버린다.
- *
- * 텍스처·메시는 그대로 두고 bin 뒤에 새 값만 붙인다. 결과는 encodeGLB 로 쓴다.
- * (버려진 애니메이션의 바이트는 bin 에 남는다 — 크기를 줄이는 일은 여기서 안 한다.)
- */
-export function withAnimation(target, result, name = 'clip') {
-  const json = JSON.parse(JSON.stringify(target.json));
-  const base = target.bin ? new Uint8Array(target.bin.buffer, target.bin.byteOffset, target.bin.byteLength) : new Uint8Array(0);
-  const chunks = [base];
-  let offset = base.byteLength;
-  const pad = () => { const r = (4 - (offset % 4)) % 4; if (r) { chunks.push(new Uint8Array(r)); offset += r; } };
-  json.buffers = json.buffers?.length ? json.buffers : [{ byteLength: 0 }];
-  json.bufferViews = json.bufferViews || [];
-  json.accessors = json.accessors || [];
-  const put = (arr, type, minmax) => {
-    pad();
-    const bytes = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
-    chunks.push(bytes);
-    json.bufferViews.push({ buffer: 0, byteOffset: offset, byteLength: bytes.byteLength });
-    offset += bytes.byteLength;
-    const per = { SCALAR: 1, VEC3: 3, VEC4: 4 }[type];
-    const acc = { bufferView: json.bufferViews.length - 1, componentType: 5126, count: arr.length / per, type };
-    if (minmax) Object.assign(acc, minmax);
-    json.accessors.push(acc);
-    return json.accessors.length - 1;
+/** 옮긴 결과를 gltfWrite 의 애니메이션 꼴로 — 노드 이름을 함께 싣는다. */
+export function animationOf(target, result, name = 'clip') {
+  return {
+    name,
+    channels: result.channels.map((c) => ({
+      node: c.node, nodeName: target.json.nodes[c.node]?.name, path: c.path,
+      interpolation: 'LINEAR', times: result.times, values: c.values,
+    })),
   };
-  const input = put(result.times, 'SCALAR', { min: [result.times[0]], max: [result.times[result.times.length - 1]] });
-  const anim = { name, samplers: [], channels: [] };
-  for (const ch of result.channels) {
-    const output = put(ch.values, ch.path === 'rotation' ? 'VEC4' : 'VEC3');
-    anim.samplers.push({ input, output, interpolation: 'LINEAR' });
-    anim.channels.push({ sampler: anim.samplers.length - 1, target: { node: ch.node, path: ch.path } });
-  }
-  json.animations = [anim];
-  pad();
-  const bin = new Uint8Array(offset);
-  let at = 0;
-  for (const c of chunks) { bin.set(c, at); at += c.byteLength; }
-  json.buffers[0].byteLength = bin.byteLength;
-  delete json.buffers[0].uri;
-  return { json, bin };
 }
 
-/** 문서를 GLB 바이트로. */
-export function encodeGLB({ json, bin }) {
-  const enc = new TextEncoder();
-  let js = enc.encode(JSON.stringify(json));
-  const jsPad = (4 - (js.byteLength % 4)) % 4;
-  if (jsPad) { const p = new Uint8Array(js.byteLength + jsPad).fill(0x20); p.set(js); js = p; }
-  const binLen = bin ? bin.byteLength : 0;
-  const total = 12 + 8 + js.byteLength + (binLen ? 8 + binLen : 0);
-  const out = new Uint8Array(total);
-  const dv = new DataView(out.buffer);
-  dv.setUint32(0, 0x46546c67, true); dv.setUint32(4, 2, true); dv.setUint32(8, total, true);
-  dv.setUint32(12, js.byteLength, true); dv.setUint32(16, 0x4e4f534a, true);
-  out.set(js, 20);
-  if (binLen) {
-    const o = 20 + js.byteLength;
-    dv.setUint32(o, binLen, true); dv.setUint32(o + 4, 0x004e4942, true);
-    out.set(bin, o + 8);
-  }
-  return out;
+/**
+ * 대상 몸 문서에 옮긴 애니메이션을 얹어 새 문서로 — 원래 애니메이션은 버린다.
+ * 나뉜 팩에 넣을 때는 gltfWrite 의 motionOnly(body, animationOf(...)) 를 쓴다.
+ */
+export function withAnimation(target, result, name = 'clip') {
+  return appendAnimation(target, animationOf(target, result, name));
 }

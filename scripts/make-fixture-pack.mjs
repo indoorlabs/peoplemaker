@@ -10,6 +10,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FIXTURES, buildGLB } from '../src/lib/fixtureRig.mjs';
+import { parseGLB } from '../src/lib/gltf.mjs';
+import { bodyOnly, motionOnly, extractAnimation, encodeGLB } from '../src/lib/gltfWrite.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'packs', 'ref-synthetic');
@@ -20,11 +22,20 @@ const OUT = path.join(ROOT, 'packs', 'ref-synthetic');
 // 그래서 "import 만으로 packs/ 를 덮어쓰는" 걱정이 사라졌다 — 여기 남은 것은
 // 파일을 쓰는 일뿐이고, 그 일은 직접 돌릴 때만 일어난다.
 
+// **몸 하나 + 동작들로 쓴다.** 몸은 첫 픽스처의 것 — 픽스처는 모두 같은
+// 리그·같은 살이다 (다르면 check-pack 의 split/equivalent 가 잡는다). 동작
+// 파일에는 뼈 움직임만 남긴다.
 fs.mkdirSync(path.join(OUT, 'clips'), { recursive: true });
+const bodyDoc = parseGLB(buildGLB(FIXTURES[0]));
+const bodyGlb = encodeGLB(bodyOnly(bodyDoc));
+fs.writeFileSync(path.join(OUT, 'body.glb'), bodyGlb);
+console.log(`  body.glb  ${(bodyGlb.byteLength / 1024).toFixed(1)}KB`);
 for (const spec of FIXTURES) {
-  const glb = buildGLB(spec);
+  const { doc, missing } = motionOnly(bodyDoc, extractAnimation(parseGLB(buildGLB(spec))));
+  if (missing.length) throw new Error(`${spec.id}: 몸에 없는 뼈 ${missing.join(', ')}`);
+  const glb = encodeGLB(doc);
   fs.writeFileSync(path.join(OUT, 'clips', `${spec.id}.glb`), glb);
-  console.log(`  ${spec.id}.glb  ${(glb.byteLength / 1024).toFixed(1)}KB  (만든 속도 ${spec.speedMps} m/s)`);
+  console.log(`  clips/${spec.id}.glb  ${(glb.byteLength / 1024).toFixed(1)}KB  (만든 속도 ${spec.speedMps} m/s)`);
 }
 
 // 사람이 적는 것만 — 잴 수 있는 값은 여기 없다 (build-pack 이 잰다).

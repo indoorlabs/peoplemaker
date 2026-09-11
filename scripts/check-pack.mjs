@@ -9,14 +9,19 @@
 //   2. 계약이 말하는 것을 정말로 막는가 — 종류마다 하나씩
 //   3. 라이선스 판단이 값에서 나오는가 (사람의 기억이 아니라)
 //   4. packs/ 의 실제 팩이 계약을 지키는가
+//   5. 몸 + 동작으로 나눈 팩이 몸째인 것과 같은 자세를 내는가
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { runGate, ROOT } from './gate-lib.mjs';
 import {
-  validateCatalog, packRedistributable, commercialClips,
+  validateCatalog, validateSplitFiles, packRedistributable, commercialClips,
   SKELETONS, ROOT_MOTIONS, LICENSES,
 } from '../src/lib/motionPack.mjs';
+import { parseGLB, sampleAnimation, parentMap, nodeWorldMatrix, animationDurationS } from '../src/lib/gltf.mjs';
+import { buildGLB, FIXTURES } from '../src/lib/fixtureRig.mjs';
+import { bakeClip } from '../src/lib/poseBake.mjs';
+import { bodyOnly, motionOnly, extractAnimation, attachAnimation, encodeGLB } from '../src/lib/gltfWrite.mjs';
 
 /** 계약을 지키는 최소 카탈로그. 아래 시험들은 여기서 한 군데씩만 깬다. */
 const good = () => ({
@@ -145,6 +150,7 @@ runGate('check-pack', (g) => {
     const packs = fs.existsSync(dir)
       ? fs.readdirSync(dir).filter((d) => fs.existsSync(path.join(dir, d, 'catalog.json')))
       : [];
+    let split = 0;
     for (const p of packs) {
       n++;
       let doc;
@@ -152,9 +158,132 @@ runGate('check-pack', (g) => {
       catch (e) { g.fail(`pack/${p}/parse`, e.message); continue; }
       const clipDir = path.join(dir, p, 'clips');
       const files = fs.existsSync(clipDir) ? fs.readdirSync(clipDir).filter((f) => f.endsWith('.glb')) : [];
-      for (const e of validateCatalog(doc, { clipFiles: files })) g.fail(`pack/${p}/${e.id}`, e.msg);
+      const packFiles = fs.readdirSync(path.join(dir, p));
+      for (const e of validateCatalog(doc, { clipFiles: files, packFiles })) g.fail(`pack/${p}/${e.id}`, e.msg);
+      // 나뉜 팩이면 파일 **내용**까지 — 동작 파일에 몸이 다시 들어가지 않았는가,
+      // 동작이 몸에 없는 뼈를 움직이지 않는가.
+      if (typeof doc.body === 'string' && fs.existsSync(path.join(dir, p, doc.body))) {
+        n++;
+        const body = parseGLB(fs.readFileSync(path.join(dir, p, doc.body)));
+        const clipDocs = files.map((f) => ({ id: f.replace(/\.glb$/, ''), doc: parseGLB(fs.readFileSync(path.join(clipDir, f))) }));
+        for (const e of validateSplitFiles(body, clipDocs)) g.fail(`pack/${p}/${e.id}`, e.msg);
+        split++;
+      }
     }
-    console.log(`  [팩] 검사한 팩 ${packs.length}개 · 계약 위반을 ${breaks.length}가지 방식으로 확인했다`);
+    console.log(`  [팩] 검사한 팩 ${packs.length}개(나뉜 팩 ${split}) · 계약 위반을 ${breaks.length}가지 방식으로 확인했다`);
+  }
+
+  // ── 6. 나뉜 팩 — 몸 + 동작이 몸째인 것과 같은가 ──
+  //
+  // 팩을 몸 하나 + 동작들로 나눴다 (동작 9개인 사람이 46MB → 11MB). 나눴다가
+  // 다시 이은 것이 몸째인 것과 **같은 자세**를 내야 한다 — 뼈 위치와 구운
+  // 행렬 두 자로 본다. 이름으로 잇기 때문에, 이름이 하나라도 어긋나면 여기서 갈린다.
+  {
+    const body0 = parseGLB(buildGLB(FIXTURES[0]));
+    const body = parseGLB(encodeGLB(bodyOnly(body0)));
+    let worstPos = 0;
+    let worstBake = 0;
+    let where = '';
+    for (const spec of FIXTURES) {
+      const full = parseGLB(buildGLB(spec));
+      const { doc: m, missing } = motionOnly(body0, extractAnimation(full));
+      n++;
+      if (missing.length) { g.fail(`split/${spec.id}/missing`, `몸에 없는 뼈 ${missing.join(', ')}`); continue; }
+      const joined = attachAnimation(body, parseGLB(encodeGLB(m)));
+      const pf = parentMap(full);
+      const pj = parentMap(joined);
+      const idxJ = new Map(joined.json.nodes.map((nd, i) => [nd.name, i]));
+      const dur = animationDurationS(full, 0);
+      for (const t of [0, 0.29, 0.53, 0.97].map((f) => f * dur)) {
+        const sf = sampleAnimation(full, 0, t);
+        const sj = sampleAnimation(joined, 0, t);
+        for (const j of full.json.skins[0].joints) {
+          const a = nodeWorldMatrix(full, j, sf, pf);
+          const b = nodeWorldMatrix(joined, idxJ.get(full.json.nodes[j].name), sj, pj);
+          const d = Math.hypot(a[12] - b[12], a[13] - b[13], a[14] - b[14]);
+          if (d > worstPos) { worstPos = d; where = `${spec.id} @${t.toFixed(2)}s`; }
+        }
+      }
+      const bf = bakeClip(full).data;
+      const bj = bakeClip(joined).data;
+      if (bf.length !== bj.length) worstBake = Infinity;
+      else for (let i = 0; i < bf.length; i++) worstBake = Math.max(worstBake, Math.abs(bf[i] - bj[i]));
+    }
+    // **노드 순서가 다른 동작.** 우리 동작 파일은 몸의 노드 순서를 그대로 베껴서,
+    // 번호로 이어도 이름으로 이어도 같은 답이 나온다 — 번호로 잇게 깨 봤더니
+    // 위 검사가 통과했다. 다른 데서 온 동작은 순서가 다르므로 뒤집어 본다.
+    {
+      const full = parseGLB(buildGLB(FIXTURES[0]));
+      const m = motionOnly(body0, extractAnimation(full)).doc;
+      const j = JSON.parse(JSON.stringify(m.json));
+      const perm = [...j.nodes.keys()].reverse();              // 새 자리 i ← 옛 자리 perm[i]
+      const inv = new Map(perm.map((old, i) => [old, i]));
+      j.nodes = perm.map((old) => ({ ...j.nodes[old], ...(j.nodes[old].children ? { children: j.nodes[old].children.map((c) => inv.get(c)) } : {}) }));
+      j.scenes = j.scenes.map((sc) => ({ ...sc, nodes: sc.nodes.map((x) => inv.get(x)) }));
+      for (const a of j.animations) for (const c of a.channels) c.target.node = inv.get(c.target.node);
+      const joined = attachAnimation(body, { json: j, bin: m.bin });
+      const pf = parentMap(full);
+      const pj = parentMap(joined);
+      const idxJ = new Map(joined.json.nodes.map((nd, i) => [nd.name, i]));
+      let worst = 0;
+      for (const t of [0.2, 0.7].map((f) => f * animationDurationS(full, 0))) {
+        const sf = sampleAnimation(full, 0, t);
+        const sj = sampleAnimation(joined, 0, t);
+        for (const jt of full.json.skins[0].joints) {
+          const a = nodeWorldMatrix(full, jt, sf, pf);
+          const b = nodeWorldMatrix(joined, idxJ.get(full.json.nodes[jt].name), sj, pj);
+          worst = Math.max(worst, Math.hypot(a[12] - b[12], a[13] - b[13], a[14] - b[14]));
+        }
+      }
+      n++;
+      if (worst > 1e-5) g.fail('split/by-name', `노드 순서가 다른 동작을 이었더니 뼈가 ${(worst * 1000).toFixed(1)}mm 어긋난다 — 이름이 아니라 번호로 잇는다`);
+    }
+    n++;
+    if (worstPos > 1e-5) g.fail('split/equivalent', `나눴다 이은 것의 뼈가 몸째인 것과 ${(worstPos * 1000).toFixed(3)}mm 다르다 (${where})`);
+    n++;
+    if (worstBake > 1e-5) g.fail('split/bake', `나눴다 이은 것을 구운 행렬이 ${worstBake} 만큼 다르다`);
+
+    // 몸에서 애니메이션 바이트까지 걷었는가 — 이름만 지우면 파일은 그대로다.
+    n++;
+    const bo = bodyOnly(body0);
+    const orphan = bo.json.bufferViews.filter((_, i) => !bo.json.accessors.some((a) => a.bufferView === i)
+      && !(bo.json.images || []).some((im) => im.bufferView === i));
+    if (bo.json.animations || orphan.length || !(bo.bin.byteLength < body0.bin.byteLength)) {
+      g.fail('split/compact', `몸에 애니메이션이 남았거나 쓰지 않는 버퍼뷰 ${orphan.length}개가 남았다 (${body0.bin.byteLength} → ${bo.bin.byteLength} 바이트)`);
+    }
+
+    // 계약 검사기가 나뉜 팩의 잘못을 막는가
+    const m0 = parseGLB(encodeGLB(motionOnly(body0, extractAnimation(parseGLB(buildGLB(FIXTURES[1])))).doc));
+    n++;
+    const clean = validateSplitFiles(body, [{ id: 'ok', doc: m0 }]);
+    if (clean.length) g.fail('split/clean', `멀쩡한 몸 + 동작을 막는다 — ${clean.map((e) => e.id).join(', ')}`);
+    const splitBreaks = [
+      ['body/animation', () => [body0, [{ id: 'ok', doc: m0 }]]],
+      ['clip/x/mesh', () => [body, [{ id: 'x', doc: body0 }]]],
+      ['clip/x/names', () => {
+        const j = JSON.parse(JSON.stringify(m0.json));
+        j.nodes[j.animations[0].channels[0].target.node].name = 'nobody';
+        return [body, [{ id: 'x', doc: { json: j, bin: m0.bin } }]];
+      }],
+      ['body/skin', () => {
+        const j = JSON.parse(JSON.stringify(body.json));
+        delete j.skins;
+        return [{ json: j, bin: body.bin }, []];
+      }],
+    ];
+    for (const [want, make] of splitBreaks) {
+      n++;
+      const ids = validateSplitFiles(...make()).map((e) => e.id);
+      if (!ids.includes(want)) g.fail(`split/break/${want}`, `막아야 할 것을 못 막았다 — 나온 것: ${ids.join(', ') || '없음'}`);
+    }
+    const withBody = { ...good(), body: 'body.glb' };
+    n++;
+    if (validateCatalog(withBody, { packFiles: ['body.glb', 'catalog.json'] }).length) g.fail('split/catalog-ok', '몸이 있는 멀쩡한 카탈로그를 막는다');
+    n++;
+    if (!validateCatalog(withBody, { packFiles: ['catalog.json'] }).some((e) => e.id === 'catalog/body-file')) g.fail('split/catalog-missing', '몸 파일이 없는데 통과시킨다');
+    n++;
+    if (!validateCatalog({ ...good(), body: '../x.glb' }).some((e) => e.id === 'catalog/body')) g.fail('split/catalog-path', '팩 밖을 가리키는 몸 이름을 통과시킨다');
+    console.log(`  [팩] 나뉜 팩: 픽스처 ${FIXTURES.length}개를 나눴다 이어 몸째와 견줬다 — 뼈 ${(worstPos * 1000).toFixed(4)}mm · 구운 행렬 ${worstBake.toExponential(1)}`);
   }
 
   return n;

@@ -22,7 +22,8 @@ indoorlabs/peoplemaker   ← 여기. 위 둘이 함께 쓴다.
 
 ```
 PeopleMaker  ──[ Motion Asset Pack ]──>  spacemaker / urbanspace
-             catalog.json + clips/*.glb
+             catalog.json + body.glb + clips/*.glb
+             (몸은 한 번 · 동작 파일에는 뼈 움직임만)
 ```
 
 계약이 지켜지는 한 이 안에서 몸 모델을 바꾸든 생성기를 바꾸든 소비하는 쪽은
@@ -82,7 +83,12 @@ import {
 // 1. 팩을 받는다. 계약을 어긴 팩은 **여기서** 던진다.
 //    팩 파일은 앱이 서비스하는 주소에 둔다 (node_modules 의 packs/ 를
 //    복사하거나, 따로 배포한 팩을 가리킨다).
-const pack = await loadPack({ url: '/packs/ref-synthetic', GLTFLoader });
+//    동작은 필요한 것만 받을 수 있다 — 나머지는 나중에 pack.load(['talk']).
+//    (Rocketbox 한 사람: 몸 4MB + 걷기·서기 0.2MB. 동작을 다 받으면 8~11MB.)
+const pack = await loadPack({
+  url: '/packs/ref-synthetic', GLTFLoader,
+  clips: (cat) => cat.clips.filter((c) => c.rootMotion === 'travel' || c.id === 'idle').map((c) => c.id),
+});
 
 // 2. 몇 명을 어느 단계로 세울지 — 예산이 정한다 (한 프레임 4ms 기준)
 //    진짜 몸으로 잰 표가 있는 팩(Rocketbox)은 그 표로 센다. 뼈 수로 세는

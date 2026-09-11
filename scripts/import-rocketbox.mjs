@@ -26,6 +26,8 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { parseGLB } from '../src/lib/gltf.mjs';
+import { bodyOnly, motionOnly, extractAnimation, encodeGLB } from '../src/lib/gltfWrite.mjs';
 import { NodeIO } from '@gltf-transform/core';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -292,9 +294,29 @@ for (const x of sex ? EXTRAS.filter((e) => !e.only || e.only === sex) : []) {
   const fbx = await fetchTo(`Animations/all_animations_max_motextr_static/${file}.max.fbx`, path.join(CACHE, 'anims', `${file}.max.fbx`));
   extras.push({ ...x, file, glb: fbx2glb(fbx, path.join(CACHE, 'anims', file)) });
 }
+// **몸 하나 + 동작들로 쓴다.** 접붙인 온전한 GLB 는 캐시에 두고, 거기서 몸
+// (body.glb, 한 번)과 동작(clips/<id>.glb, 뼈 움직임만)을 떼어 낸다. 예전에는
+// 동작마다 몸을 통째로 담아 사람 하나가 46MB 였다 (그중 동작은 6.5MB).
+// clips/ 는 비우고 쓴다 — 옮겨 붙인 클립(retarget)도 함께 지워지므로 다시 옮겨야 한다.
+const full = path.join(work, 'full');
+fs.rmSync(path.join(dir, 'clips'), { recursive: true, force: true });
+fs.mkdirSync(path.join(dir, 'clips'), { recursive: true });
+let bodyDoc = null;
 for (const [id, clipGlb] of [['walk-forward', walkGlb], ['idle', idleGlb], ...extras.map((x) => [x.id, x.glb])]) {
-  const r = await graft(bodyGlb, clipGlb, textures, path.join(dir, 'clips', `${id}.glb`));
-  console.log(`  ${id}.glb: 트랙 ${r.kept} · 건너뜀 ${r.skipped} · 텍스처 ${r.textured} · ${r.kb} KB`);
+  const fullPath = path.join(full, `${id}.glb`);
+  const r = await graft(bodyGlb, clipGlb, textures, fullPath);
+  const doc = parseGLB(fs.readFileSync(fullPath));
+  if (!bodyDoc) {
+    bodyDoc = doc;
+    const b = encodeGLB(bodyOnly(doc));
+    fs.writeFileSync(path.join(dir, 'body.glb'), b);
+    console.log(`  body.glb: 텍스처 ${r.textured} · ${Math.round(b.byteLength / 1024)} KB`);
+  }
+  const { doc: motion, missing } = motionOnly(bodyDoc, extractAnimation(doc));
+  if (missing.length) throw new Error(`${id}: 몸에 없는 뼈 ${missing.slice(0, 4).join(', ')}`);
+  const m = encodeGLB(motion);
+  fs.writeFileSync(path.join(dir, 'clips', `${id}.glb`), m);
+  console.log(`  ${id}.glb: 트랙 ${r.kept} · 건너뜀 ${r.skipped} · 동작만 ${Math.round(m.byteLength / 1024)} KB (몸째였으면 ${r.kb} KB)`);
 }
 
 // ── 5. 사람이 적는 것만 적고, 나머지는 잰다 ──

@@ -115,6 +115,12 @@ runGate('check-surface', async (g) => {
       g.fail('pkg/pack-clips',
         `기준 팩의 클립이 디스크에 ${onDisk.length}개인데 git 은 ${glbs.length}개만 들고 있다 — 설치한 쪽에 안 간다`);
     }
+    // 몸도 git 이 들고 있어야 한다 — 나뉜 팩에서 몸이 빠지면 살 없는 동작만 간다.
+    n++;
+    if (fs.existsSync(path.join(ROOT, 'packs/ref-synthetic/body.glb'))) {
+      const b = spawnSync('git', ['ls-files', 'packs/ref-synthetic/body.glb'], { cwd: ROOT, encoding: 'utf8' });
+      if (!(b.stdout || '').trim()) g.fail('pkg/pack-body', '기준 팩의 몸(body.glb)을 git 이 안 들고 있다 — 설치한 쪽에 살 없는 동작만 간다');
+    }
   }
 
   // ── 3. 문이 실제로 열리는가 ──
@@ -139,6 +145,54 @@ runGate('check-surface', async (g) => {
       // **원본 바이트를 들고 있어야 한다.** 굽는 쪽은 우리 리더로 읽어야
       // FK 가 같은 수를 낸다 — three 가 읽은 것을 되짚으면 그 왕복이 끊긴다.
       if (!pack.bufferOf('walk-forward')) g.fail('load/buffer', '원본 바이트를 안 들고 있다');
+
+      // ── 몸 + 동작 · 필요한 것만 받기 ──
+      //
+      // 동작마다 몸을 따로 쥐면 텍스처가 동작 수만큼 올라간다. 그리고 서기·걷기만
+      // 쓰는 화면이 모든 동작을 받을 까닭이 없다 (Rocketbox 한 사람이 46MB 였다).
+      n++;
+      if (!pack.body) g.fail('split/body', '기준 팩이 몸 + 동작으로 나뉘어 있는데 몸을 안 들고 있다');
+      n++;
+      if (pack.gltfOf('idle')?.scene !== pack.gltfOf('walk-forward')?.scene) {
+        g.fail('split/shared-body', '동작마다 몸을 따로 쥐고 있다 — 텍스처가 동작 수만큼 올라간다');
+      }
+      {
+        const asked = [];
+        const counting = (u) => { asked.push(u); return fileFetch(base)(u); };
+        const clipCalls = () => asked.filter((u) => /\/clips\//.test(u)).length;
+        let lazy = null;
+        try { lazy = await api.loadPack({ url: base, GLTFLoader, fetchImpl: counting, clips: ['idle'] }); }
+        catch (e) { g.fail('lazy/throw', `골라 받기가 던졌다 — ${e.message}`); }
+        if (lazy) {
+          n++;
+          if (clipCalls() !== 1 || lazy.has('walk-forward') || !lazy.has('idle')) {
+            g.fail('lazy/only', `idle 만 달랬는데 클립을 ${clipCalls()}번 받았다`);
+          }
+          n++;
+          await lazy.load(['walk-forward', 'idle']);
+          if (!lazy.has('walk-forward') || clipCalls() !== 2) {
+            g.fail('lazy/load', `더 받은 뒤 클립 요청이 ${clipCalls()}번이다 — 받은 것을 또 받았거나 못 받았다`);
+          }
+          n++;
+          let threw = false;
+          try { await lazy.load(['no-such-clip']); } catch { threw = true; }
+          if (!threw) g.fail('lazy/unknown', '카탈로그에 없는 클립을 달래도 조용하다');
+        }
+        // 받지 않은 클립을 구우려 하면 무엇을 하라고 말해야 한다. 그리고 첫
+        // 클립을 안 받았어도 살은 가져올 수 있어야 한다 (몸이 따로 있다).
+        const walkOnly = await api.loadPack({
+          url: base, GLTFLoader, fetchImpl: fileFetch(base),
+          clips: (cat) => cat.clips.filter((c) => c.id === 'walk-forward').map((c) => c.id),
+        });
+        n++;
+        let msg = '';
+        try { api.bakeFromPack(walkOnly, ['idle']); } catch (e) { msg = e.message; }
+        if (!/pack\.load/.test(msg)) g.fail('lazy/bake-hint', `받지 않은 클립을 구우려 했는데 ${msg ? `'${msg}'` : '던지지 않았다'}`);
+        n++;
+        let geo = null;
+        try { geo = api.geometryOf(walkOnly); } catch (e) { g.fail('lazy/geometry', `첫 클립을 안 받았더니 살을 못 가져온다 — ${e.message}`); }
+        if (geo && !geo.getAttribute('skinIndex')) g.fail('lazy/geometry', '가져온 살에 스킨이 없다');
+      }
 
       n++;
       // **팩에서 바로 굽는다.** 데모는 픽스처를 메모리에서 만들어 구웠는데,

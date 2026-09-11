@@ -28,20 +28,27 @@ runGate('check-player', async (g) => {
   const SkeletonUtils = await import('three/examples/jsm/utils/SkeletonUtils.js');
 
   const catalog = JSON.parse(fs.readFileSync(path.join(PACK, 'catalog.json'), 'utf8'));
-  const loader = new GLTFLoader();
   const gltfs = new Map();
 
   // ── 1. three 가 읽는가 ──
+  //
+  // 앱이 쓰는 문(loadPack)으로 받는다. 팩이 몸 + 동작으로 나뉜 뒤로는 클립
+  // 파일 하나만 읽으면 살이 없다 — 앱과 다른 길로 읽으면 앱이 못 보는 것을 본다.
+  const { loadPack } = await import('../src/web/index.mjs');
+  const fileFetch = async (u) => {
+    const f = path.join(PACK, u.replace(/^pack:\/\/ref-synthetic\//, ''));
+    if (!fs.existsSync(f)) return { ok: false, status: 404 };
+    const b = fs.readFileSync(f);
+    const ab = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
+    return { ok: true, status: 200, json: async () => JSON.parse(b.toString('utf8')), arrayBuffer: async () => ab };
+  };
+  let pack = null;
+  try { pack = await loadPack({ url: 'pack://ref-synthetic', GLTFLoader, fetchImpl: fileFetch }); }
+  catch (e) { g.setupFail(`팩을 못 받았다 — ${e.message}`); return n; }
   for (const clip of catalog.clips) {
-    const file = path.join(PACK, 'clips', `${clip.id}.glb`);
     n++;
-    if (!fs.existsSync(file)) { g.fail(`load/${clip.id}/missing`, 'GLB 가 없다'); continue; }
-    const buf = fs.readFileSync(file);
-    const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
-    let gltf = null;
-    let err = null;
-    await new Promise((res) => loader.parse(ab, '', (r) => { gltf = r; res(); }, (e) => { err = e; res(); }));
-    if (!gltf) { g.fail(`load/${clip.id}`, `three 가 못 읽었다 — ${err?.message || err}`); continue; }
+    const gltf = pack.gltfOf(clip.id);
+    if (!gltf) { g.fail(`load/${clip.id}`, 'three 가 못 읽었다'); continue; }
     gltfs.set(clip.id, gltf);
 
     n++;

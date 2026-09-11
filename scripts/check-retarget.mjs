@@ -19,8 +19,9 @@ import { runGate } from './gate-lib.mjs';
 import { buildGLB, FIXTURES } from '../src/lib/fixtureRig.mjs';
 import { parseGLB, sampleAnimation, animationDurationS, parentMap, nodeWorldMatrix } from '../src/lib/gltf.mjs';
 import {
-  retargetClip, withAnimation, encodeGLB, describeBody, facingRad, detectSkeleton,
+  retargetClip, withAnimation, describeBody, facingRad, detectSkeleton,
 } from '../src/lib/retarget.mjs';
+import { encodeGLB } from '../src/lib/gltfWrite.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -315,7 +316,9 @@ runGate('check-retarget', async (g) => {
   // 걷기를 여자 01 에게 옮겨 방향을 본다 — 같은 규약·다른 비율의 실제 경우.
   {
     const m = path.join(ROOT, 'packs', 'rocketbox-m01', 'clips', 'walk-forward.glb');
-    const f = path.join(ROOT, 'packs', 'rocketbox-f01', 'clips', 'idle.glb');
+    // 나뉜 팩이면 몸은 body.glb 다 (클립에는 스킨이 없다).
+    const fBody = path.join(ROOT, 'packs', 'rocketbox-f01', 'body.glb');
+    const f = fs.existsSync(fBody) ? fBody : path.join(ROOT, 'packs', 'rocketbox-f01', 'clips', 'idle.glb');
     if (fs.existsSync(m) && fs.existsSync(f)) {
       const src = docOf(new Uint8Array(fs.readFileSync(m)));
       const dst = docOf(new Uint8Array(fs.readFileSync(f)));

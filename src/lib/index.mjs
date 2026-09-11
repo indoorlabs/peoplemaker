@@ -16,3 +16,5 @@ export * from './gltf.mjs';
 export * from './anthropometry.mjs';
 export * from './crowdBudget.mjs';
 export * from './fixtureRig.mjs';
+export * from './gltfWrite.mjs';
+export * from './retarget.mjs';

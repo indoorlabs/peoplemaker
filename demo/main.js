@@ -19,7 +19,7 @@ import { buildGLB, FIXTURES } from '../src/lib/fixtureRig.mjs';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { bakeClip, bakeAtlas } from '../src/lib/poseBake.mjs';
 import { createInstancedCrowd } from '../src/web/instancedCrowd.mjs';
-import { bakeFromPack, geometryOf } from '../src/web/index.mjs';
+import { bakeFromPack, geometryOf, loadPack } from '../src/web/index.mjs';
 
 const q = new URLSearchParams(location.search);
 const want = Number(q.get('people') || 200);
@@ -48,18 +48,16 @@ scene.add(grid);
 const catalog = await (await fetch(`/packs/${packId}/catalog.json`)).json();
 const loader = new GLTFLoader();
 const gltfs = new Map();
-const bufs = new Map();
+let pack = null;
 if (boneOverride) {
   const spec = { ...FIXTURES.find((f) => f.id === 'walk-forward'), bones: boneOverride };
   const glb = buildGLB(spec);
   const gltf = await loader.parseAsync(glb.buffer.slice(glb.byteOffset, glb.byteOffset + glb.byteLength), '');
   for (const clip of catalog.clips) gltfs.set(clip.id, gltf);
 } else {
-  for (const clip of catalog.clips) {
-    const buf = await (await fetch(`/packs/${packId}/clips/${clip.id}.glb`)).arrayBuffer();
-    bufs.set(clip.id, buf);
-    gltfs.set(clip.id, await loader.parseAsync(buf, ''));
-  }
+  // 앱과 같은 문(loadPack)으로 받는다 — 나뉜 팩(몸 + 동작)도 그대로 읽힌다.
+  pack = await loadPack({ url: `/packs/${packId}`, GLTFLoader });
+  for (const clip of catalog.clips) gltfs.set(clip.id, pack.gltfOf(clip.id));
 }
 
 const player = createClipPlayer({ THREE, SkeletonUtils, catalog, gltfOf: (id) => gltfs.get(id) });
@@ -90,7 +88,6 @@ if (mode === 'instanced') {
     gltfs.get('walk-forward').scene.traverse((o) => { if (o.isSkinnedMesh && !geom) geom = o.geometry; });
   } else {
     // 앱이 쓰는 길과 같은 길 — 재는 것이 앱이 그리는 것이어야 한다.
-    const pack = { catalog, gltfOf: (id) => gltfs.get(id), bufferOf: (id) => bufs.get(id) };
     atlas = bakeFromPack(pack, ['walk-forward', 'idle']);
     geom = geometryOf(pack);
   }

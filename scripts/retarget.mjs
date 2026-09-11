@@ -20,7 +20,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseGLB } from '../src/lib/gltf.mjs';
-import { retargetClip, withAnimation, encodeGLB } from '../src/lib/retarget.mjs';
+import { retargetClip, withAnimation, animationOf } from '../src/lib/retarget.mjs';
+import { motionOnly, encodeGLB } from '../src/lib/gltfWrite.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -61,9 +62,12 @@ const tdir = path.join(ROOT, 'packs', targetPack);
 const sourcesPath = path.join(tdir, 'sources.json');
 if (!fs.existsSync(sourcesPath)) { console.error(`${targetPack}: sources.json 이 없다`); process.exit(2); }
 const sources = readJson(sourcesPath);
+// 나뉜 팩이면 body.glb 가 몸이다. 예전 팩이면 클립 하나(서 있기가 있으면 그것).
+const splitBody = path.join(tdir, 'body.glb');
+const split = fs.existsSync(splitBody);
 const bodyId = sources.clips.some((c) => c.id === 'idle') ? 'idle' : sources.clips[0]?.id;
-const bodyPath = path.join(tdir, 'clips', `${bodyId}.glb`);
-if (!bodyId || !fs.existsSync(bodyPath)) { console.error(`${targetPack}: 몸으로 쓸 클립 GLB 가 없다`); process.exit(2); }
+const bodyPath = split ? splitBody : path.join(tdir, 'clips', `${bodyId}.glb`);
+if (!fs.existsSync(bodyPath)) { console.error(`${targetPack}: 몸으로 쓸 GLB 가 없다`); process.exit(2); }
 
 const src = parseGLB(new Uint8Array(fs.readFileSync(srcPath)));
 const body = parseGLB(new Uint8Array(fs.readFileSync(bodyPath)));
@@ -73,7 +77,14 @@ console.log(`${srcRef} → ${targetPack}/${clipId}`);
 console.log(`  ${r.sourceSkeleton} → ${r.targetSkeleton} (${r.mode === 'same-names' ? '같은 이름끼리' : '공통 뼈'}) · 짝 ${r.pairs} · 엉덩이 높이 비 ${r.hipScale} · 앞 ${r.facingDeg}° · ${r.durationS.toFixed(2)}s · ${r.frames} 프레임`);
 
 const out = path.join(tdir, 'clips', `${clipId}.glb`);
-fs.writeFileSync(out, encodeGLB(withAnimation(body, result, clipId)));
+if (split) {
+  // 나뉜 팩에는 뼈 움직임만 넣는다 — 몸을 다시 담으면 나눈 뜻이 없어진다.
+  const { doc, missing } = motionOnly(body, animationOf(body, result, clipId));
+  if (missing.length) throw new Error(`몸에 없는 뼈: ${missing.slice(0, 4).join(', ')}`);
+  fs.writeFileSync(out, encodeGLB(doc));
+} else {
+  fs.writeFileSync(out, encodeGLB(withAnimation(body, result, clipId)));
+}
 console.log(`  ${path.relative(ROOT, out)} · ${Math.round(fs.statSync(out).size / 1024)} KB`);
 
 const baseName = srcDecl?.name || { ko: clipId, en: clipId };

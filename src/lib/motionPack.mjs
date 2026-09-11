@@ -91,7 +91,7 @@ export function commercialClips(catalog) {
  *
  * @returns [{ id, msg }] — 비어 있으면 통과
  */
-export function validateCatalog(catalog, { clipFiles = null } = {}) {
+export function validateCatalog(catalog, { clipFiles = null, packFiles = null } = {}) {
   const out = [];
   const fail = (id, msg) => out.push({ id, msg });
 
@@ -103,6 +103,15 @@ export function validateCatalog(catalog, { clipFiles = null } = {}) {
   if (!catalog.version) fail('catalog/version', '판 번호가 없다 — 소비처가 무엇을 받았는지 못 적는다');
   if (!SKELETONS[catalog.skeleton]) {
     fail('catalog/skeleton', `스켈레톤 규약이 '${catalog.skeleton}' 이다 — ${Object.keys(SKELETONS).join(' 또는 ')} 여야 한다`);
+  }
+
+  // 몸이 따로인 팩. 이름만 적고 파일이 없으면 받는 쪽이 살 없는 동작만 쥔다.
+  if (catalog.body !== undefined) {
+    if (typeof catalog.body !== 'string' || !/^[\w.-]+\.glb$/.test(catalog.body)) {
+      fail('catalog/body', `몸 파일 이름이 '${catalog.body}' 다 — 팩 폴더 안의 .glb 여야 한다`);
+    } else if (packFiles && !packFiles.includes(catalog.body)) {
+      fail('catalog/body-file', `${catalog.body} 가 없다`);
+    }
   }
 
   const clips = catalog.clips;
@@ -181,5 +190,43 @@ export function validateCatalog(catalog, { clipFiles = null } = {}) {
     }
   }
 
+  return out;
+}
+
+/**
+ * 나뉜 팩의 **파일 내용**이 약속대로인가 — 몸에는 살이, 동작에는 뼈 움직임만.
+ *
+ * 동작 파일에 몸이 다시 들어가면 나눈 뜻이 없어진다 (사람 하나가 46MB 로
+ * 돌아간다). 동작이 몸에 없는 뼈를 움직이면 three 는 그 트랙을 조용히 버린다 —
+ * 그 사람은 서서 굳는다. 둘 다 화면으로는 늦게 알게 되므로 여기서 잡는다.
+ *
+ * @param body   parseGLB 결과
+ * @param clips  [{ id, doc }] — parseGLB 결과
+ * @returns [{ id, msg }]
+ */
+export function validateSplitFiles(body, clips) {
+  const out = [];
+  const fail = (id, msg) => out.push({ id, msg });
+  const j = body?.json || {};
+  if (!(j.meshes || []).length) fail('body/mesh', '몸에 메시가 없다');
+  if (!(j.skins || []).length) fail('body/skin', '몸에 스킨이 없다 — 뼈를 움직여도 살이 안 따라온다');
+  if ((j.animations || []).length) fail('body/animation', '몸에 애니메이션이 들어 있다 — 동작은 clips/ 에 둔다');
+  const names = new Set((j.nodes || []).map((n) => n.name).filter(Boolean));
+  for (const { id, doc } of clips) {
+    const c = doc?.json || {};
+    if ((c.meshes || []).length) fail(`clip/${id}/mesh`, '동작 파일에 메시가 있다 — 몸이 다시 들어갔다');
+    if ((c.images || []).length) fail(`clip/${id}/image`, '동작 파일에 그림이 있다');
+    if ((c.skins || []).length) fail(`clip/${id}/skin`, '동작 파일에 스킨이 있다');
+    const anim = (c.animations || [])[0];
+    if (!anim || !anim.channels?.length) { fail(`clip/${id}/animation`, '동작 파일에 애니메이션이 없다'); continue; }
+    const missing = new Set();
+    for (const ch of anim.channels) {
+      const nm = c.nodes?.[ch.target.node]?.name;
+      if (!nm || !names.has(nm)) missing.add(nm || `#${ch.target.node}`);
+    }
+    if (missing.size) {
+      fail(`clip/${id}/names`, `몸에 없는 뼈 ${missing.size}개를 움직인다 (${[...missing].slice(0, 3).join(', ')}) — three 가 그 트랙을 버린다`);
+    }
+  }
   return out;
 }

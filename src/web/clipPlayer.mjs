@@ -48,7 +48,7 @@ export function createClipPlayer({ THREE, SkeletonUtils, catalog, gltfOf }) {
     const clip = byId.get(clipId);
     if (!clip) throw new Error(`카탈로그에 ${clipId} 가 없다`);
     const gltf = gltfOf(clipId);
-    if (!gltf) throw new Error(`${clipId} 의 GLB 가 없다`);
+    if (!gltf) throw new Error(`${clipId} 의 GLB 가 없다 — 받지 않은 클립이면 pack.load(['${clipId}']) 를 먼저`);
 
     const root = SkeletonUtils ? SkeletonUtils.clone(gltf.scene) : gltf.scene.clone(true);
     root.position.set(position[0], position[1], position[2]);
@@ -111,7 +111,7 @@ export function createClipPlayer({ THREE, SkeletonUtils, catalog, gltfOf }) {
     const clip = byId.get(clipId);
     if (!clip) throw new Error(`카탈로그에 ${clipId} 가 없다`);
     const gltf = gltfOf(clipId);
-    if (!gltf) throw new Error(`${clipId} 의 GLB 가 없다`);
+    if (!gltf) throw new Error(`${clipId} 의 GLB 가 없다 — 받지 않은 클립이면 pack.load(['${clipId}']) 를 먼저`);
     person.action.stop();
     person.action = person.mixer.clipAction(playableClip(gltf, person.inPlace));
     person.action.play();

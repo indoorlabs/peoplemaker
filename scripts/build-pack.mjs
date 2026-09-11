@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { deriveClip, buildCatalog } from '../src/lib/packBuild.mjs';
-import { validateCatalog } from '../src/lib/motionPack.mjs';
+import { validateCatalog, validateSplitFiles } from '../src/lib/motionPack.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packId = process.argv[2];
@@ -29,7 +29,11 @@ if (!fs.existsSync(srcFile)) {
 const sources = JSON.parse(fs.readFileSync(srcFile, 'utf8'));
 
 const clips = [];
+const docs = [];
 let measured = 0;
+// 몸이 따로 있으면 나뉜 팩이다 — 클립은 뼈 움직임만 든다 (재는 데는 그것으로 족하다).
+const bodyFile = path.join(dir, 'body.glb');
+const split = fs.existsSync(bodyFile);
 for (const decl of sources.clips || []) {
   const file = path.join(dir, 'clips', `${decl.id}.glb`);
   if (!fs.existsSync(file)) {
@@ -45,6 +49,7 @@ for (const decl of sources.clips || []) {
   catch (e) { console.error(`  ✗ ${e.message}`); process.exit(1); }
 
   clips.push(out.clip);
+  docs.push({ id: decl.id, doc });
   measured++;
   const c = out.clip;
   console.log(
@@ -55,13 +60,17 @@ for (const decl of sources.clips || []) {
 
 const catalog = buildCatalog({
   packId: sources.packId, version: sources.version, skeleton: sources.skeleton, clips,
+  body: split ? 'body.glb' : undefined,
 });
 if (sources.note) catalog.note = sources.note;
 
 // 굽자마자 계약으로 검사한다. 내보내기 전에 막는 것이 요점이다 —
 // 게이트는 나중에 돌지만, 여기서 막으면 잘못된 팩이 애초에 안 생긴다.
 const files = fs.readdirSync(path.join(dir, 'clips')).filter((f) => f.endsWith('.glb'));
-const errs = validateCatalog(catalog, { clipFiles: files });
+const errs = [
+  ...validateCatalog(catalog, { clipFiles: files, packFiles: fs.readdirSync(dir) }),
+  ...(split ? validateSplitFiles(parseGLB(fs.readFileSync(bodyFile)), docs) : []),
+];
 if (errs.length) {
   console.error(`\n계약 위반 ${errs.length}건 — 카탈로그를 안 쓴다:`);
   for (const e of errs) console.error(`  · ${e.id} — ${e.msg}`);

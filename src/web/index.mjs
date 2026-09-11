@@ -19,6 +19,8 @@ import { bakeClip, bakeAtlas } from '../lib/poseBake.mjs';
 export { createClipPlayer } from './clipPlayer.mjs';
 export { createInstancedCrowd } from './instancedCrowd.mjs';
 export { pickWalkClip, contactsAt, durationAt, strideS, TIME_SCALE_MAX } from '../lib/packRuntime.mjs';
+import { attachAnimation } from '../lib/gltfWrite.mjs';
+
 export {
   planCrowd, affordable, frameCostMs, TIERS,
   measuredFor, planCrowdMeasured,
@@ -33,12 +35,19 @@ export { validateCatalog, LICENSES, packRedistributable, commercialClips } from 
  * 깊은 데서 조용히 이상해지는 것보다, 받는 자리에서 무엇이 틀렸는지 말하고
  * 멈추는 것이 낫다.
  *
+ * **몸 하나 + 동작들** 로 나뉜 팩(catalog.body)이면 몸을 한 번만 받고, 동작은
+ * 뼈 움직임만 받는다. 동작마다 몸을 통째로 담던 예전 팩도 그대로 읽는다.
+ *
+ * 동작은 **필요한 것만** 받을 수 있다 (clips). 나머지는 pack.load([...]) 로
+ * 나중에 — 서기·걷기만 쓰는 화면이 통화·박수까지 받을 까닭이 없다.
+ *
  * @param url          팩 폴더 주소 (끝에 / 없이)
  * @param GLTFLoader   three/addons/loaders/GLTFLoader.js 의 클래스
  * @param fetchImpl    기본은 전역 fetch
- * @returns { catalog, gltfOf, bufferOf }
+ * @param clips        처음에 받을 클립 id 배열, 또는 (catalog) => 배열. 안 주면 전부
+ * @returns { catalog, body, gltfOf, has, load, bufferOf, docOf }
  */
-export async function loadPack({ url, GLTFLoader, fetchImpl = globalThis.fetch }) {
+export async function loadPack({ url, GLTFLoader, fetchImpl = globalThis.fetch, clips: wanted }) {
   if (!url) throw new Error('팩 주소가 필요하다');
   if (!GLTFLoader) throw new Error('GLTFLoader 를 주입해야 한다');
 
@@ -52,23 +61,61 @@ export async function loadPack({ url, GLTFLoader, fetchImpl = globalThis.fetch }
   }
 
   const loader = new GLTFLoader();
+  // parseAsync 가 없는 판도 있어서 콜백으로 감싼다.
+  const parse = (buf) => new Promise((ok, no) => loader.parse(buf, '', ok, no));
+  const get = async (rel) => {
+    const r = await fetchImpl(`${url}/${rel}`);
+    if (!r.ok) throw new Error(`${rel} 를 못 받았다 (HTTP ${r.status})`);
+    return r.arrayBuffer();
+  };
+
+  // 나뉜 팩이면 몸을 먼저 — 모든 동작이 이 몸 하나를 복제해 쓴다 (텍스처도 한 벌).
+  const split = typeof catalog.body === 'string';
+  const bodyBuf = split ? await get(catalog.body) : null;
+  const body = split ? await parse(bodyBuf) : null;
+  let bodyDoc = null;
+
+  const known = new Set(catalog.clips.map((c) => c.id));
   const gltfs = new Map();
   const buffers = new Map();
-  for (const clip of catalog.clips) {
-    const r = await fetchImpl(`${url}/clips/${clip.id}.glb`);
-    if (!r.ok) throw new Error(`${clip.id}.glb 를 못 받았다 (HTTP ${r.status})`);
-    const buf = await r.arrayBuffer();
-    buffers.set(clip.id, buf);
-    // parseAsync 가 없는 판도 있어서 콜백으로 감싼다.
-    gltfs.set(clip.id, await new Promise((ok, no) => loader.parse(buf, '', ok, no)));
-  }
+  const pending = new Map();
+  /** 이 클립들을 받는다 — 받은 것·받는 중인 것은 다시 안 받는다. 한꺼번에 받는다. */
+  const load = (ids) => Promise.all(ids.map((id) => {
+    if (!known.has(id)) return Promise.reject(new Error(`카탈로그에 ${id} 가 없다`));
+    if (gltfs.has(id)) return null;
+    if (!pending.has(id)) {
+      pending.set(id, (async () => {
+        const buf = await get(`clips/${id}.glb`);
+        const g = await parse(buf);
+        buffers.set(id, buf);
+        gltfs.set(id, split ? { scene: body.scene, animations: g.animations } : g);
+      })().finally(() => pending.delete(id)));
+    }
+    return pending.get(id);
+  })).then(() => undefined);
+
+  const first = typeof wanted === 'function' ? wanted(catalog) : wanted;
+  await load(first ?? [...known]);
 
   return {
     catalog,
+    /** 나뉜 팩의 몸 (three 가 읽은 것) — 예전 팩이면 null */
+    body,
     gltfOf: (id) => gltfs.get(id),
+    has: (id) => gltfs.has(id),
+    load,
     // 굽는 쪽은 three 가 읽은 것이 아니라 **원본 바이트**를 본다 — 우리
     // 리더로 읽어야 FK 가 같은 수를 낸다 (게이트가 그 둘을 견줘 왔다).
     bufferOf: (id) => buffers.get(id),
+    /** 굽기용 문서 — 나뉜 팩이면 몸과 동작을 이름으로 이어 붙인 것 */
+    docOf: (id) => {
+      const buf = buffers.get(id);
+      if (!buf) return null;
+      const doc = parseGLB(new Uint8Array(buf));
+      if (!split) return doc;
+      bodyDoc = bodyDoc || parseGLB(new Uint8Array(bodyBuf));
+      return attachAnimation(bodyDoc, doc);
+    },
   };
 }
 
@@ -88,9 +135,11 @@ export function bakeFromPack(pack, clipIds) {
     // 걷는 클립도 넣는다 — 멀리 있는 사람도 걸어야 하기 때문이다.
     : pack.catalog.clips.map((c) => c.id);
   const entries = ids.map((id) => {
-    const buf = pack.bufferOf(id);
-    if (!buf) throw new Error(`${id} 의 원본이 없다`);
-    return { id, baked: bakeClip(parseGLB(new Uint8Array(buf))) };
+    // 나뉜 팩은 몸(스킨·역바인드)과 동작이 따로라 docOf 가 둘을 잇는다.
+    const doc = pack.docOf ? pack.docOf(id)
+      : (pack.bufferOf(id) ? parseGLB(new Uint8Array(pack.bufferOf(id))) : null);
+    if (!doc) throw new Error(`${id} 의 원본이 없다 — 받지 않은 클립이면 pack.load(['${id}']) 를 먼저`);
+    return { id, baked: bakeClip(doc) };
   });
   const atlas = bakeAtlas(entries);
   // **앞을 같이 들려 보낸다.** 인스턴싱 쪽은 카탈로그를 안 보고 아틀라스만
@@ -112,7 +161,11 @@ export function bakeFromPack(pack, clipIds) {
  * 조각들은 한 skin 을 나눠 쓰므로 뼈 번호가 그대로 맞는다.
  */
 export function geometryOf(pack, clipId) {
-  const gltf = pack.gltfOf(clipId || pack.catalog.clips[0].id);
+  // 나뉜 팩은 몸이 따로 있다. 예전 팩은 받아 둔 클립 아무것이나 — 동작을
+  // 필요한 것만 받으므로 첫 클립이 없을 수 있다.
+  const gltf = clipId ? pack.gltfOf(clipId)
+    : (pack.body || pack.gltfOf(pack.catalog.clips.find((c) => pack.gltfOf(c.id))?.id));
+  if (!gltf) throw new Error('살을 가져올 몸이 없다 — 받은 클립이 하나도 없다');
   const parts = [];
   gltf.scene.traverse((o) => {
     if (!o.isSkinnedMesh) return;

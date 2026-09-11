@@ -2,6 +2,7 @@
   "packId": "ref-synthetic",
   "version": "0.1.0",
   "skeleton": "mixamo",
+  "body": "body.glb",
   "forwardRad": 3.1416,
   "builtBy": "peoplemaker/build-pack",
   "clips": [
