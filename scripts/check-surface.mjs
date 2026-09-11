@@ -194,6 +194,42 @@ runGate('check-surface', async (g) => {
                   `${deg}° 로 놓았는데 인스턴싱의 회전이 ${((yaw * 180) / Math.PI).toFixed(1)}° 다 (${((wantYaw * 180) / Math.PI).toFixed(1)}° 여야) — 가까운 사람과 반대를 본다`);
               }
             }
+            // ── 자리만 옮기기 ──
+            //
+            // 경로를 따라가는 쪽이 프레임마다 부르는 길이다. place 로 대신하면
+            // 재생 시각이 매 프레임 0 으로 돌아가 사람이 첫 자세로 굳는다.
+            crowd.place(0, { position: [0, 0, 0], headingRad: 0, clipId: 'walk-forward', timeOffsetS: 0 });
+            crowd.update(0.4);
+            const rowBefore = crowd.rowOf(0);
+            crowd.moveTo(0, { position: [3, 0, 4], headingRad: Math.PI / 2 });
+            crowd.update(0);   // rowOf 는 update 때 갱신된다 — 안 부르면 이 검사가 눈을 감는다
+            n++;
+            if (crowd.rowOf(0) !== rowBefore) {
+              g.fail('crowd/moveTo-time', '자리만 옮겼는데 재생 시각이 바뀐다 — 걷다가 첫 자세로 굳는다');
+            }
+            n++;
+            {
+              const m = new THREE.Matrix4();
+              crowd.mesh.getMatrixAt(0, m);
+              const pos = new THREE.Vector3().setFromMatrixPosition(m);
+              if (Math.hypot(pos.x - 3, pos.z - 4) > 1e-4) {
+                g.fail('crowd/moveTo-pos', `옮기라 한 자리에 안 간다 (${pos.x.toFixed(2)}, ${pos.z.toFixed(2)})`);
+              }
+              const yaw = new THREE.Euler().setFromRotationMatrix(m, 'YXZ').y;
+              const wantYaw = Math.PI / 2 - pack.catalog.forwardRad;
+              if (Math.abs(Math.atan2(Math.sin(yaw - wantYaw), Math.cos(yaw - wantYaw))) > 0.02) {
+                g.fail('crowd/moveTo-yaw', '옮길 때는 앞 보정이 빠진다 — place 와 다른 쪽을 본다');
+              }
+            }
+            n++;
+            // place 를 다시 부르면 시각이 **돌아가야** 한다 (두 길이 같아지면
+            // 위 검사가 의미를 잃는다).
+            crowd.place(0, { position: [0, 0, 0], clipId: 'walk-forward', timeOffsetS: 0 });
+            crowd.update(0);   // rowOf 는 update 때 갱신된다
+            if (crowd.rowOf(0) === rowBefore) {
+              g.fail('crowd/place-resets', 'place 가 재생 시각을 안 되돌린다 — 두 길의 차이가 없다');
+            }
+
             crowd.dispose();
           }
         }

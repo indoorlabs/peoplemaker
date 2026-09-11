@@ -126,6 +126,25 @@ export function createInstancedCrowd({ THREE, geometry, atlas, count, color = 0x
     state[i] = { clip, timeS: timeOffsetS, speed: timeScale };
   }
 
+  /**
+   * 자리만 옮긴다 — 재생 시각은 건드리지 않는다.
+   *
+   * 경로를 따라 걷게 하는 쪽이 프레임마다 부른다. 같은 일을 `place` 로 하면
+   * **매 프레임 재생 시각이 0 으로 돌아가서** 사람이 첫 자세로 굳는다
+   * (걷는 다리가 한 지점에서 떨린다).
+   */
+  function moveTo(i, { position, headingRad }) {
+    mesh.getMatrixAt(i, dummy.matrix);
+    dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
+    if (position) dummy.position.set(position[0], position[1] || 0, position[2]);
+    if (typeof headingRad === 'number') {
+      dummy.rotation.set(0, typeof atlas.forwardRad === 'number' ? headingRad - atlas.forwardRad : headingRad, 0);
+    }
+    dummy.updateMatrix();
+    mesh.setMatrixAt(i, dummy.matrix);
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+
   /** 시간을 흘린다. */
   function update(dtS) {
     for (let i = 0; i < count; i++) {
@@ -147,5 +166,5 @@ export function createInstancedCrowd({ THREE, geometry, atlas, count, color = 0x
     mesh.dispose();
   }
 
-  return { mesh, place, update, rowOf, dispose, textureSize: textureSize({ bones: atlas.bones, frames: atlas.height }) };
+  return { mesh, place, moveTo, update, rowOf, dispose, textureSize: textureSize({ bones: atlas.bones, frames: atlas.height }) };
 }
