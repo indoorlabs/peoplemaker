@@ -20,7 +20,7 @@ import { pickWalkClip, contactsAt, durationAt } from '../lib/packRuntime.mjs';
  * (`mixamorig:Hips`)을 보고, 여기는 three 가 콜론을 지운 뒤의 이름
  * (`mixamorigHips`)을 본다. 끝으로 맞추면 둘 다 걸린다.
  */
-const ROOT_TAIL = { mixamo: /Hips$/, vrm: /hips$/ };
+const ROOT_TAIL = { mixamo: /Hips$/, vrm: /hips$/, biped: /^Bip01$/ };
 
 /**
  * 재생기 하나.

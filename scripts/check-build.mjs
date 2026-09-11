@@ -15,6 +15,7 @@ import { parseGLB } from '../src/lib/gltf.mjs';
 import {
   deriveClip, TRAVEL_MIN_MPS, PLANT_MAX_Y_M, MEASURED_FIELDS,
   packForwardRad, angleDiff, FORWARD_AGREE_RAD,
+  plantEvents, PLANT_MIN_DWELL_S,
 } from '../src/lib/packBuild.mjs';
 import { FIXTURES, buildGLB } from '../src/lib/fixtureRig.mjs';
 
@@ -212,6 +213,45 @@ runGate('check-build', (g) => {
       g.fail('forward/none', '이동 클립이 없는데 앞을 지어낸다');
     }
     console.log('  [재기] 네 방향으로 만든 클립의 진행 방향을 되찾고, 갈릴 때 멈추는지 확인했다');
+  }
+
+  // ── 디딤 판정 — 문턱을 지나는 것이 아니라 **머무는 것** ──
+  //
+  // 진짜 클립(Rocketbox)은 저장소에 안 올라가므로 CI 가 못 본다. 그래서 규칙
+  // 자체를 합성 곡선으로 본다. 곡선은 한 주기 1.2s, 120 표본.
+  {
+    const T = 1.2;
+    const N = 120;
+    const curve = (fn) => Array.from({ length: N }, (_, i) => fn((T * i) / N));
+    // 휘두르는 발이 도중에 한 번 내려왔다 올라간다 (Rocketbox 에서 본 모양):
+    //   0.00~0.10 골짜기(0.03m)  0.10~0.40 들림  0.40~1.10 디딤  1.10~ 들림
+    const doubleHump = curve((t) => (t < 0.10 ? 0.03 : t < 0.40 ? 0.10 : t < 1.10 ? 0.005 : 0.10));
+    n++;
+    const ev = plantEvents(doubleHump, T);
+    if (ev.length !== 1) g.fail('plant/dip', `짧은 골짜기(0.1s)를 디딤으로 센다 — ${ev.length}회 (${ev.join(', ')}s)`);
+    n++;
+    if (ev.length && Math.abs(ev[0] - 0.4) > 0.02) g.fail('plant/at', `디딤 시각이 ${ev[0]}s 다 — 0.40s 여야`);
+
+    // 주기 끝에서 시작해 처음으로 이어지는 디딤은 **한 번**이다.
+    const wrap = curve((t) => (t < 0.30 ? 0.005 : t < 0.90 ? 0.10 : 0.005));
+    n++;
+    const ew = plantEvents(wrap, T);
+    if (ew.length !== 1) g.fail('plant/wrap', `끝을 넘어 이어진 디딤을 ${ew.length}번으로 쪼갠다`);
+    n++;
+    if (ew.length && Math.abs(ew[0] - 0.9) > 0.02) g.fail('plant/wrap-at', `이어진 디딤의 시작이 ${ew[0]}s 다 — 0.90s 여야`);
+
+    // 늘 땅에 있는 발은 사건이 없다 (서 있기).
+    n++;
+    if (plantEvents(curve(() => 0.01), T).length) g.fail('plant/standing', '서 있는 발에서 디딤을 지어낸다');
+
+    // **문턱 바로 위아래** — 규칙이 머문 시간을 정말 보는지. 머문 시간을
+    // 문턱보다 조금 길게/짧게 해서 결과가 뒤집히는지 본다.
+    const dwell = (d) => curve((t) => (t >= 0.5 && t < 0.5 + d ? 0.005 : 0.10));
+    n++;
+    if (plantEvents(dwell(PLANT_MIN_DWELL_S * 1.25), T).length !== 1) g.fail('plant/just-long', '문턱보다 조금 긴 디딤을 놓친다');
+    n++;
+    if (plantEvents(dwell(PLANT_MIN_DWELL_S * 0.75), T).length !== 0) g.fail('plant/just-short', '문턱보다 조금 짧은 골짜기를 센다');
+    console.log(`  [재기] 디딤은 ${PLANT_MIN_DWELL_S}s 이상 머물러야 센다 — 골짜기·감긴 디딤·서 있기를 합성 곡선으로 봤다`);
   }
 
   console.log(`  [재기] 이동 문턱 ${TRAVEL_MIN_MPS}m/s · 접촉 문턱 ${PLANT_MAX_Y_M}m`);

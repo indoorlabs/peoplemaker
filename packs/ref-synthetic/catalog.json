@@ -22,7 +22,7 @@
       "durationS": 4,
       "rootMotion": "in-place",
       "contacts": [],
-      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m"
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s"
     },
     {
       "id": "sit-down",
@@ -41,7 +41,7 @@
       "durationS": 2.4,
       "rootMotion": "in-place",
       "contacts": [],
-      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m"
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s"
     },
     {
       "id": "walk-fast",
@@ -73,7 +73,7 @@
           "kind": "plant"
         }
       ],
-      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m"
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s"
     },
     {
       "id": "walk-forward",
@@ -105,7 +105,7 @@
           "kind": "plant"
         }
       ],
-      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m"
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s"
     },
     {
       "id": "walk-inplace",
@@ -135,7 +135,7 @@
           "kind": "plant"
         }
       ],
-      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m"
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s"
     }
   ],
   "note": "사람의 모션 캡처가 아니다. 함수가 만든 기준 클립이고, 파이프라인과 계약을 검사하려고 둔다."

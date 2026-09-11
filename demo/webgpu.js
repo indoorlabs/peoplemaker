@@ -55,7 +55,10 @@ async function main() {
   if (renderer.init) await renderer.init();
   say(`backend: ${renderer.backend?.constructor?.name || (renderer.isWebGLRenderer ? 'WebGL' : '?')}`);
 
-  const pack = await loadPack({ url: '/packs/ref-synthetic', GLTFLoader });
+  // ?pack=rocketbox-f01 처럼 팩을 고른다. 기본은 기준 팩.
+  const packId = new URLSearchParams(location.search).get('pack') || 'ref-synthetic';
+  const pack = await loadPack({ url: `/packs/${packId}`, GLTFLoader });
+  say(`팩 이름: ${packId}`);
   say(`팩: 클립 ${pack.catalog.clips.length}개 · 앞 ${((pack.catalog.forwardRad * 180) / Math.PI).toFixed(0)}°`);
 
   player = createClipPlayer({ THREE, SkeletonUtils, catalog: pack.catalog, gltfOf: pack.gltfOf });

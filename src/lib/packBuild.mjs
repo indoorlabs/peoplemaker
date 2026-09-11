@@ -39,6 +39,55 @@ export const TRAVEL_MIN_MPS = 0.15;
 export const PLANT_MAX_Y_M = 0.06;
 
 /**
+ * 이만큼 **머물러야** 디딤이다 (s).
+ *
+ * 문턱을 한 번 지나는 것만으로 세면, 휘두르는 발이 도중에 한 번 내려왔다
+ * 올라가는 골짜기가 걸음으로 세어진다. Rocketbox 의 걷는 클립이 그랬다 —
+ * 한 주기(1.17s)에 발마다 한 번이어야 할 접촉이 4회·3회로 나왔다.
+ *
+ * 문턱 아래 머문 시간을 재 보니 둘이 깨끗이 갈렸다:
+ *
+ *   가짜 골짜기   0.025 · 0.092 · 0.108 · 0.133 s
+ *   진짜 디딤     0.675 · 0.717 · 0.733 · 0.758 s  (Rocketbox)
+ *                 0.742 · 0.892 s                    (기준 팩)
+ *
+ * 0.2s 는 가장 긴 가짜의 1.5배, 가장 짧은 진짜의 3분의 1 이하다. 뛰는
+ * 클립이 들어오면 디딤이 짧아지므로 그때 다시 잰다.
+ */
+export const PLANT_MIN_DWELL_S = 0.2;
+
+/**
+ * 발 높이 곡선에서 **디딤 사건**을 찾는다 — 순수 함수라 따로 검사한다.
+ *
+ * 한 주기가 돌아 이어진다고 보고 감아서 센다: 끝에서 시작한 디딤이 처음으로
+ * 이어지면 한 번이다. 늘 땅에 있는 발(서 있기)은 사건이 없다 — 맞출 순간이
+ * 없기 때문이다.
+ *
+ * @param ys        발 높이 (m), 고르게 뽑은 표본. 마지막은 처음과 같은 시각이 아니다
+ * @param durationS 한 주기의 길이
+ * @returns [atS] — 디딤이 시작된 시각들
+ */
+export function plantEvents(ys, durationS, maxY = PLANT_MAX_Y_M, minDwellS = PLANT_MIN_DWELL_S) {
+  const n = ys.length;
+  if (!n) return [];
+  const low = ys.map((y) => y <= maxY);
+  const firstHigh = low.indexOf(false);
+  if (firstHigh < 0) return [];                     // 늘 땅에 있다
+  const dt = durationS / n;
+  const out = [];
+  // 들린 표본에서 출발해 한 바퀴 돈다 — 디딤이 끝을 넘어 이어져도 쪼개지지 않게.
+  let k = firstHigh;
+  for (let seen = 0; seen < n;) {
+    if (!low[k % n]) { k++; seen++; continue; }
+    const start = k % n;
+    let len = 0;
+    while (low[k % n] && seen < n) { len++; k++; seen++; }
+    if (len * dt >= minDwellS) out.push(+(start * dt).toFixed(3));
+  }
+  return out.sort((a, b) => a - b);
+}
+
+/**
  * 스켈레톤 규약마다 발 뼈 이름.
  *
  * 이름으로 찾는 것이 규약을 하나로 묶는 이유다 — 팩에 두 벌이 섞이면 여기서
@@ -47,12 +96,20 @@ export const PLANT_MAX_Y_M = 0.06;
 export const FOOT_NODES = {
   mixamo: { 'foot-l': /(^|:)LeftFoot$/, 'foot-r': /(^|:)RightFoot$/ },
   vrm: { 'foot-l': /^leftFoot$/, 'foot-r': /^rightFoot$/ },
+  // **발목이 아니라 발끝이다.** Biped 의 Foot 뼈는 발목에 있어서 디딘 발에서도
+  // 땅에서 0.1m 쯤 떠 있다 — 문턱(PLANT_MAX_Y_M)을 한 번도 안 넘으니 접촉이
+  // 0회로 나오고, 그러면 걷는 클립이 걷는 클립으로 안 잡힌다 (Rocketbox 를
+  // 재 보고 알았다: 바인드 자세에서 Foot 0.10m · Toe0 0.002m).
+  biped: { 'foot-l': /^Bip01 L Toe0$/, 'foot-r': /^Bip01 R Toe0$/ },
 };
 
 /** 규약마다 뿌리 뼈 — 이동을 재는 기준. */
 export const ROOT_NODES = {
   mixamo: /(^|:)Hips$/,
   vrm: /^hips$/,
+  // Biped 는 몸 전체가 Bip01 에 매달려 있고 이동도 거기 실린다 (Pelvis 는
+  // 그 아이다). 걷는 클립 하나를 재 보니 Bip01 이 1.167s 에 1.412m 갔다.
+  biped: /^Bip01$/,
 };
 
 const matchNode = (doc, re) => {
@@ -151,25 +208,19 @@ export function deriveClip(doc, decl, { skeleton = 'mixamo' } = {}) {
   for (const [part, re] of Object.entries(footMap)) {
     const idx = matchNode(doc, re);
     if (idx == null) { notes.push(`${part} 뼈 없음`); continue; }
+    // 한 주기를 고르게 뽑는다 — 끝 표본(= 처음과 같은 자세)은 안 넣는다.
+    // 넣으면 주기를 감아 셀 때 같은 순간이 두 번 들어간다.
     const ys = [];
-    for (let i = 0; i <= steps; i++) {
+    for (let i = 0; i < steps; i++) {
       const t = (durationS * i) / steps;
       ys.push(nodeWorldPos(doc, idx, at(t), parent)[1]);
     }
-    for (let i = 1; i < ys.length; i++) {
-      if (!(ys[i - 1] > PLANT_MAX_Y_M && ys[i] <= PLANT_MAX_Y_M)) continue;   // 내려오며 지나는 순간만
-      const atS = +((durationS * i) / steps).toFixed(3);
-      // 문턱 근처에서 떨면 한 걸음이 여러 번으로 세어진다 — 앞 접촉과
-      // 0.2s 안이면 한 번으로 본다 (사람의 한 걸음이 0.5s 대다).
-      const last = contacts.filter((c) => c.part === part).pop();
-      if (last && atS - last.atS < 0.2) continue;
-      contacts.push({ atS, part, kind: 'plant' });
-    }
+    for (const atS of plantEvents(ys, durationS)) contacts.push({ atS, part, kind: 'plant' });
   }
   contacts.sort((a, b) => a.atS - b.atS);
   clip.contacts = contacts;
 
-  clip.measuredBy = `peoplemaker/packBuild ${SAMPLE_HZ}Hz · travel≥${TRAVEL_MIN_MPS}m/s · plant≤${PLANT_MAX_Y_M}m`;
+  clip.measuredBy = `peoplemaker/packBuild ${SAMPLE_HZ}Hz · travel≥${TRAVEL_MIN_MPS}m/s · plant≤${PLANT_MAX_Y_M}m for ≥${PLANT_MIN_DWELL_S}s`;
   return { clip, notes };
 }
 
