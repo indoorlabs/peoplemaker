@@ -323,6 +323,80 @@ runGate('check-player', async (g) => {
     console.log(`  [재생] 팩의 앞 ${((fwd * 180) / Math.PI).toFixed(0)}° · 네 방향으로 걸려 보고 실제 간 방향을 쟀다`);
   }
 
+  // ── 8. **살이 사람 모양인가** ──
+  //
+  // 여기까지의 검사는 전부 뼈만 봤다. 뼈가 맞아도 살이 딴 데 붙어 있으면
+  // 화면에는 사람이 아니라 무더기가 나온다 — 실제로 그랬다. 살을 원점에
+  // 만들고 역바인드로 뼈 위치를 빼고 있어서, 바인드 자세에서 모든 상자가
+  // 원점으로 되돌아왔다 (높이 0.34m 짜리 더미). 게이트가 전부 통과하는
+  // 동안 화면만 틀렸고, 두 렌더러에서 똑같이 그래서 렌더러를 한참 의심했다.
+  //
+  // 그래서 **스키닝을 먹인 꼭짓점**을 직접 잰다. three 의 getVertexPosition
+  // 이 셰이더와 같은 셈을 CPU 에서 해 준다.
+  {
+    const p = player.spawn({ clipId: 'idle' });
+    player.update(0);
+    let mesh = null;
+    p.root.traverse((o) => { if (o.isSkinnedMesh && !mesh) mesh = o; });
+    n++;
+    if (!mesh) g.fail('shape/mesh', '스킨 메시가 없다');
+    else {
+      const posed = (person, skin) => {
+        person.root.updateWorldMatrix(true, true);
+        skin.skeleton.update();
+        const v = new THREE.Vector3();
+        const lo = new THREE.Vector3(Infinity, Infinity, Infinity);
+        const hi = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+        const count = skin.geometry.attributes.position.count;
+        for (let i = 0; i < count; i++) {
+          skin.getVertexPosition(i, v);
+          skin.localToWorld(v);
+          lo.min(v); hi.max(v);
+        }
+        return { lo, hi, h: hi.y - lo.y, w: Math.max(hi.x - lo.x, hi.z - lo.z) };
+      };
+      const b = posed(p, mesh);
+      n++;
+      // 사람 키. 리그는 1.7m 대로 만들었다 — 0.34m 짜리 더미는 여기서 걸린다.
+      if (!(b.h > 1.4 && b.h < 2.1)) {
+        g.fail('shape/height', `살의 키가 ${b.h.toFixed(2)}m 다 — 1.4~2.1m 여야 한다 (살이 뼈를 안 따라간다)`);
+      }
+      n++;
+      // 발이 땅에 있어야 한다. 통째로 떠 있거나 묻혀 있으면 잡는다.
+      if (Math.abs(b.lo.y) > 0.15) {
+        g.fail('shape/ground', `살의 밑이 ${b.lo.y.toFixed(2)}m 다 — 발은 0 근처여야 한다`);
+      }
+      n++;
+      // 서 있는 사람은 넓이보다 키가 크다. 무더기는 이 검사에서도 걸린다.
+      if (!(b.h > b.w)) {
+        g.fail('shape/upright', `키 ${b.h.toFixed(2)}m 가 폭 ${b.w.toFixed(2)}m 보다 작다 — 서 있는 모양이 아니다`);
+      }
+      n++;
+      // **자세가 바뀌면 살도 움직여야 한다.** 안 그러면 위 셋은 바인드
+      // 자세만 보고 통과한다 (스키닝을 통째로 꺼도 모른다).
+      const q = player.spawn({ clipId: 'walk-forward', inPlace: true });
+      let qMesh = null;
+      q.root.traverse((o) => { if (o.isSkinnedMesh && !qMesh) qMesh = o; });
+      q.mixer.update(0);
+      // **여러 번 재서 폭을 본다.** 처음엔 0s 와 0.6s 두 번만 봤는데, 그것이
+      // 걸음 주기의 정확히 절반이라 다리가 뒤바뀌어 경계가 **똑같이** 나왔다.
+      // 맞는 코드에 대고 틀렸다고 하는 검사였다.
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (let i = 0; i < 8; i++) {
+        const bb = posed(q, qMesh);
+        lo = Math.min(lo, bb.lo.z);
+        hi = Math.max(hi, bb.lo.z);
+        q.mixer.update(1.2 / 8);
+      }
+      const moved = hi - lo;
+      if (moved < 0.05) {
+        g.fail('shape/static', `한 주기 동안 살의 경계가 ${moved.toFixed(3)}m 밖에 안 바뀐다 — 스키닝이 안 먹는다`);
+      }
+      console.log(`  [재생] 살: 키 ${b.h.toFixed(2)}m · 폭 ${b.w.toFixed(2)}m · 발 ${b.lo.y.toFixed(2)}m`);
+    }
+  }
+
   console.log(`  [재생] three ${THREE.REVISION} · 클립 ${gltfs.size}개를 읽고 사람 ${player.people.length}명을 세웠다`);
   return n;
 });

@@ -127,13 +127,14 @@ crowd.update(dt);
 클립 5개 (합성 기준 팩) → 재서 카탈로그 → three.js 가 읽고 사람을 세운다
 사람 여럿의 비용을 CPU·GPU 양쪽에서 재고, 드로우콜을 하나로 줄였다
 리그의 앞을 재서, 시킨 쪽으로 실제로 걷는다 (제자리 재생도 같이)
-게이트 7개 · 검사 272
+게이트 7개 · 검사 277 (살이 사람 모양인지까지 잰다)
 
   200명 · 뼈 65   스킨드   드로우콜 201 · CPU 16.9ms · GPU 16.8ms
                   인스턴싱 드로우콜   2 · CPU 0.04ms · GPU 0.84ms
   5,000명         인스턴싱 드로우콜   2 · CPU 0.12ms · GPU 2.62ms
 
 데모: node scripts/serve-demo.mjs → http://localhost:5180/?people=200&bones=65
+     /demo/webgl.html · /demo/webgpu.html — 같은 코드를 두 렌더러로 (견주는 자리)
 ```
 
 아직 없는 것: 사람이 만든 진짜 클립(Mixamo 는 계정이 필요하다), 사이즈코리아

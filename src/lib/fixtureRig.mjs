@@ -226,6 +226,19 @@ export function buildGLB(spec) {
 
   // 살 — 뼈마다 상자 하나. 강체 스키닝(꼭짓점 하나가 뼈 하나에 100%)이라
   // 살가죽은 안 늘어나지만, **스킨 애니메이션 경로는 진짜**다.
+  // 바인드 자세에서 뼈가 어디 있는가 — 살을 **그 자리에** 만들어야 한다.
+  // (아래 역바인드도 이 값을 쓴다.)
+  const world = RIG_.map((b) => {
+    let t = [...b.t];
+    let cur = b.parent;
+    while (cur != null) {
+      const p = RIG_[idxOf(cur, RIG_)];
+      t = [t[0] + p.t[0], t[1] + p.t[1], t[2] + p.t[2]];
+      cur = p.parent;
+    }
+    return t;
+  });
+
   const pos = [];
   const nrm = [];
   const joints = [];
@@ -251,7 +264,15 @@ export function buildGLB(spec) {
     for (const face of FACES) {
       const base = pos.length / 3;
       for (const [sx, sy, sz] of face.v) {
-        pos.push(sx * w, sy * h, sz * w * 0.7);
+        // **뼈의 바인드 자리에 놓는다.**
+        //
+        // 원점에 만들면 화면에서 사람이 한 무더기로 무너진다. 스키닝은
+        //   살 = 뼈의 지금 변환 × 역바인드 × 꼭짓점
+        // 인데, 역바인드가 뼈의 바인드 위치를 빼므로 꼭짓점도 그 위치에
+        // 있어야 둘이 상쇄되어 제자리에 선다. 원점에 두면 바인드 자세에서
+        // 모든 상자가 원점으로 되돌아온다 — 높이 0.34m 짜리 더미가 된다.
+        // 두 렌더러에서 똑같이 그래서 렌더러를 한참 의심했다.
+        pos.push(world[j][0] + sx * w, world[j][1] + sy * h, world[j][2] + sz * w * 0.7);
         nrm.push(face.n[0], face.n[1], face.n[2]);
         joints.push(j, 0, 0, 0);
         weights.push(1, 0, 0, 0);
@@ -260,17 +281,6 @@ export function buildGLB(spec) {
     }
   });
 
-  // 역바인드 — 바인드 자세에서 뼈의 세계 변환의 역. 상대 위치를 누적한다.
-  const world = RIG_.map((b) => {
-    let t = [...b.t];
-    let cur = b.parent;
-    while (cur != null) {
-      const p = RIG_[idxOf(cur, RIG_)];
-      t = [t[0] + p.t[0], t[1] + p.t[1], t[2] + p.t[2]];
-      cur = p.parent;
-    }
-    return t;
-  });
   const ibm = new Float32Array(RIG_.length * 16);
   world.forEach((t, i) => {
     const m = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -t[0], -t[1], -t[2], 1];
