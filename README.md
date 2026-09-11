@@ -76,6 +76,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import {
   loadPack, bakeFromPack, geometryOf,
   createClipPlayer, createInstancedCrowd, planCrowd,
+  measuredFor, planCrowdMeasured,
 } from 'peoplemaker';
 
 // 1. 팩을 받는다. 계약을 어긴 팩은 **여기서** 던진다.
@@ -83,8 +84,13 @@ import {
 //    복사하거나, 따로 배포한 팩을 가리킨다).
 const pack = await loadPack({ url: '/packs/ref-synthetic', GLTFLoader });
 
-// 2. 몇 명을 어느 단계로 세울지 — 예산이 정한다 (CPU 4ms 기준)
-const plan = planCrowd(want, 4, ['full', 'instanced']);
+// 2. 몇 명을 어느 단계로 세울지 — 예산이 정한다 (한 프레임 4ms 기준)
+//    진짜 몸으로 잰 표가 있는 팩(Rocketbox)은 그 표로 센다. 뼈 수로 세는
+//    planCrowd 는 그 몸을 13~15배 싸게 본다 (lib/crowdBudget.mjs 의 PACK_MEASURED).
+const table = measuredFor(pack.catalog.packId);
+const plan = table
+  ? planCrowdMeasured(want, 4, table, ['full', 'instanced'])
+  : planCrowd(want, 4, ['full', 'instanced']);
 
 // 3. 가까운 사람 — 사람마다 스킨 메시
 const player = createClipPlayer({ THREE, SkeletonUtils, catalog: pack.catalog, gltfOf: pack.gltfOf });

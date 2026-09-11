@@ -19,7 +19,10 @@ import { bakeClip, bakeAtlas } from '../lib/poseBake.mjs';
 export { createClipPlayer } from './clipPlayer.mjs';
 export { createInstancedCrowd } from './instancedCrowd.mjs';
 export { pickWalkClip, contactsAt, durationAt, strideS, TIME_SCALE_MAX } from '../lib/packRuntime.mjs';
-export { planCrowd, affordable, frameCostMs, TIERS } from '../lib/crowdBudget.mjs';
+export {
+  planCrowd, affordable, frameCostMs, TIERS,
+  measuredFor, planCrowdMeasured,
+} from '../lib/crowdBudget.mjs';
 export { dimensionMm, pendingDimensions, DIMENSIONS } from '../lib/anthropometry.mjs';
 export { validateCatalog, LICENSES, packRedistributable, commercialClips } from '../lib/motionPack.mjs';
 
@@ -97,11 +100,91 @@ export function bakeFromPack(pack, clipIds) {
   return atlas;
 }
 
-/** 이 팩의 기하 하나 — 인스턴싱에 넘길 살. */
+/**
+ * 이 팩의 살 — 인스턴싱에 넘길 기하 **하나**.
+ *
+ * 몸이 여러 조각이면 합친다. Rocketbox 는 메시 하나에 몸·머리·속눈썹 세
+ * 조각이 들어 있고, three 는 그것을 스킨 메시 셋으로 읽는다. 첫 조각만
+ * 가져가던 때에는 먼 사람이 **머리 없이** 걸었다 (정점 5,438 중 2,962).
+ *
+ * 알파로 오려 내는 조각(속눈썹·머리카락 카드)은 뺀다. 인스턴싱 셰이더는
+ * 한 색으로 칠하므로, 넣으면 얇은 판이 머리 둘레에 통째로 칠해진다.
+ * 조각들은 한 skin 을 나눠 쓰므로 뼈 번호가 그대로 맞는다.
+ */
 export function geometryOf(pack, clipId) {
   const gltf = pack.gltfOf(clipId || pack.catalog.clips[0].id);
-  let geom = null;
-  gltf.scene.traverse((o) => { if (o.isSkinnedMesh && !geom) geom = o.geometry; });
-  if (!geom) throw new Error('스킨 메시가 없다');
-  return geom;
+  const parts = [];
+  gltf.scene.traverse((o) => {
+    if (!o.isSkinnedMesh) return;
+    const mat = Array.isArray(o.material) ? o.material[0] : o.material;
+    const cutout = !!mat && (mat.transparent || mat.alphaTest > 0);
+    parts.push({ geom: o.geometry, cutout });
+  });
+  if (!parts.length) throw new Error('스킨 메시가 없다');
+  const solid = parts.filter((p) => !p.cutout).map((p) => p.geom);
+  const use = solid.length ? solid : parts.map((p) => p.geom);
+  return use.length === 1 ? use[0] : mergeSkinned(use);
+}
+
+/**
+ * three 의 BufferAttribute 클래스를 찾는다 — three 는 주입받으므로 import 할 수 없다.
+ *
+ * 속성의 constructor 를 그대로 쓰면 안 된다. gltf-transform 이 쓴 GLB 는 정점
+ * 속성이 **끼워 넣어져**(interleaved) 있어서 그 constructor 가
+ * InterleavedBufferAttribute 이고, 거기에 배열을 주면 속이 빈 속성이 된다 —
+ * 매 프레임 "byteLength of undefined" 로 무너졌다. 끼워 넣지 않은 속성
+ * (Float32BufferAttribute 따위)에서 부모를 거슬러 올라가 BufferAttribute 에 닿는다.
+ */
+function plainAttributeClass(geoms) {
+  for (const g of geoms) {
+    for (const a of [g.index, ...Object.values(g.attributes)]) {
+      if (!a || a.isInterleavedBufferAttribute || !a.isBufferAttribute) continue;
+      let C = a.constructor;
+      for (;;) {
+        const up = Object.getPrototypeOf(C);
+        if (!up || typeof up.prototype?.setXYZ !== 'function') break;
+        C = up;
+      }
+      return C;
+    }
+  }
+  throw new Error('끼워 넣지 않은 속성이 하나도 없어 합칠 틀을 못 찾았다');
+}
+
+/** 스킨 기하 여럿을 하나로 — 인스턴싱 셰이더가 읽는 속성만 잇는다. */
+function mergeSkinned(geoms) {
+  const first = geoms[0];
+  const names = ['position', 'normal', 'skinIndex', 'skinWeight']
+    .filter((k) => geoms.every((g) => g.getAttribute(k)));
+  for (const k of ['position', 'skinIndex', 'skinWeight']) {
+    if (!names.includes(k)) throw new Error(`조각 하나에 ${k} 가 없어 합칠 수 없다`);
+  }
+  const out = new first.constructor();
+  const Attr = plainAttributeClass(geoms);
+  let total = 0;
+  for (const g of geoms) total += g.getAttribute('position').count;
+  for (const k of names) {
+    const size = first.getAttribute(k).itemSize;
+    // 뼈 번호는 조각마다 Uint8·Uint16 이 섞일 수 있어 넓은 쪽으로 담는다.
+    const arr = k === 'skinIndex' ? new Uint16Array(total * size) : new Float32Array(total * size);
+    let at = 0;
+    for (const g of geoms) {
+      const a = g.getAttribute(k);
+      for (let i = 0; i < a.count; i++) {
+        for (let c = 0; c < size; c++) arr[at++] = a.getComponent(i, c);
+      }
+    }
+    out.setAttribute(k, new Attr(arr, size));
+  }
+  const index = [];
+  let base = 0;
+  for (const g of geoms) {
+    const n = g.getAttribute('position').count;
+    if (g.index) for (let i = 0; i < g.index.count; i++) index.push(g.index.getX(i) + base);
+    else for (let i = 0; i < n; i++) index.push(i + base);
+    base += n;
+  }
+  out.setIndex(index);
+  out.computeBoundingSphere?.();
+  return out;
 }

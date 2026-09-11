@@ -17,7 +17,7 @@ import * as api from '../src/web/index.mjs';
 
 /** 문에 있어야 하는 것 — README 의 "spacemaker 에서 쓰는 법" 과 같아야 한다. */
 const PUBLIC = [
-  'loadPack', 'bakeFromPack', 'geometryOf',
+  'loadPack', 'bakeFromPack', 'geometryOf', 'measuredFor', 'planCrowdMeasured',
   'createClipPlayer', 'createInstancedCrowd',
   'pickWalkClip', 'contactsAt', 'durationAt', 'strideS', 'TIME_SCALE_MAX',
   'planCrowd', 'affordable', 'frameCostMs', 'TIERS',
@@ -153,6 +153,68 @@ runGate('check-surface', async (g) => {
         n++;
         if (!(atlas.bones > 0 && atlas.height > 1)) g.fail('bake/size', '구운 것이 비어 있다');
         n++;
+        // ── 여러 조각으로 된 몸 ──
+        //
+        // Rocketbox 는 몸·머리·속눈썹이 조각으로 나뉘어 있다. 첫 조각만
+        // 가져가던 때에는 먼 사람이 머리 없이 걸었다. 조각을 이어 붙이되,
+        // 알파로 오려 내는 조각은 뺀다 (한 색 셰이더가 판째로 칠한다).
+        {
+          const part = (verts, bone, mat) => {
+            const g2 = new THREE.BufferGeometry();
+            g2.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(verts * 3).map((_, i) => i), 3));
+            g2.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(verts * 3).fill(1), 3));
+            g2.setAttribute('skinIndex', new THREE.Uint8BufferAttribute(new Uint8Array(verts * 4).fill(bone), 4));
+            g2.setAttribute('skinWeight', new THREE.Uint8BufferAttribute(new Uint8Array(verts * 4).fill(255), 4, true));
+            g2.setIndex([0, 1, 2]);
+            return new THREE.SkinnedMesh(g2, mat);
+          };
+          const scene = new THREE.Group();
+          scene.add(part(3, 1, new THREE.MeshBasicMaterial()));
+          scene.add(part(5, 7, new THREE.MeshBasicMaterial()));
+          scene.add(part(4, 9, new THREE.MeshBasicMaterial({ alphaTest: 0.5 })));
+          const fake = { catalog: { clips: [{ id: 'x' }] }, gltfOf: () => ({ scene }) };
+          const m = api.geometryOf(fake);
+          n++;
+          const cnt = m.getAttribute('position').count;
+          if (cnt !== 8) g.fail('parts/count', `조각 둘(3+5)을 이었는데 정점이 ${cnt}개다 — ${cnt === 3 ? '첫 조각만 가져갔다' : cnt === 12 ? '오려 내는 조각까지 넣었다' : '잘못 이었다'}`);
+          n++;
+          const si = m.getAttribute('skinIndex');
+          if (si.getX(0) !== 1 || si.getX(3) !== 7) g.fail('parts/bones', `이은 뒤 뼈 번호가 ${si.getX(0)}·${si.getX(3)} 다 (1·7 이어야)`);
+          n++;
+          const sw = m.getAttribute('skinWeight').getX(4);
+          if (Math.abs(sw - 1) > 1e-6) g.fail('parts/weight', `정규화된 무게를 ${sw} 로 옮겼다 (1 이어야)`);
+          n++;
+          const idx = Array.from(m.index.array);
+          if (idx.join() !== '0,1,2,3,4,5') g.fail('parts/index', `두 번째 조각의 면이 제자리를 못 찾았다 (${idx.join()})`);
+          n++;
+          if (Math.abs(m.getAttribute('position').getX(3)) > 1e-6) g.fail('parts/position', '두 번째 조각의 정점이 밀려 있다');
+
+          // **끼워 넣은 속성.** gltf-transform 이 쓴 GLB 가 이렇다. 처음 고친
+          // 판은 합성 조각(따로 된 속성)으로만 봐서 통과했는데, 진짜 Rocketbox
+          // 팩에서는 속이 빈 속성을 만들어 매 프레임 무너졌다.
+          const inter = (verts, bone) => {
+            const mesh = part(verts, bone, new THREE.MeshBasicMaterial());
+            const ib = new THREE.InterleavedBuffer(new Float32Array(verts * 6).map((_, i) => (i % 6 < 3 ? i + bone * 100 : 1)), 6);
+            mesh.geometry.setAttribute('position', new THREE.InterleavedBufferAttribute(ib, 3, 0));
+            mesh.geometry.setAttribute('normal', new THREE.InterleavedBufferAttribute(ib, 3, 3));
+            return mesh;
+          };
+          const scene2 = new THREE.Group();
+          scene2.add(inter(3, 1));
+          scene2.add(inter(5, 7));
+          const m2 = api.geometryOf({ catalog: { clips: [{ id: 'x' }] }, gltfOf: () => ({ scene: scene2 }) });
+          n++;
+          const pos2 = m2.getAttribute('position');
+          if (pos2.isInterleavedBufferAttribute || !pos2.array || pos2.count !== 8) {
+            g.fail('parts/interleaved', `끼워 넣은 속성을 이었더니 ${pos2.isInterleavedBufferAttribute ? '끼워 넣은 틀에 배열을 부었다' : `정점이 ${pos2.count}개다`} — 그리면 매 프레임 무너진다`);
+          } else if (Math.abs(pos2.getX(1) - 106) > 1e-6 || Math.abs(pos2.getX(3) - 700) > 1e-6) {
+            // 조각마다 값을 뼈 번호×100 만큼 띄워 뒀다 — 첫 조각의 둘째 정점은
+            // 칸 6(→106), 둘째 조각의 첫 정점은 700. 칸 너비를 잘못 읽거나
+            // 조각을 섞으면 다른 수가 나온다.
+            g.fail('parts/interleaved-values', `정점 x 가 ${pos2.getX(1)}·${pos2.getX(3)} 다 (106·700 이어야) — 끼워 넣은 칸을 잘못 읽었다`);
+          }
+        }
+
         const geom = api.geometryOf(pack);
         if (!geom?.getAttribute('skinIndex')) g.fail('bake/geometry', '살에 스킨 정보가 없다');
         else {

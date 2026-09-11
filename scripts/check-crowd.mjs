@@ -18,6 +18,7 @@ import { runGate } from './gate-lib.mjs';
 import {
   TIERS, MEASURED, BROWSER_MEASURED, INSTANCED_MEASURED, INSTANCED_MS_PER_PERSON, P1_VERDICT,
   KNEE_TOTAL_BONES, boneCostNs, frameCostMs, affordable, planCrowd,
+  PACK_MEASURED, measuredFor, frameMsAt, planCrowdMeasured,
 } from '../src/lib/crowdBudget.mjs';
 
 runGate('check-crowd', async (g) => {
@@ -248,6 +249,155 @@ runGate('check-crowd', async (g) => {
       g.fail('plan/upgrade', '남는 예산이 있는데 아무도 좋은 단계로 안 올린다');
     }
     console.log(`  [군중] CPU 4ms · 300명 요청 → ${plan.mix.map((m) => `${m.tier} ${m.count}`).join(' · ')} · 못 세움 ${plan.dropped} (${plan.ms}ms)`);
+  }
+
+  // ── 5-2. 진짜 몸으로 잰 표 ──
+  //
+  // 뼈로 세는 모형이 Rocketbox 몸을 13~15배 싸게 봤다. 그래서 진짜 몸이 있는
+  // 팩은 잰 표로 값을 낸다. 여기서는 그 표가 **값 노릇**을 하는지 본다 —
+  // 출처가 있는가, 기준 팩보다 정말 무거운가, 그리고 셈이 표를 **따라가는가**.
+  {
+    for (const [key, t] of Object.entries(PACK_MEASURED)) {
+      for (const f of ['date', 'machine', 'runtime', 'method']) {
+        n++;
+        if (!t[f]) g.fail(`packcost/${key}/${f}`, `잰 표에 ${f} 가 없다 — 어디서 잰 값인지 없으면 값이 아니다`);
+      }
+      n++;
+      if (!(t.body?.verts > 0 && t.body?.bones > 0 && t.body?.meshesPerPerson > 0)) {
+        g.fail(`packcost/${key}/body`, '어떤 몸으로 쟀는지(정점·뼈·메시)가 없다');
+      }
+      const pts = [...(t.points || [])].sort((a, b) => a.people - b.people);
+      n++;
+      if (pts.length < 3) g.fail(`packcost/${key}/points`, '점이 셋도 안 된다 — 곡선이 휘는지를 못 본다');
+      n++;
+      for (let i = 1; i < pts.length; i++) {
+        if (!(pts[i].frameMs > pts[i - 1].frameMs)) {
+          g.fail(`packcost/${key}/monotonic`, `${pts[i].people}명이 ${pts[i - 1].people}명보다 안 비싸다`);
+        }
+      }
+      // **몸이 비싼 것인가, 기계가 다른 것인가.** 같은 날 같은 기계에서 기준
+      // 팩을 쟀고, 같은 사람 수에서 몇 배인지를 본다. 세 배도 안 되면 이 표를
+      // 따로 둘 까닭이 없다 — 모형을 고치면 된다.
+      n++;
+      const base = t.baseline?.points || [];
+      const pairs = base.map((b) => [b, pts.find((p) => p.people === b.people)]).filter(([, p]) => p);
+      if (!pairs.length) g.fail(`packcost/${key}/baseline`, '같은 기계·같은 사람 수의 기준 팩 값이 없다');
+      for (const [b, p] of pairs) {
+        if (!(p.frameMs > b.frameMs * 3)) {
+          g.fail(`packcost/${key}/heavier`, `${b.people}명에서 이 몸(${p.frameMs}ms)이 기준 팩(${b.frameMs}ms)의 세 배도 안 된다`);
+        }
+      }
+    }
+
+    // 셈이 표를 따라가는가.
+    const t = PACK_MEASURED.rocketbox;
+    const pts = [...t.points].sort((a, b) => a.people - b.people);
+    n++;
+    for (const p of pts) {
+      const got = frameMsAt(pts, p.people).ms;
+      if (Math.abs(got - p.frameMs) > 1e-6) g.fail('packcost/at-point', `${p.people}명을 ${got}ms 로 센다 — 표에는 ${p.frameMs}ms`);
+    }
+    n++;
+    {
+      const [a, b] = pts;
+      const mid = frameMsAt(pts, (a.people + b.people) / 2).ms;
+      if (Math.abs(mid - (a.frameMs + b.frameMs) / 2) > 1e-3) g.fail('packcost/between', `두 점 사이를 ${mid}ms 로 센다`);
+    }
+    n++;
+    // **표를 바꾸면 답이 바뀌어야 한다.** 범위 안에 드는지만 보면 표를
+    // 안 읽는 셈도 통과한다.
+    {
+      const heavy = pts.map((p) => ({ ...p, frameMs: p.frameMs * 2 }));
+      const k = pts[1].people;
+      if (!(frameMsAt(heavy, k).ms > frameMsAt(pts, k).ms * 1.9)) g.fail('packcost/track', '표의 값을 두 배로 해도 셈이 안 따라온다');
+      const lo = planCrowdMeasured(200, 8, t);
+      const hi = planCrowdMeasured(200, 8, { ...t, points: heavy });
+      if (!(hi.mix[0]?.count < lo.mix[0]?.count)) g.fail('packcost/plan-track', '몸이 두 배로 무거운데 같은 수를 세운다');
+    }
+    n++;
+    {
+      const first = pts[0];
+      const half = frameMsAt(pts, first.people / 2).ms;
+      if (!(half > 0 && half < first.frameMs)) g.fail('packcost/below', `첫 점 아래를 ${half}ms 로 센다`);
+    }
+    n++;
+    {
+      const last = pts[pts.length - 1];
+      const inside = frameMsAt(pts, last.people);
+      const past = frameMsAt(pts, last.people * 1.5);
+      if (inside.extrapolated || !past.extrapolated) g.fail('packcost/extrapolated', '잰 범위 밖인지를 잘못 말한다');
+      if (!(past.ms > last.frameMs)) g.fail('packcost/extrapolated-grows', '잰 범위 밖에서 안 비싸진다');
+    }
+    // 예산이 예산 노릇을 하는가 — 넘지 않고, **빠듯하게** 채운다.
+    // 빠듯함을 안 보면 늘 0명을 세우는 셈도 "예산 안" 이라 통과한다.
+    let prev = -1;
+    for (const b of [2, 4, 8, 16]) {
+      n++;
+      const plan = planCrowdMeasured(200, b, t);
+      const cnt = plan.mix[0]?.count || 0;
+      if (plan.ms > b + 1e-9) g.fail(`packcost/budget/${b}`, `예산 ${b}ms 인데 ${plan.ms}ms 를 쓴다`);
+      if (cnt < 200 && !(frameMsAt(pts, cnt + 1).ms > b)) g.fail(`packcost/tight/${b}`, `예산 ${b}ms 에 ${cnt}명 — 한 명 더 들어가는데 안 세운다`);
+      if (cnt + plan.dropped !== 200) g.fail(`packcost/count/${b}`, '세운 사람과 못 세운 사람의 합이 요청과 다르다');
+      if (!(cnt > prev)) g.fail(`packcost/more/${b}`, '예산을 늘렸는데 사람이 안 는다');
+      prev = cnt;
+    }
+    n++;
+    if (measuredFor('rocketbox-f01') !== t || measuredFor('rocketbox-m01') !== t) g.fail('packcost/which', 'Rocketbox 팩이 잰 표를 안 쓴다');
+    n++;
+    if (measuredFor('ref-synthetic') !== null) g.fail('packcost/which-ref', '기준 팩에 남의 표를 쓴다');
+    // ── 먼 단계를 섞을 때 ──
+    //
+    // planCrowd 와 같은 약속을 지키는가: 싼 단계가 있으면 사람을 안 버리고,
+    // 남는 예산으로 가까운 사람을 올리고, 예산을 넘지 않는다.
+    {
+      const TI = ['full', 'instanced'];
+      const ip = [...(t.instanced?.points || [])].sort((a, b) => a.people - b.people);
+      n++;
+      if (ip.length < 3) g.fail('packcost/inst-points', `먼 단계 점이 ${ip.length}개다 — 셋은 있어야 곧은지 휘는지 본다`);
+      n++;
+      for (let i = 1; i < ip.length; i++) {
+        if (!(ip[i].frameMs > ip[i - 1].frameMs)) g.fail('packcost/inst-monotonic', `먼 단계 ${ip[i].people}명이 ${ip[i - 1].people}명보다 안 비싸다`);
+      }
+      n++;
+      if (!(t.instanced?.verts > 0)) g.fail('packcost/inst-verts', '먼 단계를 어떤 살로 쟀는지가 없다');
+      n++;
+      // 옛 표(가벼운 몸)의 사람당 값을 그대로 쓰면 안 되는 까닭이 수로 서 있어야 한다.
+      if (ip.length >= 2) {
+        const per = (ip[ip.length - 1].frameMs - ip[0].frameMs) / (ip[ip.length - 1].people - ip[0].people);
+        if (!(per > INSTANCED_MS_PER_PERSON * 3)) {
+          g.fail('packcost/inst-heavier', `이 몸의 먼 단계 사람당 ${per.toFixed(5)}ms 가 옛 값(${INSTANCED_MS_PER_PERSON})의 세 배도 안 된다 — 따로 잴 까닭이 없다`);
+        }
+      }
+      const iAt = (pts2, k) => frameMsAt(pts2, k).ms;
+      n++;
+      const a = planCrowdMeasured(200, 4, t, TI);
+      const aFull = a.mix.find((m) => m.tier === 'full')?.count || 0;
+      if (a.dropped) g.fail('packcost/inst-nodrop', `모두 먼 단계로 들어가는데 ${a.dropped}명을 버린다`);
+      if (!aFull) g.fail('packcost/inst-upgrade', '남는 예산이 있는데 아무도 스킨으로 안 올린다');
+      if (a.ms > 4 + 1e-9) g.fail('packcost/inst-budget', `예산 4ms 인데 ${a.ms}ms 를 쓴다`);
+      if (a.mix.length === 2 && a.mix[0].tier !== 'full') g.fail('packcost/inst-order', '가까운 단계가 앞에 안 온다');
+      n++;
+      // 빠듯한가 — 한 명 더 올리면 넘쳐야 한다.
+      if (aFull < 200 && !(iAt(pts, aFull + 1) + iAt(ip, 200 - aFull - 1) > 4)) {
+        g.fail('packcost/inst-tight', `${aFull}명에서 멈췄는데 한 명 더 올려도 예산 안이다`);
+      }
+      n++;
+      const big = planCrowdMeasured(5000, 4, t, TI);
+      const bigInst = big.mix.find((m) => m.tier === 'instanced')?.count || 0;
+      if (big.mix.some((m) => m.tier === 'full')) g.fail('packcost/inst-crowded', '다 못 세우는데 비싼 단계에 예산을 쓴다');
+      if (big.ms > 4 + 1e-9 || !(iAt(ip, bigInst + 1) > 4)) g.fail('packcost/inst-fill', `먼 단계로 ${bigInst}명 — 예산을 넘거나 덜 채웠다`);
+      n++;
+      if (planCrowdMeasured(200, 4, t).mix.some((m) => m.tier === 'instanced')) g.fail('packcost/inst-blocked', '먼 단계를 막았는데 쓴다');
+      n++;
+      const heavyI = { ...t, instanced: { ...t.instanced, points: ip.map((q) => ({ ...q, frameMs: q.frameMs * 2 })) } };
+      const aH = planCrowdMeasured(200, 4, heavyI, TI).mix.find((m) => m.tier === 'full')?.count || 0;
+      const bigH = planCrowdMeasured(5000, 4, heavyI, TI);
+      if (!(aH < aFull) || !(bigH.dropped > big.dropped)) g.fail('packcost/inst-track', '먼 단계 표를 두 배로 해도 계획이 안 바뀐다');
+      console.log(`  [군중] Rocketbox · 4ms · 200명 → 스킨 ${aFull} · 먼 ${200 - aFull} (${a.ms}ms) · 5,000명 → 먼 ${bigInst} · 못 세움 ${big.dropped}`);
+    }
+
+    const p4 = planCrowdMeasured(200, 4, t);
+    console.log(`  [군중] Rocketbox 몸(정점 ${t.body.verts}·뼈 ${t.body.bones}) · 4ms → ${p4.mix[0]?.count || 0}명 (${p4.ms}ms) · 뼈 모형은 같은 수를 ${frameCostMs([{ tier: 'full', count: p4.mix[0]?.count || 0 }]).ms}ms 로 봤다`);
   }
 
   // ── 6. 지금 이 기계에서 다시 재도 관계가 같은가 ──

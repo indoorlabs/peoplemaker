@@ -278,3 +278,143 @@ export function planCrowd(want, budgetMs, order = ['full', 'simple', 'coarse']) 
   const cost = frameCostMs(mix);
   return { mix, ...cost, dropped: want - held };
 }
+
+// ── 진짜 몸으로 잰 한 프레임 ─────────────────────────────────────
+
+/**
+ * 팩별 브라우저 실측 — **진짜 몸으로 잰 한 프레임 시간**.
+ *
+ * 위의 모형(뼈 수 × 뼈당 시간)은 Node 에서 뼈 행렬 갱신만 잰 값이다. Rocketbox
+ * 몸(정점 5,438 · 메시 3 · 뼈 80)을 화면에 세워 보니 **13~15배 모자랐다** —
+ * 75명을 모형은 0.73ms 로 보는데 실제는 10.81ms 다. 드로우콜 제출과 메시마다
+ * 뼈 행렬을 올리는 몫이 통째로 빠져 있고, 사람 하나가 메시 셋(몸·머리·
+ * 머리카락)이라 드로우콜도 셋이다.
+ *
+ * 그래서 진짜 몸이 있는 팩은 **잰 표로** 값을 낸다. 표는 기계에 매이므로
+ * 언제·어디서·어떻게 쟀는지를 함께 둔다 (인체치수와 같은 규약).
+ */
+export const PACK_MEASURED = {
+  rocketbox: {
+    date: '2026-09-11',
+    machine: 'AMD Ryzen 7 8845HS · Radeon 780M (ANGLE D3D11)',
+    runtime: 'Chromium (Playwright) · three r186 · WebGLRenderer',
+    method: 'demo/index.html?pack=rocketbox-f01&mode=skinned · __gpuBench(60) — 한 번 돌려 준비하고 두 번째 값을 쓴다. 사람 수마다 페이지를 새로 연다',
+    body: { pack: 'rocketbox-f01', verts: 5438, meshesPerPerson: 3, bones: 80 },
+    note: 'CPU 와 GPU 가 거의 같게 나온다 — 동기 루프라 GPU 가 밀리면 CPU 도 기다린다. 둘을 가르지 않고 한 프레임 시간으로 쓴다. rocketbox-m01(정점 4,697)은 이 몸보다 가볍다.',
+    points: [
+      { people: 25, drawCalls: 76, totalBones: 2000, frameMs: 3.65 },
+      { people: 50, drawCalls: 151, totalBones: 4000, frameMs: 6.37 },
+      { people: 75, drawCalls: 226, totalBones: 6000, frameMs: 10.81 },
+      { people: 100, drawCalls: 301, totalBones: 8000, frameMs: 17.82 },
+    ],
+    // 같은 날·같은 기계에서 기준 팩(합성 리그)을 다시 쟀다. 모형이 틀린 것인지
+    // 기계가 다른 것인지를 가르려고 둔다 — 기준 팩은 여전히 싸고(100명 1.5ms),
+    // 비싼 것은 이 몸이다. 값은 CPU·GPU 중 큰 쪽.
+    baseline: {
+      pack: 'ref-synthetic', verts: 264, bones: 11,
+      points: [
+        { people: 50, drawCalls: 51, frameMs: 1.017 },
+        { people: 100, drawCalls: 101, frameMs: 1.543 },
+      ],
+    },
+    // 먼 단계(구운 자세 + InstancedMesh) — **같은 몸으로** 쟀다. 드로우콜은
+    // 사람 수와 상관없이 2 이고, 값은 거의 GPU 몫이다 (CPU 0.04~0.05ms).
+    // 살은 몸·머리만이다: 속눈썹·머리카락 카드는 한 색 셰이더가 판째로
+    // 칠하므로 뺐다 (web/index.mjs 의 geometryOf). 옛 표(정점 1,560)의
+    // 사람당 0.00055ms 보다 7~8배 무겁다.
+    instanced: {
+      verts: 4883,
+      points: [
+        { people: 200, drawCalls: 2, frameMs: 1.461 },
+        { people: 500, drawCalls: 2, frameMs: 2.519 },
+        { people: 1000, drawCalls: 2, frameMs: 4.811 },
+      ],
+    },
+  },
+};
+
+/** 이 팩은 어느 실측 표를 쓰는가 — 없으면 null (그러면 뼈로 세는 모형으로 돌아간다). */
+export function measuredFor(packId) {
+  if (typeof packId !== 'string') return null;
+  if (packId.startsWith('rocketbox-')) return PACK_MEASURED.rocketbox;
+  return null;
+}
+
+/**
+ * 잰 점들을 이어 N 명의 한 프레임 시간을 낸다 (ms).
+ *
+ * 점 사이는 곧게 잇는다. 첫 점 아래는 원점과 잇는다 — 고정 비용(약 1ms)을
+ * 사람 수에 나눠 싣는 셈이라 작은 N 을 조금 비싸게 본다. 마지막 점 위는
+ * 마지막 마디의 기울기로 늘이는데, 곡선이 점점 가팔라지므로 **낮게** 볼 수
+ * 있다 — 그래서 그 영역에 들어가면 extrapolated 로 알린다.
+ */
+export function frameMsAt(points, people) {
+  const pts = [...(points || [])].sort((a, b) => a.people - b.people);
+  if (!(people > 0) || !pts.length) return { ms: 0, extrapolated: false };
+  if (people <= pts[0].people) {
+    return { ms: +((pts[0].frameMs * people) / pts[0].people).toFixed(3), extrapolated: false };
+  }
+  for (let i = 1; i < pts.length; i++) {
+    if (people <= pts[i].people) {
+      const a = pts[i - 1];
+      const b = pts[i];
+      const t = (people - a.people) / (b.people - a.people);
+      return { ms: +(a.frameMs + t * (b.frameMs - a.frameMs)).toFixed(3), extrapolated: false };
+    }
+  }
+  const b = pts[pts.length - 1];
+  const a = pts[pts.length - 2] || { people: 0, frameMs: 0 };
+  const slope = (b.frameMs - a.frameMs) / (b.people - a.people);
+  return { ms: +(b.frameMs + slope * (people - b.people)).toFixed(3), extrapolated: true };
+}
+
+/**
+ * 잰 표로 몇 명을 어느 단계로 세울지 — planCrowd 와 같은 모양으로 돌려준다.
+ *
+ * planCrowd 와 같은 차례를 따른다: **먼저 아무도 안 버리고**(모두 먼 단계로
+ * 들어가는가), 남는 예산으로 가까운 사람을 스킨으로 올린다. 먼 단계를 못
+ * 쓰면(WebGPU, 또는 표에 먼 단계가 없으면) 스킨으로만 채우고 나머지는 버린다.
+ *
+ * 두 단계의 값은 **더한다.** 각 표에 들어 있는 고정 비용(빈 장면의 약 0.6ms)이
+ * 두 번 세어져 조금 비싸게 보는데, 싸게 보는 것보다 낫다.
+ *
+ * @param tiers 쓸 수 있는 단계 — ['full'] 또는 ['full', 'instanced']
+ */
+export function planCrowdMeasured(want, budgetMs, table, tiers = ['full']) {
+  const full = table?.points || [];
+  const inst = tiers.includes('instanced') ? table?.instanced?.points || null : null;
+  const fullAt = (k) => frameMsAt(full, k);
+  const instAt = (k) => frameMsAt(inst, k);
+  const out = (nFull, nInst) => {
+    const a = fullAt(nFull);
+    const b = inst ? instAt(nInst) : { ms: 0, extrapolated: false };
+    const mix = [];
+    if (nFull) mix.push({ tier: 'full', count: nFull });
+    if (nInst) mix.push({ tier: 'instanced', count: nInst });
+    return {
+      mix,
+      ms: +(a.ms + b.ms).toFixed(3),
+      dropped: Math.max(0, want - nFull - nInst),
+      extrapolated: a.extrapolated || b.extrapolated,
+      measuredBy: table?.body?.pack || null,
+    };
+  };
+
+  if (!inst) {
+    let n = 0;
+    while (n < want && fullAt(n + 1).ms <= budgetMs) n++;
+    return out(n, 0);
+  }
+  // 1. 모두 먼 단계로 들어가는가 — 안 들어가면 들어가는 만큼만.
+  let base = 0;
+  while (base < want && instAt(base + 1).ms <= budgetMs) base++;
+  if (base < want) return out(0, base);
+  // 2. 남는 예산으로 가까운 사람을 올린다. 스킨 값만으로 예산을 넘으면 더 볼 것이 없다.
+  let best = 0;
+  for (let k = 1; k <= want; k++) {
+    const f = fullAt(k).ms;
+    if (f > budgetMs) break;
+    if (f + instAt(want - k).ms <= budgetMs) best = k;
+  }
+  return out(best, want - best);
+}

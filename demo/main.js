@@ -19,6 +19,7 @@ import { buildGLB, FIXTURES } from '../src/lib/fixtureRig.mjs';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { bakeClip, bakeAtlas } from '../src/lib/poseBake.mjs';
 import { createInstancedCrowd } from '../src/web/instancedCrowd.mjs';
+import { bakeFromPack, geometryOf } from '../src/web/index.mjs';
 
 const q = new URLSearchParams(location.search);
 const want = Number(q.get('people') || 200);
@@ -47,6 +48,7 @@ scene.add(grid);
 const catalog = await (await fetch(`/packs/${packId}/catalog.json`)).json();
 const loader = new GLTFLoader();
 const gltfs = new Map();
+const bufs = new Map();
 if (boneOverride) {
   const spec = { ...FIXTURES.find((f) => f.id === 'walk-forward'), bones: boneOverride };
   const glb = buildGLB(spec);
@@ -55,6 +57,7 @@ if (boneOverride) {
 } else {
   for (const clip of catalog.clips) {
     const buf = await (await fetch(`/packs/${packId}/clips/${clip.id}.glb`)).arrayBuffer();
+    bufs.set(clip.id, buf);
     gltfs.set(clip.id, await loader.parseAsync(buf, ''));
   }
 }
@@ -70,18 +73,27 @@ let crowd = null;
 
 if (mode === 'instanced') {
   // 구운 자세 + InstancedMesh — 드로우콜 하나.
-  const glbFor = (spec) => buildGLB({ ...spec, ...(boneOverride ? { bones: boneOverride } : {}) });
-  const walkSpec = FIXTURES.find((f) => f.id === 'walk-forward');
-  const idleSpec = FIXTURES.find((f) => f.id === 'idle');
-  const atlas = bakeAtlas([
-    { id: 'walk-forward', baked: bakeClip(parseGLB(glbFor(walkSpec))) },
-    { id: 'idle', baked: bakeClip(parseGLB(glbFor(idleSpec))) },
-  ]);
-  // 기하는 스킨 메시의 것을 그대로 쓴다 — 같은 살을 같은 자세로 그리는지
-  // 견주려면 둘이 같은 기하여야 한다.
-  const sample = gltfs.get('walk-forward');
+  // **팩을 그대로 굽는다.** 예전에는 늘 픽스처를 구웠다 — 기준 팩이 곧
+  // 픽스처라 티가 안 났는데, Rocketbox 팩을 주니 픽스처의 뼈 11개 자세로
+  // Rocketbox 살을 비틀어 조각이 흩어진 화면이 됐다. 뼈 수를 흔들 때만
+  // 픽스처를 굽는다.
+  let atlas;
   let geom = null;
-  sample.scene.traverse((o) => { if (o.isSkinnedMesh && !geom) geom = o.geometry; });
+  if (boneOverride) {
+    const glbFor = (spec) => buildGLB({ ...spec, bones: boneOverride });
+    const walkSpec = FIXTURES.find((f) => f.id === 'walk-forward');
+    const idleSpec = FIXTURES.find((f) => f.id === 'idle');
+    atlas = bakeAtlas([
+      { id: 'walk-forward', baked: bakeClip(parseGLB(glbFor(walkSpec))) },
+      { id: 'idle', baked: bakeClip(parseGLB(glbFor(idleSpec))) },
+    ]);
+    gltfs.get('walk-forward').scene.traverse((o) => { if (o.isSkinnedMesh && !geom) geom = o.geometry; });
+  } else {
+    // 앱이 쓰는 길과 같은 길 — 재는 것이 앱이 그리는 것이어야 한다.
+    const pack = { catalog, gltfOf: (id) => gltfs.get(id), bufferOf: (id) => bufs.get(id) };
+    atlas = bakeFromPack(pack, ['walk-forward', 'idle']);
+    geom = geometryOf(pack);
+  }
   verts = geom.attributes.position.count;
   crowd = createInstancedCrowd({ THREE, geometry: geom, atlas, count: want });
   for (let i = 0; i < want; i++) {
