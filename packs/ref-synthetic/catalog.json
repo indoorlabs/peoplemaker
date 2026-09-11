@@ -2,6 +2,7 @@
   "packId": "ref-synthetic",
   "version": "0.1.0",
   "skeleton": "mixamo",
+  "forwardRad": 3.1416,
   "builtBy": "peoplemaker/build-pack",
   "clips": [
     {
@@ -59,6 +60,7 @@
       "durationS": 1,
       "rootMotion": "travel",
       "speedMps": 1.9,
+      "travelHeadingRad": 3.1416,
       "contacts": [
         {
           "atS": 0.383,
@@ -90,6 +92,7 @@
       "durationS": 1.2,
       "rootMotion": "travel",
       "speedMps": 1.35,
+      "travelHeadingRad": 3.1416,
       "contacts": [
         {
           "atS": 0.467,

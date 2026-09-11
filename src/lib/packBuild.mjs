@@ -2,10 +2,11 @@
 //
 // 계약이 요구하는 것 중 넷은 사람이 적으면 안 되는 값이다:
 //
-//   durationS   길이
-//   rootMotion  제자리인가 이동하는가
-//   speedMps    이동한다면 얼마나 빠른가
-//   contacts    발이 언제 땅에 닿는가
+//   durationS          길이
+//   rootMotion         제자리인가 이동하는가
+//   speedMps           이동한다면 얼마나 빠른가
+//   travelHeadingRad   **어느 쪽으로** 나아가는가
+//   contacts           발이 언제 땅에 닿는가
 //
 // 손으로 적으면 파일과 어긋나고, 어긋나도 아무도 모른다 — 걷는 그림은
 // 맞는데 도착 시각이 틀리는 식이다. 그래서 이 파일이 GLB 를 열어 재고,
@@ -60,7 +61,25 @@ const matchNode = (doc, re) => {
 };
 
 /** 사람이 적을 수 없는 값 — sources.json 에 있으면 그것은 두 벌이다. */
-export const MEASURED_FIELDS = ['durationS', 'rootMotion', 'speedMps', 'contacts'];
+export const MEASURED_FIELDS = ['durationS', 'rootMotion', 'speedMps', 'travelHeadingRad', 'contacts'];
+
+/**
+ * 이동 클립들의 진행 방향이 이만큼 넘게 갈리면 팩의 앞을 못 정한다 (rad).
+ *
+ * 같은 리그의 앞걸음 클립들은 같은 쪽으로 간다 — 안 그러면 리그가 섞여
+ * 있거나, 옆걸음(strafe)이 섞인 것이다. 둘 다 사람이 봐야 하는 일이라
+ * 조용히 평균 내지 않고 멈춘다. 15° 는 손으로 만든 클립의 흔들림은
+ * 넘기고 90° 옆걸음은 못 넘는 자리다.
+ */
+export const FORWARD_AGREE_RAD = (15 * Math.PI) / 180;
+
+/** 두 방향 사이의 각 (rad) — ±π 를 넘어가는 자리를 접는다. */
+export function angleDiff(a, b) {
+  let d = (a - b) % (2 * Math.PI);
+  if (d > Math.PI) d -= 2 * Math.PI;
+  if (d < -Math.PI) d += 2 * Math.PI;
+  return Math.abs(d);
+}
 
 /**
  * 클립 하나를 잰다.
@@ -101,15 +120,22 @@ export function deriveClip(doc, decl, { skeleton = 'mixamo' } = {}) {
   const at = (t) => sampleAnimation(doc, 0, t);
   const p0 = nodeWorldPos(doc, rootIdx, at(0), parent);
   const p1 = nodeWorldPos(doc, rootIdx, at(durationS), parent);
-  const travelM = Math.hypot(p1[0] - p0[0], p1[2] - p0[2]);   // 수평만 — 오르내림은 이동이 아니다
+  const dx = p1[0] - p0[0];
+  const dz = p1[2] - p0[2];
+  const travelM = Math.hypot(dx, dz);   // 수평만 — 오르내림은 이동이 아니다
   const mps = travelM / durationS;
   if (mps >= TRAVEL_MIN_MPS) {
     clip.rootMotion = 'travel';
     clip.speedMps = +mps.toFixed(3);
+    // **어느 쪽으로 가는가.** 0 = +Z, 시계 반대. 이것을 안 재면 쓰는 쪽이
+    // "앞은 +Z 겠지" 하고 짐작하게 되고, 그 짐작이 틀리면 사람들이 전부
+    // 뒤로 걷는다 — 화면에서는 걷고 있으니 한참 못 알아챈다.
+    clip.travelHeadingRad = +Math.atan2(dx, dz).toFixed(4);
   } else {
     clip.rootMotion = 'in-place';
   }
-  notes.push(`이동 ${travelM.toFixed(3)}m / ${durationS}s = ${mps.toFixed(3)}m/s`);
+  notes.push(`이동 ${travelM.toFixed(3)}m / ${durationS}s = ${mps.toFixed(3)}m/s`
+    + (clip.travelHeadingRad !== undefined ? ` · 방향 ${((clip.travelHeadingRad * 180) / Math.PI).toFixed(1)}°` : ''));
 
   // ── 발 접촉 ──
   //
@@ -158,7 +184,35 @@ export function buildCatalog({ packId, version, skeleton, clips }) {
     packId,
     version,
     skeleton,
+    forwardRad: packForwardRad(clips),
     builtBy: 'peoplemaker/build-pack',
     clips: [...clips].sort((a, b) => (a.id < b.id ? -1 : 1)),
   };
+}
+
+/**
+ * 이 팩의 **앞이 어디인가** (rad, 0 = +Z).
+ *
+ * 리그마다 앞이 다르다 — 이 저장소의 기준 팩은 -Z 를 보고 있고, Mixamo
+ * 파일도 대개 그렇다. 쓰는 쪽은 "이 사람을 북쪽으로 걷게 해" 라고 말하지
+ * 리그의 사정을 알 이유가 없으므로, 그 차이를 **재서** 카탈로그에 적고
+ * 어댑터가 흡수한다.
+ *
+ * 이동 클립이 없으면 잴 수가 없다 — 그때는 null 이고, 어댑터는 회전을
+ * 안 건드린다 (짐작한 0 을 넣으면 틀렸을 때 말이 없다).
+ */
+export function packForwardRad(clips) {
+  const travels = clips.filter((c) => c.rootMotion === 'travel' && typeof c.travelHeadingRad === 'number');
+  if (!travels.length) return null;
+  const base = travels[0].travelHeadingRad;
+  for (const c of travels) {
+    if (angleDiff(c.travelHeadingRad, base) > FORWARD_AGREE_RAD) {
+      throw new Error(
+        `이동 클립의 진행 방향이 갈린다 — ${travels[0].id} 는 ${((base * 180) / Math.PI).toFixed(1)}°, `
+        + `${c.id} 는 ${((c.travelHeadingRad * 180) / Math.PI).toFixed(1)}°. `
+        + '리그가 섞였거나 옆걸음 클립이 들어온 것이다 — 사람이 봐야 한다',
+      );
+    }
+  }
+  return +base.toFixed(4);
 }

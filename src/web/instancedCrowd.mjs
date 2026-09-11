@@ -116,7 +116,9 @@ export function createInstancedCrowd({ THREE, geometry, atlas, count, color = 0x
   /** 사람 하나를 놓는다. */
   function place(i, { position = [0, 0, 0], headingRad = 0, clipId, timeOffsetS = 0, timeScale = 1 }) {
     dummy.position.set(position[0], position[1], position[2]);
-    dummy.rotation.set(0, headingRad, 0);
+    // 리그의 앞을 뺀다 — 재생기(clipPlayer)와 같은 셈이라야 가까운 사람과
+    // 먼 사람이 같은 쪽을 본다. 못 잰 팩은 null 이고, 그때는 안 건드린다.
+    dummy.rotation.set(0, typeof atlas.forwardRad === 'number' ? headingRad - atlas.forwardRad : headingRad, 0);
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
     mesh.instanceMatrix.needsUpdate = true;

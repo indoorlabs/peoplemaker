@@ -132,6 +132,15 @@ export function validateCatalog(catalog, { clipFiles = null } = {}) {
     if (c.rootMotion === 'in-place' && c.speedMps) {
       fail(`clip/${c.id}/speed-inplace`, '제자리 클립에 이동 속도가 적혀 있다 — 둘 중 하나가 거짓이다');
     }
+    // 속도만 있고 **방향**이 없으면 쓰는 쪽이 "앞은 +Z 겠지" 하고 짐작한다.
+    // 짐작이 틀리면 사람들이 전부 뒤로 걷는데, 걷는 그림은 멀쩡해서 한참
+    // 못 알아챈다 — 실제로 그렇게 한 번 지나갔다.
+    if (c.rootMotion === 'travel' && typeof c.travelHeadingRad !== 'number') {
+      fail(`clip/${c.id}/travelHeading`, '이동하는 클립인데 진행 방향(travelHeadingRad)이 없다');
+    }
+    if (c.rootMotion === 'in-place' && c.travelHeadingRad !== undefined) {
+      fail(`clip/${c.id}/travelHeading-inplace`, '제자리 클립에 진행 방향이 적혀 있다 — 둘 중 하나가 거짓이다');
+    }
 
     // 라이선스 — 팩 전체가 아니라 클립마다.
     if (!c.license) fail(`clip/${c.id}/license`, '라이선스가 없다');
@@ -154,6 +163,13 @@ export function validateCatalog(catalog, { clipFiles = null } = {}) {
     if (clipFiles && !clipFiles.includes(`${c.id}.glb`)) {
       fail(`clip/${c.id}/file`, `clips/${c.id}.glb 가 없다`);
     }
+  }
+
+  // 이동 클립이 있으면 팩의 **앞**이 있어야 한다. 어댑터가 이 값으로
+  // 회전을 보정하는데, 없으면 보정을 건너뛰고 리그의 사정이 그대로 화면에
+  // 나온다.
+  if (clips.some((c) => c?.rootMotion === 'travel') && typeof catalog.forwardRad !== 'number') {
+    fail('catalog/forwardRad', '이동 클립이 있는데 팩의 앞(forwardRad)이 없다 — 다시 구워야 한다');
   }
 
   // 카탈로그에 없는 파일이 폴더에 있으면, 그것은 아무도 모르는 자산이다.

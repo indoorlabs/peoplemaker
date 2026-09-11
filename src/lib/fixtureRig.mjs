@@ -120,13 +120,23 @@ function keyframes(spec) {
 
     if (spec.kind === 'walk') {
       // 앞으로 나아가는 거리 = 속도 × 시간. **이것이 되찾아야 할 값이다.**
-      const z = -spec.speedMps * t;             // -Z 가 앞
+      //
+      // 어느 쪽으로 가는지도 흔들 수 있어야 한다 — 안 그러면 "방향을 잰다"
+      // 는 게이트가 항상 같은 답(-Z)만 보고 통과한다. 기본값 π 는 -Z 라,
+      // 지금까지 구운 클립과 한 바이트도 다르지 않다.
+      const h = spec.travelRad ?? Math.PI;
+      const d = spec.speedMps * t;
+      // sin(π) 는 0 이 아니라 1.2e-16 이다. 그대로 두면 구운 GLB 의 바이트가
+      // 바뀌어, 아무것도 안 고친 판에서도 diff 가 뜬다.
+      const snap = (v) => (Math.abs(v) < 1e-9 ? 0 : v);
+      const x = snap(d * Math.sin(h));
+      const z = snap(d * Math.cos(h));
       // **엉덩이 높이가 발이 땅에 닿는지를 정한다.** 다리 사슬이
       // 0.05+0.42+0.42 = 0.89m 라, 0.95 에 두면 다리를 곧게 펴도 발이 6cm
       // 떠 있다 — 그 높이로 만든 첫 판에서 걸음의 접촉이 0회로 나왔다.
       // 0.90 으로 낮추면 곧게 편 다리의 발이 1cm 에 닿는다.
       const bob = 0.02 * Math.cos(2 * ph);      // 걸을 때 위아래
-      hips.translation.push([0, 0.90 + bob, z]);
+      hips.translation.push([x, 0.90 + bob, z]);
       hips.rotation.push([0, 0, 0, 1]);
       // 넓적다리는 서로 반대 위상, 종아리는 접힌다
       legs['mixamorig:LeftUpLeg'].push(quatX(0.5 * Math.sin(ph)));

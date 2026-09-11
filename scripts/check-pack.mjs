@@ -23,6 +23,7 @@ const good = () => ({
   packId: 'test-pack',
   version: '0.1.0',
   skeleton: 'mixamo',
+  forwardRad: 3.1416,
   clips: [
     {
       id: 'walk-forward',
@@ -30,6 +31,7 @@ const good = () => ({
       durationS: 1.2,
       rootMotion: 'travel',
       speedMps: 1.35,
+      travelHeadingRad: 3.1416,
       license: 'CC0-1.0',
       source: { tool: 'mixamo' },
       contacts: [
@@ -80,6 +82,9 @@ runGate('check-pack', (g) => {
     ['접촉 시각을 길이 밖으로', (c) => { c.clips[1].contacts[0].atS = 9.9; }, 'clip/sit-down/contact0/range'],
     ['접촉 부위를 아무 이름으로', (c) => { c.clips[1].contacts[0].part = 'butt'; }, 'clip/sit-down/contact0/part'],
     ['루트 모션을 아무 이름으로', (c) => { c.clips[0].rootMotion = 'moving'; }, 'clip/walk-forward/rootMotion'],
+    ['이동 클립인데 방향을 뺀다', (c) => { delete c.clips[0].travelHeadingRad; }, 'clip/walk-forward/travelHeading'],
+    ['제자리 클립에 방향을 준다', (c) => { c.clips[1].travelHeadingRad = 0; }, 'clip/sit-down/travelHeading-inplace'],
+    ['팩의 앞을 뺀다', (c) => { delete c.forwardRad; }, 'catalog/forwardRad'],
   ];
   for (const [why, breakIt, wantId] of breaks) {
     n++;

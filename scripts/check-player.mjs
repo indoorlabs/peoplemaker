@@ -16,7 +16,7 @@ import path from 'node:path';
 import { runGate, ROOT } from './gate-lib.mjs';
 import { createClipPlayer } from '../src/web/clipPlayer.mjs';
 import { pickWalkClip, contactsAt, durationAt, strideS, TIME_SCALE_MAX } from '../src/lib/packRuntime.mjs';
-import { PLANT_MAX_Y_M } from '../src/lib/packBuild.mjs';
+import { PLANT_MAX_Y_M, angleDiff } from '../src/lib/packBuild.mjs';
 
 const PACK = path.join(ROOT, 'packs', 'ref-synthetic');
 
@@ -208,6 +208,72 @@ runGate('check-player', async (g) => {
     if (!s1) g.fail('stride/none', '걸음 주기가 안 나온다');
     else if (Math.abs(s2 - s1 / 2) > 0.01) g.fail('stride/scale', `두 배로 돌렸는데 주기가 ${s1} → ${s2} 다`);
     else console.log(`  [재생] 걸음 주기 ${s1}s · 1.35m/s → 보폭 ${(1.35 * s1).toFixed(2)}m`);
+  }
+
+  // ── 7. 시킨 쪽으로 **실제로** 가는가 ──
+  //
+  // 이 게이트의 새 요점이다. 앞서 여기서 한 번 지나갔다: 리그의 앞이 -Z 인데
+  // 쓰는 쪽은 +Z 로 알고 있었고, 그래서 사람들이 시킨 것의 **정반대**로
+  // 걸었다. 걷는 그림은 멀쩡하니 화면만 봐서는 한참 못 알아챈다.
+  //
+  // "각도를 넣으면 그 각도가 저장되는가" 를 물으면 안 된다 — 그것은 보정을
+  // 지워도 통과한다. 몸이 **간 방향**을 재서 시킨 각도와 견준다.
+  {
+    const fwd = catalog.forwardRad;
+    n++;
+    if (typeof fwd !== 'number') g.fail('face/forward', '팩이 앞을 안 갖고 있다 — 다시 구워야 한다');
+
+    for (const deg of [0, 90, 180, 270]) {
+      const want = (deg * Math.PI) / 180;
+      const p = player.spawn({ clipId: 'walk-forward', headingRad: want });
+      const v0 = new THREE.Vector3();
+      const v1 = new THREE.Vector3();
+      player.update(0);
+      player.boneWorld(p, 'mixamorig:Hips', v0);
+      p.mixer.update(0.5);
+      player.boneWorld(p, 'mixamorig:Hips', v1);
+      const dx = v1.x - v0.x;
+      const dz = v1.z - v0.z;
+      const moved = Math.hypot(dx, dz);
+      n++;
+      if (moved < 0.1) { g.fail(`face/${deg}/still`, '반 초 동안 안 움직였다 — 방향을 잴 수가 없다'); continue; }
+      const got = Math.atan2(dx, dz);
+      const diff = angleDiff(got, want);   // ±π 를 넘어가는 자리를 접는다 (270° 와 -90° 는 같다)
+      n++;
+      if (diff > 0.09) {   // 5°
+        g.fail(`face/${deg}`,
+          `${deg}° 로 걸으라 했는데 ${((got * 180) / Math.PI).toFixed(1)}° 로 갔다 (${moved.toFixed(2)}m) — 리그의 앞 보정이 빠졌다`);
+      }
+    }
+
+    // 제자리 모드: **걷는데 안 나아간다.**
+    //
+    // 경로를 따라 걷게 하는 쪽이 쓰는 모드다. 여기서 안 멈추면 클립도 옮기고
+    // 쓰는 쪽도 옮겨서 두 번 간다.
+    const ip = player.spawn({ clipId: 'walk-forward', headingRad: 0, inPlace: true });
+    const a0 = player.boneWorld(ip, 'mixamorig:Hips', new THREE.Vector3());
+    const f0 = player.boneWorld(ip, 'mixamorig:LeftFoot', new THREE.Vector3());
+    ip.mixer.update(0.6);
+    const a1 = player.boneWorld(ip, 'mixamorig:Hips', new THREE.Vector3());
+    const f1 = player.boneWorld(ip, 'mixamorig:LeftFoot', new THREE.Vector3());
+    n++;
+    const drift = Math.hypot(a1.x - a0.x, a1.z - a0.z);
+    if (drift > 0.05) g.fail('inplace/drift', `제자리로 달랬는데 0.6s 에 ${drift.toFixed(3)}m 갔다`);
+    n++;
+    // 그런데 **다리는 움직여야** 한다. 트랙을 통째로 지우면 이 검사가 잡는다.
+    if (Math.abs(f1.y - f0.y) < 1e-3) {
+      g.fail('inplace/frozen', '제자리로 만들었더니 발도 안 움직인다 — 자세 트랙까지 지웠다');
+    }
+    n++;
+    // 제자리로 안 달라면 여전히 나아가야 한다 (기본값이 조용히 바뀌지 않게).
+    const tr = player.spawn({ clipId: 'walk-forward', headingRad: 0 });
+    const t0 = player.boneWorld(tr, 'mixamorig:Hips', new THREE.Vector3());
+    tr.mixer.update(0.6);
+    const t1 = player.boneWorld(tr, 'mixamorig:Hips', new THREE.Vector3());
+    if (Math.hypot(t1.x - t0.x, t1.z - t0.z) < 0.5) {
+      g.fail('inplace/default', '기본값인데 안 나아간다 — 제자리가 기본이 되어 버렸다');
+    }
+    console.log(`  [재생] 팩의 앞 ${((fwd * 180) / Math.PI).toFixed(0)}° · 네 방향으로 걸려 보고 실제 간 방향을 쟀다`);
   }
 
   console.log(`  [재생] three ${THREE.REVISION} · 클립 ${gltfs.size}개를 읽고 사람 ${player.people.length}명을 세웠다`);

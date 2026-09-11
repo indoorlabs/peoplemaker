@@ -88,8 +88,13 @@ const plan = planCrowd(want, 4, ['full', 'instanced']);
 
 // 3. 가까운 사람 — 사람마다 스킨 메시
 const player = createClipPlayer({ THREE, SkeletonUtils, catalog: pack.catalog, gltfOf: pack.gltfOf });
-const p = player.spawn({ clipId: 'walk-forward', position: [x, 0, z] });
-player.walkAt(p, 1.1);            // 원하는 속도 → 클립과 재생 속도를 골라 준다
+const p = player.spawn({ clipId: 'walk-forward', position: [x, 0, z], headingRad: h });
+const pick = player.walkAt(p, 1.1);   // 원하는 속도 → 클립과 재생 속도를 골라 준다
+
+// 경로를 따라 직접 옮길 거라면 클립은 제자리로 두고, **pick.effectiveMps 로**
+// 옮긴다. 다른 속도로 옮기면 발이 미끄러진다.
+const q = player.spawn({ clipId: 'walk-forward', inPlace: true });
+player.placeAt(q, [x, 0, z], headingRad);   // 프레임마다
 
 // 4. 먼 사람 — 구운 자세, 드로우콜 하나
 const atlas = bakeFromPack(pack);
@@ -104,6 +109,16 @@ crowd.update(dt);
 **배치·경로·활동 스케줄은 이 저장소가 안 한다** — 공간을 아는 쪽의 일이다.
 여기서 주는 것은 "이 사람이 지금 어떤 자세인가" 와 "몇 명까지 감당되는가" 다.
 
+### 방향
+
+`headingRad` 는 **세계에서 바라보는 쪽**이다 (0 = +Z, 시계 반대). 리그가
+어느 쪽을 보고 있는지는 팩이 **재서** 갖고 있고(`catalog.forwardRad`),
+어댑터가 그 차이를 흡수한다 — 쓰는 쪽은 리그의 사정을 알 필요가 없다.
+
+이것을 안 재던 때 사람들이 시킨 것의 정반대로 걸었다. 걷는 그림은 멀쩡해서
+화면만 봐서는 한참 못 알아챈다. 지금은 게이트가 네 방향으로 걸려 보고
+**실제로 간 방향**을 재서 견준다.
+
 ## 지금 어디까지 왔나
 
 `docs/plan-peoplemaker-ko.md` 의 P1 절반. 계약이 실물로 통과했다:
@@ -111,7 +126,8 @@ crowd.update(dt);
 ```
 클립 5개 (합성 기준 팩) → 재서 카탈로그 → three.js 가 읽고 사람을 세운다
 사람 여럿의 비용을 CPU·GPU 양쪽에서 재고, 드로우콜을 하나로 줄였다
-게이트 6개 · 검사 191
+리그의 앞을 재서, 시킨 쪽으로 실제로 걷는다 (제자리 재생도 같이)
+게이트 7개 · 검사 272
 
   200명 · 뼈 65   스킨드   드로우콜 201 · CPU 16.9ms · GPU 16.8ms
                   인스턴싱 드로우콜   2 · CPU 0.04ms · GPU 0.84ms

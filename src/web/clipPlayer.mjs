@@ -14,6 +14,15 @@
 import { pickWalkClip, contactsAt, durationAt } from '../lib/packRuntime.mjs';
 
 /**
+ * 뿌리 뼈의 **꼬리 이름** — three 안에서 찾을 때 쓴다.
+ *
+ * packBuild 의 ROOT_NODES 와 왜 다른가: 그쪽은 파일에 적힌 이름
+ * (`mixamorig:Hips`)을 보고, 여기는 three 가 콜론을 지운 뒤의 이름
+ * (`mixamorigHips`)을 본다. 끝으로 맞추면 둘 다 걸린다.
+ */
+const ROOT_TAIL = { mixamo: /Hips$/, vrm: /hips$/ };
+
+/**
  * 재생기 하나.
  *
  * @param THREE        three 모듈 (주입)
@@ -35,7 +44,7 @@ export function createClipPlayer({ THREE, SkeletonUtils, catalog, gltfOf }) {
    * 여럿을 세우면 전부 같은 자세로 움직인다. SkeletonUtils.clone 이 뼈까지
    * 복제한다. 이것을 모르고 하루를 쓰는 것이 이 층의 첫 함정이다.
    */
-  function spawn({ clipId, position = [0, 0, 0], headingRad = 0 }) {
+  function spawn({ clipId, position = [0, 0, 0], headingRad = 0, inPlace = false }) {
     const clip = byId.get(clipId);
     if (!clip) throw new Error(`카탈로그에 ${clipId} 가 없다`);
     const gltf = gltfOf(clipId);
@@ -43,15 +52,51 @@ export function createClipPlayer({ THREE, SkeletonUtils, catalog, gltfOf }) {
 
     const root = SkeletonUtils ? SkeletonUtils.clone(gltf.scene) : gltf.scene.clone(true);
     root.position.set(position[0], position[1], position[2]);
-    root.rotation.y = headingRad;
+    root.rotation.y = yawFor(headingRad);
 
     const mixer = new THREE.AnimationMixer(root);
-    const action = mixer.clipAction(gltf.animations[0]);
+    const action = mixer.clipAction(playableClip(gltf, inPlace));
     action.play();
 
-    const person = { root, mixer, action, clip, timeScale: 1, clipId };
+    const person = { root, mixer, action, clip, timeScale: 1, clipId, inPlace, headingRad };
     people.push(person);
     return person;
+  }
+
+  /**
+   * 세계에서 이쪽을 보게 하려면 몸을 얼마나 돌려야 하는가.
+   *
+   * 리그의 앞이 어디인지는 **팩이 재서 갖고 있다** (catalog.forwardRad).
+   * 이 기준 팩은 -Z 를 본다. 그것을 빼 주지 않으면 "북쪽으로 걸어" 가
+   * 남쪽으로 걷는 것이 되고, 화면에서는 멀쩡히 걷고 있어서 한참 못 본다.
+   *
+   * 못 잰 팩(이동 클립이 없는 팩)은 null 이다 — 그때는 안 건드린다.
+   */
+  function yawFor(headingRad) {
+    const f = catalog.forwardRad;
+    return typeof f === 'number' ? headingRad - f : headingRad;
+  }
+
+  /**
+   * 틀 클립 — 제자리로 달라면 뿌리의 이동 트랙을 뺀다.
+   *
+   * 경로를 따라 걷게 할 때 필요하다. 클립이 제 힘으로 나아가는데 쓰는 쪽도
+   * 옮기면 **두 번 간다**. 반대로 그냥 두면 사람이 경로를 벗어나 흘러간다
+   * (지금 spacemaker 가 그 상태였다 — 1.2m/s 로 떠내려가고 있었다).
+   *
+   * 원본 AnimationClip 은 건드리지 않는다. 같은 GLB 를 다른 사람이 쓰고
+   * 있고, 트랙을 지우면 그 사람들까지 제자리가 된다.
+   */
+  function playableClip(gltf, inPlace) {
+    const src = gltf.animations[0];
+    if (!inPlace) return src;
+    const tail = ROOT_TAIL[catalog.skeleton] || ROOT_TAIL.mixamo;
+    const tracks = src.tracks.filter((t) => {
+      const [node, prop] = t.name.split('.');
+      return !(prop === 'position' && tail.test(node));
+    });
+    if (tracks.length === src.tracks.length) return src;   // 뺄 것이 없었다
+    return new THREE.AnimationClip(`${src.name}__inplace`, src.duration, tracks);
   }
 
   /** 이 사람을 이 속도로 걷게 — 어느 클립을 얼마로 돌릴지는 순수 층이 정한다. */
@@ -62,7 +107,7 @@ export function createClipPlayer({ THREE, SkeletonUtils, catalog, gltfOf }) {
       const gltf = gltfOf(pick.clipId);
       if (!gltf) throw new Error(`${pick.clipId} 의 GLB 가 없다`);
       person.action.stop();
-      person.action = person.mixer.clipAction(gltf.animations[0]);
+      person.action = person.mixer.clipAction(playableClip(gltf, person.inPlace));
       person.action.play();
       person.clipId = pick.clipId;
       person.clip = byId.get(pick.clipId);
@@ -117,5 +162,19 @@ export function createClipPlayer({ THREE, SkeletonUtils, catalog, gltfOf }) {
     return bone.getWorldPosition(v);
   }
 
-  return { spawn, walkAt, update, timeOf, contactsOf, cycleOf, boneWorld, resolveBone, people };
+  /**
+   * 이 사람을 여기에, 이쪽을 보게 둔다.
+   *
+   * 경로를 따라 걷게 하는 쪽이 프레임마다 부른다. 리그의 앞 보정을 여기서
+   * 하므로, 쓰는 쪽은 세계의 방향만 알면 된다.
+   */
+  function placeAt(person, position, headingRad) {
+    if (position) person.root.position.set(position[0], position[1] || 0, position[2]);
+    if (typeof headingRad === 'number') {
+      person.headingRad = headingRad;
+      person.root.rotation.y = yawFor(headingRad);
+    }
+  }
+
+  return { spawn, walkAt, update, timeOf, contactsOf, cycleOf, boneWorld, resolveBone, placeAt, yawFor, people };
 }

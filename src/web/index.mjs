@@ -89,7 +89,12 @@ export function bakeFromPack(pack, clipIds) {
     if (!buf) throw new Error(`${id} 의 원본이 없다`);
     return { id, baked: bakeClip(parseGLB(new Uint8Array(buf))) };
   });
-  return bakeAtlas(entries);
+  const atlas = bakeAtlas(entries);
+  // **앞을 같이 들려 보낸다.** 인스턴싱 쪽은 카탈로그를 안 보고 아틀라스만
+  // 받으므로, 여기서 안 넘기면 먼 사람만 반대로 선다 — 가까운 사람과 먼
+  // 사람이 서로 다른 쪽을 보는 화면이 된다.
+  atlas.forwardRad = pack.catalog.forwardRad ?? null;
+  return atlas;
 }
 
 /** 이 팩의 기하 하나 — 인스턴싱에 넘길 살. */

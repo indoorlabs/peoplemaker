@@ -168,6 +168,32 @@ runGate('check-surface', async (g) => {
           if (crowd) {
             n++;
             if (!(crowd.rowOf(0) >= atlas.clips[0].row)) g.fail('crowd/row', '재생 위치가 클립 밖이다');
+
+            // ── 먼 사람도 같은 쪽을 보는가 ──
+            //
+            // 인스턴싱 쪽은 카탈로그를 안 보고 아틀라스만 받는다. 앞 보정을
+            // 여기로 안 넘기면 **가까운 사람과 먼 사람이 서로 반대를 본다** —
+            // 단계가 바뀌는 거리에서 사람이 홱 도는 화면이 된다.
+            n++;
+            if (atlas.forwardRad !== pack.catalog.forwardRad) {
+              g.fail('crowd/forward-carry', `아틀라스가 팩의 앞을 안 갖고 왔다 (${atlas.forwardRad} ≠ ${pack.catalog.forwardRad})`);
+            }
+            for (const deg of [0, 90, 210]) {
+              n++;
+              const want = (deg * Math.PI) / 180;
+              crowd.place(0, { position: [0, 0, 0], headingRad: want, clipId: 'walk-forward' });
+              const m = new THREE.Matrix4();
+              crowd.mesh.getMatrixAt(0, m);
+              const yaw = new THREE.Euler().setFromRotationMatrix(m, 'YXZ').y;
+              // 재생기가 같은 각도에 대해 내는 회전과 견준다 — 두 길이 같은
+              // 셈을 하는지를 묻는 것이지, 어느 한쪽이 맞는지를 묻는 게 아니다.
+              const wantYaw = want - pack.catalog.forwardRad;
+              const d = Math.abs(Math.atan2(Math.sin(yaw - wantYaw), Math.cos(yaw - wantYaw)));
+              if (d > 0.02) {
+                g.fail(`crowd/forward/${deg}`,
+                  `${deg}° 로 놓았는데 인스턴싱의 회전이 ${((yaw * 180) / Math.PI).toFixed(1)}° 다 (${((wantYaw * 180) / Math.PI).toFixed(1)}° 여야) — 가까운 사람과 반대를 본다`);
+              }
+            }
             crowd.dispose();
           }
         }

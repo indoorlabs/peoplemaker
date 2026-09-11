@@ -12,7 +12,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { runGate, ROOT } from './gate-lib.mjs';
 import { parseGLB } from '../src/lib/gltf.mjs';
-import { deriveClip, TRAVEL_MIN_MPS, PLANT_MAX_Y_M, MEASURED_FIELDS } from '../src/lib/packBuild.mjs';
+import {
+  deriveClip, TRAVEL_MIN_MPS, PLANT_MAX_Y_M, MEASURED_FIELDS,
+  packForwardRad, angleDiff, FORWARD_AGREE_RAD,
+} from '../src/lib/packBuild.mjs';
 import { FIXTURES, buildGLB } from '../src/lib/fixtureRig.mjs';
 
 /** 사양 하나를 만들어 바로 재 본다 — 파일을 안 거친다. */
@@ -164,6 +167,51 @@ runGate('check-build', (g) => {
       }
       console.log(`  [팩] ${p}: 클립 ${(cat.clips || []).length}개가 지금 코드와 같은 값인지 확인했다`);
     }
+  }
+
+  // ── 진행 방향을 **재는가** ──
+  //
+  // "값이 있는가" 로는 모자란다 — 상수를 박아도 통과한다. 클립을 여러
+  // 방향으로 만들어 놓고, 잰 값이 **따라오는지**를 본다.
+  {
+    for (const deg of [180, 0, 90, -45]) {
+      n++;
+      const want = (deg * Math.PI) / 180;
+      const clip = roundTrip({ id: `dir${deg}`, durationS: 1.2, speedMps: 1.35, cycles: 1, kind: 'walk', travelRad: want });
+      if (clip.rootMotion !== 'travel') { g.fail(`dir/${deg}/kind`, `${deg}° 클립이 이동으로 안 잡힌다`); continue; }
+      n++;
+      if (angleDiff(clip.travelHeadingRad, want) > 0.02) {
+        g.fail(`dir/${deg}`,
+          `${deg}° 로 만든 클립을 ${((clip.travelHeadingRad * 180) / Math.PI).toFixed(1)}° 로 잰다`);
+      }
+      n++;
+      // 방향이 달라도 **속도는 같아야** 한다 — 한쪽 축만 보고 재면 여기서 터진다.
+      if (Math.abs(clip.speedMps - 1.35) > 0.02) {
+        g.fail(`dir/${deg}/speed`, `방향을 바꿨더니 속도가 ${clip.speedMps} 로 나온다`);
+      }
+    }
+
+    // 팩의 앞 — 갈리면 조용히 평균 내지 말고 멈춰야 한다.
+    const mk = (id, rad) => ({ id, rootMotion: 'travel', travelHeadingRad: rad });
+    n++;
+    if (packForwardRad([mk('a', Math.PI), mk('b', Math.PI + 0.05)]) === null) {
+      g.fail('forward/agree', '방향이 같은 클립들인데 앞을 못 정한다');
+    }
+    n++;
+    let threw = false;
+    try { packForwardRad([mk('a', Math.PI), mk('b', Math.PI / 2)]); } catch { threw = true; }
+    if (!threw) g.fail('forward/disagree', '옆걸음이 섞였는데 조용히 하나를 고른다');
+    n++;
+    // 문턱 바로 안쪽은 통과해야 한다 — 아무 차이나 막으면 손으로 만든
+    // 클립의 흔들림에 매번 걸린다.
+    if (packForwardRad([mk('a', 0), mk('b', FORWARD_AGREE_RAD * 0.9)]) === null) {
+      g.fail('forward/tolerance', '문턱 안쪽인데 막는다');
+    }
+    n++;
+    if (packForwardRad([{ id: 'x', rootMotion: 'in-place' }]) !== null) {
+      g.fail('forward/none', '이동 클립이 없는데 앞을 지어낸다');
+    }
+    console.log('  [재기] 네 방향으로 만든 클립의 진행 방향을 되찾고, 갈릴 때 멈추는지 확인했다');
   }
 
   console.log(`  [재기] 이동 문턱 ${TRAVEL_MIN_MPS}m/s · 접촉 문턱 ${PLANT_MAX_Y_M}m`);
