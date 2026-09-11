@@ -273,6 +273,53 @@ runGate('check-player', async (g) => {
     if (Math.hypot(t1.x - t0.x, t1.z - t0.z) < 0.5) {
       g.fail('inplace/default', '기본값인데 안 나아간다 — 제자리가 기본이 되어 버렸다');
     }
+    // 클립 갈아 끼우기 — 멈춘 사람을 세워 두는 길.
+    {
+      const q = player.spawn({ clipId: 'walk-forward', inPlace: true });
+      n++;
+      if (q.clipId !== 'walk-forward') g.fail('playClip/spawn', '세울 때 클립이 안 맞는다');
+      player.playClip(q, 'idle');
+      n++;
+      if (q.clipId !== 'idle') g.fail('playClip/switch', '클립을 안 바꾼다');
+      // 발이 얼마나 오르내리는가 — **여러 번 재서 폭을 본다.**
+      // 두 시점만 견주면 우연히 같은 높이를 잡는다. 실제로 그래서 이
+      // 검사가 돌연변이를 놓쳤다.
+      const footSwing = (person, seconds = 0.6, steps = 8) => {
+        let lo = Infinity;
+        let hi = -Infinity;
+        for (let i = 0; i < steps; i++) {
+          person.mixer.update(seconds / steps);
+          const y = player.boneWorld(person, 'mixamorig:LeftFoot', new THREE.Vector3()).y;
+          if (y < lo) lo = y;
+          if (y > hi) hi = y;
+        }
+        return hi - lo;
+      };
+      n++;
+      const idleSwing = footSwing(q);
+      if (idleSwing > 0.03) {
+        g.fail('playClip/still-walking', `서 있는 클립으로 바꿨는데 발이 ${idleSwing.toFixed(3)}m 오르내린다 — 옛 액션이 계속 돈다`);
+      }
+      n++;
+      // 견줄 자 — 걷는 사람은 확실히 움직인다. 이게 없으면 위 검사가 "발이
+      // 원래 안 움직인다" 로도 통과한다.
+      const walker = player.spawn({ clipId: 'walk-forward', inPlace: true });
+      const walkSwing = footSwing(walker);
+      if (!(walkSwing > idleSwing * 3 + 0.03)) {
+        g.fail('playClip/no-contrast', `걷는 사람의 발 폭 ${walkSwing.toFixed(3)}m 가 선 사람 ${idleSwing.toFixed(3)}m 와 안 갈린다`);
+      }
+      n++;
+      // 같은 클립을 다시 주면 **재생 위치가 그대로여야** 한다. 프레임마다
+      // 부르는 자리라, 여기서 되감기면 사람이 첫 자세에서 떤다.
+      q.mixer.update(0.37);
+      const tBefore = q.action.time;
+      const actionBefore = q.action;
+      player.playClip(q, 'idle');
+      if (q.action !== actionBefore || Math.abs(q.action.time - tBefore) > 1e-6) {
+        g.fail('playClip/noop', `같은 클립인데 다시 갈아 끼운다 (재생 위치 ${tBefore.toFixed(3)} → ${q.action.time.toFixed(3)})`);
+      }
+    }
+
     console.log(`  [재생] 팩의 앞 ${((fwd * 180) / Math.PI).toFixed(0)}° · 네 방향으로 걸려 보고 실제 간 방향을 쟀다`);
   }
 

@@ -99,19 +99,33 @@ export function createClipPlayer({ THREE, SkeletonUtils, catalog, gltfOf }) {
     return new THREE.AnimationClip(`${src.name}__inplace`, src.duration, tracks);
   }
 
+  /**
+   * 이 사람이 트는 클립을 바꾼다.
+   *
+   * 멈춘 사람을 세워 두려면 필요하다 — 걷는 클립의 재생 속도를 0 으로
+   * 만들면 **걷다 만 자세로 굳는다**. 서 있는 사람은 서 있는 클립을 틀어야
+   * 한다. 같은 클립이면 아무것도 안 한다 (프레임마다 불러도 된다).
+   */
+  function playClip(person, clipId) {
+    if (person.clipId === clipId) return person;
+    const clip = byId.get(clipId);
+    if (!clip) throw new Error(`카탈로그에 ${clipId} 가 없다`);
+    const gltf = gltfOf(clipId);
+    if (!gltf) throw new Error(`${clipId} 의 GLB 가 없다`);
+    person.action.stop();
+    person.action = person.mixer.clipAction(playableClip(gltf, person.inPlace));
+    person.action.play();
+    person.action.timeScale = person.timeScale;
+    person.clipId = clipId;
+    person.clip = clip;
+    return person;
+  }
+
   /** 이 사람을 이 속도로 걷게 — 어느 클립을 얼마로 돌릴지는 순수 층이 정한다. */
   function walkAt(person, desiredMps) {
     const pick = pickWalkClip(catalog, desiredMps);
     if (!pick) return null;
-    if (pick.clipId !== person.clipId) {
-      const gltf = gltfOf(pick.clipId);
-      if (!gltf) throw new Error(`${pick.clipId} 의 GLB 가 없다`);
-      person.action.stop();
-      person.action = person.mixer.clipAction(playableClip(gltf, person.inPlace));
-      person.action.play();
-      person.clipId = pick.clipId;
-      person.clip = byId.get(pick.clipId);
-    }
+    playClip(person, pick.clipId);
     person.timeScale = pick.timeScale;
     person.action.timeScale = pick.timeScale;
     return pick;
@@ -176,5 +190,5 @@ export function createClipPlayer({ THREE, SkeletonUtils, catalog, gltfOf }) {
     }
   }
 
-  return { spawn, walkAt, update, timeOf, contactsOf, cycleOf, boneWorld, resolveBone, placeAt, yawFor, people };
+  return { spawn, walkAt, playClip, update, timeOf, contactsOf, cycleOf, boneWorld, resolveBone, placeAt, yawFor, people };
 }
