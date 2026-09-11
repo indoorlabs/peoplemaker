@@ -99,8 +99,8 @@ const CAST = [
   // 앞쪽 대화 한 쌍
   { who: 'm', clip: 'talk', at: [-1.2, 1.6], face: deg(80) },
   { who: 'f', clip: 'listen', at: [-0.1, 1.8], face: deg(-100) },
-  // 혼자 휴대폰
-  { who: 'f', clip: 'phone', at: [4.4, 1.2], face: deg(-20) },
+  // 혼자 통화
+  { who: 'f', clip: 'phone-call', at: [4.4, 1.2], face: deg(-20) },   // 남자 동작을 옮겨 붙인 것 (scripts/retarget.mjs)
   // 그림을 찍는 사람
   { who: 'm', clip: 'photo', at: [-4.6, -1.0], face: deg(-90) },
   // 손 흔드는 사람 — 걸어오는 사람에게

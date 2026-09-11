@@ -42,7 +42,8 @@ const PRESETS = {
  * 제자리 동작 — 인물마다 f_/m_ 가 붙는다. Rocketbox 에는 제자리 동작이 326개
  * 있다 (Animations/all_animations_max_motextr_static). 여기 둔 것은 사람이
  * 공간에 있을 때 흔한 것만이다. 여자 쪽에는 전화 통화(cell_phone_talk)가
- * 없어서 둘 다 문자 보내기로 맞췄다.
+ * 없어서 둘 다 문자 보내기로 맞췄고, 통화는 남자 쪽에만 받는다(only) —
+ * 여자 몸에는 scripts/retarget.mjs 로 옮겨 붙인다.
  */
 const EXTRAS = [
   { id: 'talk', anim: 'gestic_talk_neutral_01', ko: '말하기', en: 'Talk', tags: ['talk', 'social'] },
@@ -51,6 +52,7 @@ const EXTRAS = [
   { id: 'wave', anim: 'wave_01', ko: '손 흔들기', en: 'Wave', tags: ['wave', 'social'] },
   { id: 'look-around', anim: 'idle_look_around_01', ko: '둘러보기', en: 'Look around', tags: ['idle'] },
   { id: 'photo', anim: 'take_picture', ko: '사진 찍기', en: 'Take a picture', tags: ['photo'] },
+  { id: 'phone-call', anim: 'cell_phone_talk_01', ko: '전화 통화', en: 'Phone call', tags: ['phone', 'talk'], only: 'm' },
 ];
 
 const [packId, argAvatar, argWalk, argIdle] = process.argv.slice(2);
@@ -285,7 +287,7 @@ const idleGlb = fbx2glb(idleFbx, path.join(CACHE, 'anims', idle));
 // 제자리 동작의 앞글자(f_/m_)는 걷기 클립 이름에서 읽는다 — 인물과 같은 쪽이다.
 const sex = /^([fm])_/.exec(walk)?.[1];
 const extras = [];
-for (const x of sex ? EXTRAS : []) {
+for (const x of sex ? EXTRAS.filter((e) => !e.only || e.only === sex) : []) {
   const file = `${sex}_${x.anim}`;
   const fbx = await fetchTo(`Animations/all_animations_max_motextr_static/${file}.max.fbx`, path.join(CACHE, 'anims', `${file}.max.fbx`));
   extras.push({ ...x, file, glb: fbx2glb(fbx, path.join(CACHE, 'anims', file)) });

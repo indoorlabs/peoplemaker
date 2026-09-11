@@ -115,6 +115,22 @@ crowd.update(dt);
 **배치·경로·활동 스케줄은 이 저장소가 안 한다** — 공간을 아는 쪽의 일이다.
 여기서 주는 것은 "이 사람이 지금 어떤 자세인가" 와 "몇 명까지 감당되는가" 다.
 
+### 동작 옮기기 (retarget)
+
+동작 하나를 다른 몸으로 옮겨 그 팩의 클립으로 넣는다. 뼈 이름·국소 축·
+비율·쉬는 자세(T/A)·앞이 달라도 **뼈가 가리키는 방향**을 맞추고, 몸 전체의
+이동은 엉덩이 높이 비로 줄이거나 늘린다. 뼈 길이는 대상 몸의 것을 지킨다.
+
+```sh
+# 여자 01 에게 없는 전화 통화를 남자 01 에게서
+node scripts/retarget.mjs packs/rocketbox-m01/clips/phone-call.glb rocketbox-f01 phone-call \
+     --ko "전화 통화 (여자 01)" --en "Phone call (woman 01)"
+```
+
+지금 아는 규약은 `biped`(Rocketbox)·`mixamo` 다. 원본이 팩 밖의 파일이면
+`--license` 와 `--tool` 을 줘야 한다 — 옮겼다고 라이선스가 바뀌지는 않는다.
+게이트: `scripts/check-retarget.mjs`.
+
 ### 방향
 
 `headingRad` 는 **세계에서 바라보는 쪽**이다 (0 = +Z, 시계 반대). 리그가
