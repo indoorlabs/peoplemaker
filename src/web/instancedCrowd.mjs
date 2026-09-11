@@ -145,6 +145,17 @@ export function createInstancedCrowd({ THREE, geometry, atlas, count, color = 0x
     mesh.instanceMatrix.needsUpdate = true;
   }
 
+  /**
+   * 이 사람의 재생 속도만 바꾼다 — 재생 시각도 자리도 안 건드린다.
+   *
+   * 경로에서 앞이 막혀 늦춰질 때 쓴다. 땅 위를 가는 속도와 재생 속도가
+   * 따로 놀면 발이 미끄러지고, 아주 막혔는데 다리만 움직이면 **제자리에서
+   * 걷는 사람**이 된다 — 멀리서도 그건 눈에 띈다.
+   */
+  function setSpeed(i, timeScale) {
+    state[i].speed = timeScale;
+  }
+
   /** 시간을 흘린다. */
   function update(dtS) {
     for (let i = 0; i < count; i++) {
@@ -166,5 +177,5 @@ export function createInstancedCrowd({ THREE, geometry, atlas, count, color = 0x
     mesh.dispose();
   }
 
-  return { mesh, place, moveTo, update, rowOf, dispose, textureSize: textureSize({ bones: atlas.bones, frames: atlas.height }) };
+  return { mesh, place, moveTo, setSpeed, update, rowOf, dispose, textureSize: textureSize({ bones: atlas.bones, frames: atlas.height }) };
 }

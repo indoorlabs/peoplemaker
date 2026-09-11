@@ -230,6 +230,30 @@ runGate('check-surface', async (g) => {
               g.fail('crowd/place-resets', 'place 가 재생 시각을 안 되돌린다 — 두 길의 차이가 없다');
             }
 
+            // ── 재생 속도만 바꾸기 ──
+            //
+            // 막혀서 멈춘 사람이 다리만 움직이면 제자리걸음이 된다. 0 을
+            // 주면 정말 안 흘러야 하고, 두 배를 주면 두 배로 흘러야 한다.
+            crowd.place(0, { position: [0, 0, 0], clipId: 'walk-forward', timeOffsetS: 0, timeScale: 1 });
+            crowd.update(0.2);
+            const rowMoving = crowd.rowOf(0);
+            crowd.setSpeed(0, 0);
+            crowd.update(0.2);
+            n++;
+            if (crowd.rowOf(0) !== rowMoving) g.fail('crowd/setSpeed-zero', '0 을 줬는데 재생이 계속 흐른다 — 멈춘 사람이 제자리걸음을 한다');
+            crowd.setSpeed(0, 2);
+            crowd.update(0.1);
+            const rowFast = crowd.rowOf(0);
+            // 0번은 0.2s 에서 2배로 0.1s → 0.4s 에 있다. 1번을 0.3s 에 놓고
+            // 1배로 0.1s 흘리면 같은 0.4s 다 (마지막 update 가 둘 다 흘린다는
+            // 것을 안 세서 처음에 이 검사가 틀렸다).
+            crowd.place(1, { position: [0, 0, 0], clipId: 'walk-forward', timeOffsetS: 0.3, timeScale: 1 });
+            crowd.update(0.1);
+            n++;
+            if (rowFast !== crowd.rowOf(1)) {
+              g.fail('crowd/setSpeed-scale', `두 배로 줬는데 흐른 양이 다르다 (${rowFast} ≠ ${crowd.rowOf(1)})`);
+            }
+
             crowd.dispose();
           }
         }
