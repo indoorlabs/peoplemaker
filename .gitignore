@@ -15,3 +15,9 @@ packs/*/clips/*.glb
 __pycache__
 *.pyc
 .venv
+
+# Rocketbox 등 원본 자산 캐시 — import 스크립트가 받아 두는 곳. 저장소에 안 올린다.
+packs/.cache/
+# Rocketbox 팩 — scripts/import-rocketbox.mjs 로 다시 만든다. 클립 GLB 는 원래 무시되므로
+# 설명 파일만 올리면 CI 가 클립이 없다고 실패한다.
+packs/rocketbox-*/
