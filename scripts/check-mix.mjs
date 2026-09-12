@@ -201,22 +201,39 @@ runGate('check-mix', async (g) => {
     const t = PACK_MEASURED.rocketbox;
     const mixed = t.instancedLod.mixed;
     n++;
-    if (!mixed?.points?.length || mixed.points.length < 3) {
-      g.fail('table/points', '섞어 잰 점이 셋도 안 된다');
-    } else {
+    if (!(mixed?.measured?.length >= 2)) {
+      g.fail('table/rows', '몸 가짓수를 하나로만 쟀다 — 가짓수가 값에 얼마나 드는지 못 본다');
+    }
+    for (const row of mixed?.measured || []) {
       n++;
-      for (let i = 1; i < mixed.points.length; i++) {
-        if (!(mixed.points[i].frameMs > mixed.points[i - 1].frameMs)) {
-          g.fail('table/monotonic', `${mixed.points[i].people}명이 앞보다 안 비싸다`);
+      if (!(row.points?.length >= 3)) g.fail(`table/points/${row.kinds}`, '점이 셋도 안 된다');
+      n++;
+      for (let i = 1; i < (row.points || []).length; i++) {
+        if (!(row.points[i].frameMs > row.points[i - 1].frameMs)) {
+          g.fail(`table/monotonic/${row.kinds}`, `${row.points[i].people}명이 앞보다 안 비싸다`);
         }
       }
       n++;
-      if (!mixed.points.every((p) => p.drawCalls > t.instancedLod.points[0].drawCalls)) {
-        g.fail('table/draws', '섞었는데 드로우콜이 안 늘었다 — 몸마다 하나씩 늘어야 한다');
+      if (!(row.kindIds?.length === row.kinds)) {
+        g.fail(`table/kindids/${row.kinds}`, `어떤 몸 ${row.kinds}개를 섞어 쟀는지가 안 맞는다`);
       }
       n++;
-      if (!(mixed.kinds?.length >= 2)) g.fail('table/kinds', '어떤 몸들을 섞어 쟀는지가 없다');
+      if (!row.points?.every((p) => p.drawCalls === row.kinds + 1)) {
+        g.fail(`table/draws/${row.kinds}`, `드로우콜이 몸 ${row.kinds}개 + 바닥 하나가 아니다`);
+      }
     }
+    n++;
+    // **가짓수가 늘면 비싸져야 한다** — 같은 사람 수에서.
+    const rows = [...(mixed?.measured || [])].sort((a, b) => a.kinds - b.kinds);
+    for (let i = 1; i < rows.length; i++) {
+      const at = (row, k) => frameMsAt(row.points, k).ms;
+      if (!(at(rows[i], 200) > at(rows[i - 1], 200))) {
+        g.fail('table/kinds-cost', `200명에서 몸 ${rows[i].kinds}개가 ${rows[i - 1].kinds}개보다 안 비싸다`);
+      }
+    }
+    n++;
+    // 고정비를 적어 뒀는가 — 몸 하나가 얼마인지가 값이다.
+    if (!(mixed?.perKindMs > 0)) g.fail('table/perkind', '몸 하나 느는 값이 표에 없다');
     n++;
     // 섞어도 예산 안 사람 수가 크게 안 줄어야 한다 — 그것이 이 길을 고른 까닭이다.
     const one = planCrowdMeasured(5000, 4, t, ['full', 'instancedLod']);
@@ -228,8 +245,20 @@ runGate('check-mix', async (g) => {
     n++;
     if (two.ms > 4 + 1e-9) g.fail('plan/mixed-budget', `예산 4ms 인데 ${two.ms}ms 를 쓴다`);
     n++;
-    if (two.kinds !== 2 || two.mixedMeasured !== true) {
-      g.fail('plan/mixed-says', '섞어 세운다고 했는데 결과가 그 말을 안 한다');
+    if (two.kinds !== 2 || two.mixedMeasured !== 2) {
+      g.fail('plan/mixed-says', `섞어 세운다고 했는데 결과가 ${two.mixedMeasured} 로 잰 표를 썼다고 한다`);
+    }
+    n++;
+    // **물어본 수 이하로 가장 가까운 표**를 쓰는가 — 넷을 물으면 둘로 잰 표다.
+    const four = planCrowdMeasured(5000, 4, t, ['full', 'instancedLod'], { kinds: 4 });
+    if (four.mixedMeasured !== 2) g.fail('plan/nearest', `넷을 물었는데 ${four.mixedMeasured} 로 잰 표를 썼다`);
+    n++;
+    const six = planCrowdMeasured(5000, 4, t, ['full', 'instancedLod'], { kinds: 6 });
+    if (six.mixedMeasured !== 6) g.fail('plan/exact', `여섯을 물었는데 ${six.mixedMeasured} 로 잰 표를 썼다`);
+    n++;
+    // 여섯이 둘보다 사람이 적게 서야 한다 — 고정비가 늘었으므로.
+    if (!(stood(six) < stood(two))) {
+      g.fail('plan/kinds-fewer', `몸 여섯(${stood(six)}명)이 둘(${stood(two)}명)보다 적게 안 선다`);
     }
     n++;
     // 섞어 잰 표가 없는 팩이면 **없다고 말해야** 한다 — 한 몸 표를 슬쩍 쓰지 않는다.
@@ -239,12 +268,14 @@ runGate('check-mix', async (g) => {
     }
     n++;
     // 셈이 표를 따라가는가.
-    for (const p of mixed.points) {
-      if (Math.abs(frameMsAt(mixed.points, p.people).ms - p.frameMs) > 1e-6) {
-        g.fail('table/at-point', `${p.people}명을 표와 다르게 센다`);
+    for (const row of mixed.measured) {
+      for (const p of row.points) {
+        if (Math.abs(frameMsAt(row.points, p.people).ms - p.frameMs) > 1e-6) {
+          g.fail('table/at-point', `몸 ${row.kinds}개 · ${p.people}명을 표와 다르게 센다`);
+        }
       }
     }
-    console.log(`  [섞기] 4ms · 5,000명 요청 → 한 몸 ${stood(one)}명(드로우콜 1) · 두 몸 ${stood(two)}명(드로우콜 2)`);
+    console.log(`  [섞기] 4ms · 5,000명 요청 → 한 몸 ${stood(one)}명 · 두 몸 ${stood(two)}명 · 여섯 몸 ${stood(six)}명 (드로우콜 1·2·6)`);
   }
 
   return n;

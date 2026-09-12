@@ -38,6 +38,10 @@ const CACHE = path.join(ROOT, 'packs', '.cache', 'rocketbox');
 const PRESETS = {
   'rocketbox-f01': { avatar: 'Adults/Female_Adult_01', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '여자 01', en: 'woman 01', tags: ['female', 'adult'] },
   'rocketbox-m01': { avatar: 'Adults/Male_Adult_01', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '남자 01', en: 'man 01', tags: ['male', 'adult'] },
+  'rocketbox-f02': { avatar: 'Adults/Female_Adult_02', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '여자 02', en: 'woman 02', tags: ['female', 'adult'] },
+  'rocketbox-m02': { avatar: 'Adults/Male_Adult_02', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '남자 02', en: 'man 02', tags: ['male', 'adult'] },
+  'rocketbox-business-f01': { avatar: 'Professions/Business_Female_01', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '정장 여자 01', en: 'business woman 01', tags: ['female', 'adult', 'business'] },
+  'rocketbox-business-m01': { avatar: 'Professions/Business_Male_01', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '정장 남자 01', en: 'business man 01', tags: ['male', 'adult', 'business'] },
 };
 
 /**

@@ -295,7 +295,7 @@ window.__gpuBench = async (frames = 60) => {
 
 const s = window.__crowdStats();
 hud.textContent = [
-  `팩 ${packId} · ${mode}`,
+  mixed ? `팩 ${packIds.length}개 · ${mode} (${mixed.counts.join('+')}명)` : `팩 ${packId} · ${mode}`,
   `사람 ${s.사람}  뼈 ${s.뼈}/인  총 ${s.총뼈.toLocaleString()}`,
   `몸 정점 ${s.몸정점}  드로우콜 ${s.드로우콜}`,
   '',

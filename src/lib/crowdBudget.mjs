@@ -387,32 +387,58 @@ export const PACK_MEASURED = {
       /**
        * **몸을 섞었을 때** — 팩마다 군중 하나 (web/mixedCrowd.mjs).
        *
-       * 한 팩이 한 사람이라, 먼 군중이 같은 사람 수천 명이었다. 몸이 둘이면
-       * InstancedMesh 도 둘이다 — 인스턴스들은 같은 기하를 나눠 쓰는 것이
+       * 한 팩이 한 사람이라, 먼 군중이 같은 사람 수천 명이었다. 몸이 여럿이면
+       * InstancedMesh 도 여럿이다 — 인스턴스들은 같은 기하를 나눠 쓰는 것이
        * 드로우콜을 줄인 방법 자체라, 한 군중에 몸 둘을 넣을 길이 없다.
        *
-       *   사람    몸 하나   몸 둘   드로우콜
-       *    200     0.95     1.00    2 → 3
-       *   1000     1.37     1.52    2 → 3
-       *   5000     5.57     5.23    2 → 3
+       *   사람    몸 하나   몸 둘   몸 여섯   드로우콜
+       *    200     0.95     1.00     1.16    2 · 3 · 7
+       *   1000     1.37     1.52     1.93
+       *   5000     5.57     5.23     5.56
        *
-       * **예산 안 사람 수가 안 줄었다** (3,623 → 3,670). 값은 삼각형을 따라
-       * 가고, 여자 01 의 줄인 살(2,016)보다 남자 01 이 가벼워서(1,748) 5,000명
-       * 에서는 섞은 쪽이 오히려 쌌다. 드로우콜 하나가 느는 것이 대가다.
+       * **몸 가짓수는 고정비로 들어온다.** 200명에서 몸이 하나 늘 때마다
+       * 0.04ms 다 ((1.162 − 0.951) / 5). 사람 수에 붙는 값이 아니라, 시작할 때
+       * 한 번 치르는 값이다 — 드로우콜과 버퍼 바꿔 끼우기 몫이다.
+       *
+       *   4ms 예산:  몸 하나 3,623명 · 둘 3,671명 · 여섯 3,284명
+       *
+       * 둘일 때 오히려 는 것은 남자 01 의 줄인 살(삼각형 1,748)이 여자
+       * 01(2,016)보다 가볍기 때문이다. 값은 사람 수가 아니라 **삼각형**을
+       * 따라가고, 몸 가짓수는 그 위에 얇게 얹힌다.
        *
        * 몸 둘을 한 기하에 이어 붙이는 길은 안 간다 — 그러면 **모든 사람이
        * 모든 몸의 정점 값을 치른다** (5,000명 × 몸 둘 = 정점 두 배).
        */
       mixed: {
-        kinds: ['rocketbox-f01', 'rocketbox-m01'],
         date: '2026-09-12',
-        points: [
-          { people: 200, drawCalls: 3, frameMs: 1.002 },
-          { people: 1000, drawCalls: 3, frameMs: 1.520 },
-          { people: 5000, drawCalls: 3, frameMs: 5.234 },
+        perKindMs: 0.042,     // 몸 하나 더 늘 때의 고정비 (200명에서 잰 기울기)
+        // 몸 가짓수마다 따로 잰다. 셈하는 쪽은 **물어본 수 이하로 가장 가까운**
+        // 것을 쓰고, 그것이 몇 가지로 잰 표인지 말한다 — 여섯으로 잰 표를
+        // 스무 가지에 슬쩍 쓰면 예산이 거짓말한다.
+        measured: [
+          {
+            kinds: 2,
+            kindIds: ['rocketbox-f01', 'rocketbox-m01'],
+            buildMs: 500,
+            points: [
+              { people: 200, drawCalls: 3, frameMs: 1.002 },
+              { people: 1000, drawCalls: 3, frameMs: 1.520 },
+              { people: 5000, drawCalls: 3, frameMs: 5.234 },
+            ],
+          },
+          {
+            kinds: 6,
+            kindIds: ['rocketbox-f01', 'rocketbox-m01', 'rocketbox-f02', 'rocketbox-m02',
+              'rocketbox-business-f01', 'rocketbox-business-m01'],
+            // 몸마다 한 번씩 굽고 줄이고 색을 찍는다 — 받는 값(네트워크)은 뺐다.
+            buildMs: 1450,
+            points: [
+              { people: 200, drawCalls: 7, frameMs: 1.162 },
+              { people: 1000, drawCalls: 7, frameMs: 1.931 },
+              { people: 5000, drawCalls: 7, frameMs: 5.556 },
+            ],
+          },
         ],
-        // 몸마다 한 번씩 굽고 줄인다 — 받는 값(네트워크)은 뺀 값이다.
-        buildMs: 500,
       },
     },
   },
@@ -454,6 +480,18 @@ export function frameMsAt(points, people) {
 }
 
 /**
+ * 몸 가짓수로 잰 표들 중 **물어본 수 이하로 가장 가까운 것**.
+ *
+ * 여섯으로 잰 표를 스무 가지에 쓰면 고정비를 셋 몫만 세는 셈이라 예산이
+ * 거짓말한다. 그래서 이하로만 고르고, 고른 것이 몇 가지짜리인지 돌려준다.
+ */
+export function nearestMixed(mixed, kinds) {
+  const rows = (mixed?.measured || []).filter((m) => m.kinds <= kinds && m.points?.length);
+  if (!rows.length) return null;
+  return rows.reduce((best, m) => (m.kinds > best.kinds ? m : best));
+}
+
+/**
  * 잰 표로 몇 명을 어느 단계로 세울지 — planCrowd 와 같은 모양으로 돌려준다.
  *
  * planCrowd 와 같은 차례를 따른다: **먼저 아무도 안 버리고**(모두 먼 단계로
@@ -479,9 +517,10 @@ export function planCrowdMeasured(want, budgetMs, table, tiers = ['full'], { kin
     : tiers.includes('instanced') && table?.instanced ? 'instanced'
       : null;
   const far = farTier ? table[farTier] : null;
-  // 섞어 잰 표가 있으면 그것으로 — 없으면 한 몸으로 잰 표를 쓰고, 그 사실이
-  // 결과에 남는다 (mixedMeasured).
-  const mixedPoints = kinds > 1 ? far?.mixed?.points || null : null;
+  // 섞어 잰 표가 있으면 그것으로 — **물어본 가짓수 이하로 가장 가까운 것**을
+  // 쓴다. 없으면 한 몸으로 잰 표를 쓰고, 그 사실이 결과에 남는다.
+  const mixedTable = kinds > 1 ? nearestMixed(far?.mixed, kinds) : null;
+  const mixedPoints = mixedTable?.points || null;
   const inst = far ? mixedPoints || far.points || null : null;
   const fullAt = (k) => frameMsAt(full, k);
   const instAt = (k) => frameMsAt(inst, k);
@@ -498,8 +537,9 @@ export function planCrowdMeasured(want, budgetMs, table, tiers = ['full'], { kin
       extrapolated: a.extrapolated || b.extrapolated,
       measuredBy: table?.body?.pack || null,
       kinds,
-      // 섞어 세우는데 섞어 잰 표가 없으면 그 말을 한다 — 없는 값을 있는 척하지 않는다.
-      mixedMeasured: kinds > 1 ? !!mixedPoints : null,
+      // **몇 가지로 잰 표를 썼는가.** 섞어 세우는데 섞어 잰 표가 없으면 false —
+      // 없는 값을 있는 척하지 않는다.
+      mixedMeasured: kinds > 1 ? (mixedTable ? mixedTable.kinds : false) : null,
       drawCalls: nInst ? (mixedPoints ? kinds : 1) : 0,
     };
   };
