@@ -87,8 +87,20 @@ runGate('check-surface', async (g) => {
       // **두 번 줄이지 않는다** — 이미 구워 둔 살이다.
       if (!stats.prebaked) g.fail('far/prebaked', '이미 구운 살인데 또 줄이려 든다');
       n++;
-      if (geom.getAttribute('position').count !== farPack.catalog.bodyFar.vertices) {
-        g.fail('far/verts', `정점이 ${geom.getAttribute('position').count} 다 — 카탈로그는 ${farPack.catalog.bodyFar.vertices}`);
+      if (geom.getAttribute('position').count !== farPack.farLevel.vertices) {
+        g.fail('far/verts', `정점이 ${geom.getAttribute('position').count} 다 — 받은 단계는 ${farPack.farLevel.vertices}`);
+      }
+      n++;
+      // **더 거친 단계를 고를 수 있는가** — 안 주면 가장 덜 줄인 것이다.
+      // 받은 바이트를 세는 fetch 는 따로 쓴다 — 위에서 세던 것에 더해지면
+      // "먼 몸이 몸째보다 적게 받는가" 가 거짓이 된다 (실제로 그렇게 걸렸다).
+      const coarse = await api.loadPack({ url, GLTFLoader, fetchImpl: fileFetch(url), clips: ['walk-forward'], body: 'far', farRatio: 0.1 });
+      if (!(coarse.farLevel.ratio <= 0.1 + 1e-9)) {
+        g.fail('far/level', `0.1 을 달라 했는데 ${coarse.farLevel.ratio} 짜리를 준다`);
+      }
+      n++;
+      if (!(coarse.farLevel.vertices < farPack.farLevel.vertices)) {
+        g.fail('far/level-smaller', `더 거친 단계인데 정점이 ${coarse.farLevel.vertices} 로 안 줄었다`);
       }
       n++;
       if (!geom.getAttribute('color')) g.fail('far/color', '먼 몸에 정점 색이 없다');

@@ -24,22 +24,35 @@ import { decodePNG } from './png.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-/** 먼 몸을 얼마로 줄일 것인가 — 잰 값은 lib/crowdBudget.mjs 의 instancedLod 에 있다. */
-export const FAR_RATIO = 0.25;
+/**
+ * 먼 몸의 **단계들** — 얼마로 줄이고 어떤 이름으로 둘 것인가.
+ *
+ * 잰 값은 lib/crowdBudget.mjs 의 instancedLod 에 있다: 4ms 예산에 0.25 는
+ * 3,623명 · 0.1 은 8,327명이다. 0.25 짜리를 다시 줄여 쓰지 않는 까닭도
+ * 거기 적혀 있다 — 두 번 줄이면 17% 더 벗어난다 (52.7 vs 44.9mm).
+ */
+export const FAR_LEVELS = [
+  { file: 'body-far.glb', ratio: 0.25 },
+  { file: 'body-far-10.glb', ratio: 0.1 },
+];
+
+/** 예전 이름 — 첫 단계의 비율. */
+export const FAR_RATIO = FAR_LEVELS[0].ratio;
 
 /**
  * 몸 GLB 바이트 → 먼 몸 GLB 바이트 + 무엇을 얼마로 줄였는지.
  *
  * @returns { glb, facts }
  */
-export function bakeFarBody(bodyBytes, ratio = FAR_RATIO) {
+export function bakeFarBody(bodyBytes, ratio = FAR_RATIO, file = 'body-far.glb') {
   const doc = parseGLB(bodyBytes);
   const full = skinnedMeshOf(doc, { imageOf: imagesOf(doc, decodePNG) });
+  // **늘 원래 몸에서 줄인다.** 앞 단계를 다시 줄이면 더 벗어난다 (17%).
   const small = simplifyMesh(full, { ratio });
   return {
     glb: encodeGLB(farBody(doc, small)),
     facts: {
-      file: 'body-far.glb',
+      file,
       ratio,
       vertices: small.stats.verticesAfter,
       triangles: small.stats.trianglesAfter,
@@ -48,35 +61,40 @@ export function bakeFarBody(bodyBytes, ratio = FAR_RATIO) {
   };
 }
 
+/** 단계 전부를 굽는다 — { glb, facts } 배열. */
+export function bakeFarLevels(bodyBytes, levels = FAR_LEVELS) {
+  return levels.map((l) => bakeFarBody(bodyBytes, l.ratio, l.file));
+}
+
 /** 팩 하나에 구워 넣고 sources.json 에 적는다 — 굽기는 build-pack 이 다시 돈다. */
-export function bakeInto(packId, ratio = FAR_RATIO) {
+export function bakeInto(packId, levels = FAR_LEVELS) {
   const dir = path.join(ROOT, 'packs', packId);
   const bodyFile = path.join(dir, 'body.glb');
   if (!fs.existsSync(bodyFile)) return { skipped: '몸(body.glb)이 없는 팩이다' };
   const before = fs.statSync(bodyFile).size;
-  const { glb, facts } = bakeFarBody(fs.readFileSync(bodyFile), ratio);
-  fs.writeFileSync(path.join(dir, facts.file), glb);
+  const baked = bakeFarLevels(fs.readFileSync(bodyFile), levels);
+  for (const { glb, facts } of baked) fs.writeFileSync(path.join(dir, facts.file), glb);
 
   const sp = path.join(dir, 'sources.json');
   const sources = JSON.parse(fs.readFileSync(sp, 'utf8'));
-  sources.bodyFar = facts;
+  sources.bodyFar = baked.map((b) => b.facts);
   fs.writeFileSync(sp, JSON.stringify(sources, null, 2) + '\n');
-  return { before, after: glb.byteLength, facts };
+  return { before, levels: baked.map((b) => ({ ...b.facts, bytes: b.glb.byteLength })) };
 }
 
 // 윈도우에서는 file://C:/… 와 file:///C:/… 가 달라서 문자열로 견주면 안 된다.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [arg, ratioArg] = process.argv.slice(2);
-  const ratio = ratioArg ? Number(ratioArg) : FAR_RATIO;
+  const ratio = ratioArg ? Number(ratioArg) : null;
   const packs = arg === '--all'
     ? fs.readdirSync(path.join(ROOT, 'packs')).filter((d) => fs.existsSync(path.join(ROOT, 'packs', d, 'sources.json')))
     : [arg];
   if (!arg) { console.error('쓰임: node scripts/build-far.mjs <packId> [비율] · --all'); process.exit(2); }
   for (const p of packs) {
-    const r = bakeInto(p, ratio);
+    const r = bakeInto(p, ratio ? FAR_LEVELS.map((l) => ({ ...l, ratio })) : FAR_LEVELS);
     if (r.skipped) { console.log(`${p}: ${r.skipped}`); continue; }
-    console.log(`${p}: 정점 ${r.facts.from.vertices}→${r.facts.vertices} · 삼각형 ${r.facts.from.triangles}→${r.facts.triangles}`
-      + ` · ${Math.round(r.before / 1024)}KB → ${Math.round(r.after / 1024)}KB (${(r.after / r.before * 100).toFixed(1)}%)`);
+    console.log(`${p}: 몸 ${Math.round(r.before / 1024)}KB → `
+      + r.levels.map((l) => `${l.file} 삼각형 ${l.from.triangles}→${l.triangles} ${Math.round(l.bytes / 1024)}KB`).join(' · '));
     const b = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'build-pack.mjs'), p], { encoding: 'utf8' });
     if (b.status !== 0) { console.error(b.stdout, b.stderr); process.exit(b.status ?? 1); }
   }

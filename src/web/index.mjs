@@ -54,11 +54,17 @@ export { validateCatalog, LICENSES, packRedistributable, commercialClips } from 
  * 색은 정점에)을 대신 받는다. Rocketbox 여자 01 에서 4,238KB 대신 95KB 다.
  * 가까운 사람에게는 안 쓴다 (살이 4분의 1이고 텍스처가 없다).
  *
+ * 먼 몸은 **단계가 여럿**이다 (0.25 · 0.1). `farRatio` 로 고르면 그 이하로
+ * 가장 가까운 단계를 받는다 — 안 주면 가장 덜 줄인 것이다.
+ *
  * @param clips        처음에 받을 클립 id 배열, 또는 (catalog) => 배열. 안 주면 전부
  * @param body         'full'(기본) 또는 'far'
+ * @param farRatio     먼 몸의 단계 (0.25 · 0.1 …) — 안 주면 첫 단계
  * @returns { catalog, body, far, gltfOf, has, load, bufferOf, docOf }
  */
-export async function loadPack({ url, GLTFLoader, fetchImpl = globalThis.fetch, clips: wanted, body: which = 'full' }) {
+export async function loadPack({
+  url, GLTFLoader, fetchImpl = globalThis.fetch, clips: wanted, body: which = 'full', farRatio,
+}) {
   if (!url) throw new Error('팩 주소가 필요하다');
   if (!GLTFLoader) throw new Error('GLTFLoader 를 주입해야 한다');
 
@@ -85,11 +91,19 @@ export async function loadPack({ url, GLTFLoader, fetchImpl = globalThis.fetch, 
   // 먼 사람용 몸을 달라고 했는데 팩에 없으면 **말하고 멈춘다.** 조용히 큰
   // 몸을 주면 받는 쪽은 95KB 를 기대하고 4MB 를 받는다.
   const far = which === 'far';
-  if (far && !catalog.bodyFar?.file) {
+  const levels = Array.isArray(catalog.bodyFar) ? catalog.bodyFar : [];
+  if (far && !levels.length) {
     throw new Error(`${url}: 먼 사람용 몸(bodyFar)이 없는 팩이다 — 다시 구워야 한다`);
   }
+  // 물어본 비율 **이하로 가장 가까운** 단계. 안 주면 가장 덜 줄인 것.
+  const level = far
+    ? (farRatio ? [...levels].filter((l) => l.ratio <= farRatio + 1e-9).pop() || levels[levels.length - 1] : levels[0])
+    : null;
+  if (far && farRatio && !levels.some((l) => Math.abs(l.ratio - farRatio) < 1e-9)) {
+    // 없는 단계를 달라고 하면 **더 거친 쪽**으로 간다 — 그 사실이 pack.farLevel 에 남는다.
+  }
   const split = typeof catalog.body === 'string';
-  const bodyFile = far ? catalog.bodyFar.file : catalog.body;
+  const bodyFile = far ? level.file : catalog.body;
   const bodyBuf = split ? await get(bodyFile) : null;
   const body = split ? await parse(bodyBuf) : null;
   let bodyDoc = null;
@@ -122,6 +136,8 @@ export async function loadPack({ url, GLTFLoader, fetchImpl = globalThis.fetch, 
     body,
     /** 먼 사람용 몸을 받았는가 — 그렇다면 줄이기·색 굽기가 이미 끝나 있다. */
     far,
+    /** 받은 먼 몸의 단계 (없으면 null) — 무엇을 얼마로 줄인 것인지. */
+    farLevel: level,
     gltfOf: (id) => gltfs.get(id),
     has: (id) => gltfs.has(id),
     load,
@@ -219,7 +235,7 @@ export function geometryOf(pack, opts) {
   // 쓰고 있는 것이라, 거기에 속성을 붙이면 남의 것을 건드리는 셈이다.
   const merged = geoms.length === 1 && !colors ? geoms[0] : mergeSkinned(geoms, colors);
   if (prebaked) {
-    if (lodStats) Object.assign(lodStats, { prebaked: true, ...(pack.catalog.bodyFar || {}) });
+    if (lodStats) Object.assign(lodStats, { prebaked: true, ...(pack.farLevel || {}) });
     return merged;
   }
   if (!(lod > 0) || lod >= 1) return merged;

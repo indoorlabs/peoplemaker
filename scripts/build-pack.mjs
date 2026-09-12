@@ -64,7 +64,10 @@ const catalog = buildCatalog({
   packId: sources.packId, version: sources.version, skeleton: sources.skeleton, clips,
   body: split ? 'body.glb' : undefined,
   // 먼 몸은 굽는 쪽(import-rocketbox)이 만들어 sources.json 에 적어 둔다.
-  bodyFar: sources.bodyFar && fs.existsSync(path.join(dir, sources.bodyFar.file)) ? sources.bodyFar : undefined,
+  // 먼 몸은 굽는 쪽(build-far)이 만들어 sources.json 에 단계 목록으로 적어 둔다.
+  bodyFar: Array.isArray(sources.bodyFar)
+    ? sources.bodyFar.filter((l) => fs.existsSync(path.join(dir, l.file)))
+    : undefined,
 });
 if (sources.note) catalog.note = sources.note;
 

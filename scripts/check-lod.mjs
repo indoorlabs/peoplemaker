@@ -449,16 +449,17 @@ runGate('check-lod', (g) => {
     let checked = 0;
     for (const p of packs) {
       const cat = JSON.parse(fs.readFileSync(path.join(dir, p, 'catalog.json'), 'utf8'));
-      if (!cat.bodyFar?.file || !cat.body) continue;
-      const farPath = path.join(dir, p, cat.bodyFar.file);
-      if (!fs.existsSync(farPath)) continue;
-      n++;
-      checked++;
-      const { facts } = bakeFarBody(fs.readFileSync(path.join(dir, p, cat.body)), cat.bodyFar.ratio);
-      if (facts.vertices !== cat.bodyFar.vertices || facts.triangles !== cat.bodyFar.triangles) {
-        g.fail(`far/${p}/stale`,
-          `구운 먼 몸은 정점 ${cat.bodyFar.vertices}·삼각형 ${cat.bodyFar.triangles} 인데`
-          + ` 지금 줄이면 ${facts.vertices}·${facts.triangles} 다 — build-far 를 다시 돌릴 것`);
+      if (!Array.isArray(cat.bodyFar) || !cat.body) continue;
+      for (const level of cat.bodyFar) {
+        if (!fs.existsSync(path.join(dir, p, level.file))) continue;
+        n++;
+        checked++;
+        const { facts } = bakeFarBody(fs.readFileSync(path.join(dir, p, cat.body)), level.ratio, level.file);
+        if (facts.vertices !== level.vertices || facts.triangles !== level.triangles) {
+          g.fail(`far/${p}/${level.ratio}/stale`,
+            `구운 먼 몸(${level.file})은 정점 ${level.vertices}·삼각형 ${level.triangles} 인데`
+            + ` 지금 줄이면 ${facts.vertices}·${facts.triangles} 다 — build-far 를 다시 돌릴 것`);
+        }
       }
     }
     console.log(`  [줄이기] 팩에 구워 둔 먼 몸 ${checked}개가 지금 줄이는 것과 같다`);

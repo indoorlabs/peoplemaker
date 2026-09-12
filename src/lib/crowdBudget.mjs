@@ -400,10 +400,35 @@ export const PACK_MEASURED = {
         { people: 2000, drawCalls: 2, frameMs: 2.441 },
         { people: 5000, drawCalls: 2, frameMs: 5.323 },
       ],
-      // 더 줄이면 더 싸다 — 삼각형에 거의 곧게 붙는다. 5,000명이 10분의 1
-      // (삼각형 806 · 정점 425)에서 2.462ms 였다. 벗어남은 최대 44.9mm ·
-      // 평균 5.25mm 로 커진다. 단계를 하나 더 둘 자리가 여기다.
-      tenth: { ratio: 0.1, verts: 425, triangles: 806, people: 5000, frameMs: 2.462 },
+      /**
+       * **더 먼 단계** — 10분의 1로 줄인 살 (삼각형 806 · 정점 425).
+       *
+       *   사람     0.25 단계   0.1 단계
+       *    200       0.95       0.65
+       *  1,000       1.46       1.35
+       *  5,000       5.32       2.46
+       * 10,000        —         4.77
+       *
+       * **4ms 예산에 3,623명이 8,300명이 된다.** 대가는 살이 원래에서
+       * 벗어나는 거리: 최대 17.3 → 44.9mm · 평균 1.62 → 5.25mm.
+       *
+       * 이 단계는 **팩이 따로 굽는다** (body-far-10.glb). 0.25 짜리를 다시
+       * 줄여 쓸 수도 있지만, 재 보니 두 번 줄인 쪽이 17% 더 벗어났다
+       * (52.7mm vs 44.9mm · 평균 7.00 vs 5.25mm) — 한 번에 줄이는 것이 낫다.
+       */
+      tenth: {
+        ratio: 0.1,
+        verts: 425,
+        triangles: 806,
+        deviation: { maxMm: 44.9, meanMm: 5.25 },
+        twiceReduced: { maxMm: 52.7, meanMm: 7.0 },
+        points: [
+          { people: 200, drawCalls: 2, frameMs: 0.653 },
+          { people: 1000, drawCalls: 2, frameMs: 1.354 },
+          { people: 5000, drawCalls: 2, frameMs: 2.462 },
+          { people: 10000, drawCalls: 2, frameMs: 4.774 },
+        ],
+      },
       /**
        * **몸을 섞었을 때** — 팩마다 군중 하나 (web/mixedCrowd.mjs).
        *
@@ -533,10 +558,14 @@ export function nearestMixed(mixed, kinds) {
  */
 export function planCrowdMeasured(want, budgetMs, table, tiers = ['full'], { kinds = 1 } = {}) {
   const full = table?.points || [];
-  const farTier = tiers.includes('instancedLod') && table?.instancedLod ? 'instancedLod'
-    : tiers.includes('instanced') && table?.instanced ? 'instanced'
-      : null;
-  const far = farTier ? table[farTier] : null;
+  // 먼 단계는 여럿일 수 있다 — 덜 줄인 것(instancedLod)과 더 줄인 것
+  // (instancedLodTenth). **좋은 것부터** 늘어놓는다.
+  const farOf = (name) => (name === 'instancedLodTenth' ? table?.instancedLod?.tenth
+    : name === 'instancedLod' ? table?.instancedLod
+      : name === 'instanced' ? table?.instanced : null);
+  const farNames = ['instanced', 'instancedLod', 'instancedLodTenth'].filter((t) => tiers.includes(t) && farOf(t)?.points);
+  const farTier = farNames.length ? farNames[farNames.length - 1] : null;
+  const far = farTier ? farOf(farTier) : null;
   // 섞어 잰 표가 있으면 그것으로 — **물어본 가짓수 이하로 가장 가까운 것**을
   // 쓴다. 없으면 한 몸으로 잰 표를 쓰고, 그 사실이 결과에 남는다.
   const mixedTable = kinds > 1 ? nearestMixed(far?.mixed, kinds) : null;

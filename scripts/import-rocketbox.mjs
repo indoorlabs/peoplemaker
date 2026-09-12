@@ -28,7 +28,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { bodyOnly, motionOnly, extractAnimation, encodeGLB } from '../src/lib/gltfWrite.mjs';
-import { bakeFarBody } from './build-far.mjs';
+import { bakeFarLevels } from './build-far.mjs';
 import { retargetClip, animationOf, restBoneScale } from '../src/lib/retarget.mjs';
 import { NodeIO } from '@gltf-transform/core';
 
@@ -405,12 +405,14 @@ for (const [id, clipGlb] of [['walk-forward', walkGlb], ['idle', idleGlb], ...ex
     // 브라우저에서 130ms 를 들여 매번 줄이고 색을 찍었다 — 그 일을 여기서
     // 한 번 한다.
     // 굽는 길은 한 군데다 — scripts/build-far.mjs 가 그 자리다.
-    const { glb: far, facts } = bakeFarBody(b);
-    fs.writeFileSync(path.join(dir, facts.file), far);
-    farFacts = facts;
-    console.log(`  ${facts.file}: 정점 ${facts.from.vertices}→${facts.vertices}`
-      + ` · 삼각형 ${facts.from.triangles}→${facts.triangles} · 텍스처 0`
-      + ` · ${Math.round(far.byteLength / 1024)} KB (몸의 ${(far.byteLength / b.byteLength * 100).toFixed(1)}%)`);
+    const baked = bakeFarLevels(b);
+    for (const { glb, facts } of baked) {
+      fs.writeFileSync(path.join(dir, facts.file), glb);
+      console.log(`  ${facts.file}: 정점 ${facts.from.vertices}→${facts.vertices}`
+        + ` · 삼각형 ${facts.from.triangles}→${facts.triangles} · 텍스처 0`
+        + ` · ${Math.round(glb.byteLength / 1024)} KB (몸의 ${(glb.byteLength / b.byteLength * 100).toFixed(1)}%)`);
+    }
+    farFacts = baked.map((x) => x.facts);
   }
 
   // 접붙인 것을 쓸지, 옮겨 붙일지 — **뼈 길이**가 정한다.
@@ -451,7 +453,7 @@ const sources = {
   version: '0.1.0',
   skeleton: 'biped',
   // 먼 사람용 몸 — 무엇을 어떻게 줄였는지가 팩에 남아야 한다.
-  ...(farFacts ? { bodyFar: { file: 'body-far.glb', ...farFacts } } : {}),
+  ...(farFacts ? { bodyFar: farFacts } : {}),
   note: `Microsoft Rocketbox 의 ${avatarName} (MIT, Copyright (c) Microsoft Corporation). 몸과 동작이 원래 다른 파일이라 scripts/import-rocketbox.mjs 가 접붙였다 — 동작은 뼈 이름으로 맞췄고, 텍스처는 2048 TGA 를 1024 PNG 로 줄였다. 한 팩에 한 사람이다: 두 사람을 한 팩에 넣으면 속도에 맞춰 클립을 고르다 걷는 도중 사람이 바뀐다.`,
   clips: [
     { id: 'walk-forward', name: { ko: `앞으로 걷기 (${name.ko})`, en: `Walk forward (${name.en})` }, license: 'MIT',

@@ -80,14 +80,26 @@
       ]
     }
   ],
-  "bodyFar": {
-    "file": "body-far.glb",
-    "ratio": 0.25,
-    "vertices": 38,
-    "triangles": 32,
-    "from": {
-      "vertices": 264,
-      "triangles": 132
+  "bodyFar": [
+    {
+      "file": "body-far.glb",
+      "ratio": 0.25,
+      "vertices": 38,
+      "triangles": 32,
+      "from": {
+        "vertices": 264,
+        "triangles": 132
+      }
+    },
+    {
+      "file": "body-far-10.glb",
+      "ratio": 0.1,
+      "vertices": 33,
+      "triangles": 22,
+      "from": {
+        "vertices": 264,
+        "triangles": 132
+      }
     }
-  }
+  ]
 }
