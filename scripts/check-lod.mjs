@@ -23,7 +23,7 @@ import { parseGLB } from '../src/lib/gltf.mjs';
 import { bakeClip } from '../src/lib/poseBake.mjs';
 import { attachAnimation } from '../src/lib/gltfWrite.mjs';
 import { PACK_MEASURED, planCrowdMeasured, frameMsAt } from '../src/lib/crowdBudget.mjs';
-import { skinnedMeshOf, skinPoints } from './read-mesh.mjs';
+import { skinnedMeshOf, skinPoints } from '../src/lib/bodyMesh.mjs';
 import { bakeFarBody } from './build-far.mjs';
 
 // ── 아는 모양 ────────────────────────────────────────────────────

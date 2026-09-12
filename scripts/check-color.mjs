@@ -24,7 +24,7 @@ import { sampleImage, colorsFromUV, colorSpread } from '../src/lib/vertexColor.m
 import { weldMesh, simplifyMesh } from '../src/lib/meshLod.mjs';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { decodePNG } from './png.mjs';
-import { skinnedMeshOf, imagesOf } from './read-mesh.mjs';
+import { skinnedMeshOf, imagesOf } from '../src/lib/bodyMesh.mjs';
 import { PACK_MEASURED } from '../src/lib/crowdBudget.mjs';
 
 /** 화소를 손으로 적은 그림 — 답을 알고 묻기 위해. */

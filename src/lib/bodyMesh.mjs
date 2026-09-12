@@ -1,4 +1,4 @@
-// GLB 의 스킨 메시를 배열로 — 게이트가 살을 직접 만질 때 쓴다.
+// GLB 의 스킨 메시를 배열로 — 살을 직접 만지는 모든 쪽이 쓴다.
 //
 // **web 의 geometryOf 와 같은 규칙**이라야 한다: 조각을 잇고, 알파로 오려
 // 내는 조각(속눈썹·머리카락 카드)은 뺀다. 규칙이 갈라지면 게이트가 앱이
@@ -7,8 +7,8 @@
 // 색을 함께 구울 수 있다 (`imageOf`). 그림을 푸는 일은 부르는 쪽이 한다 —
 // 브라우저는 three 가 풀어 주고, Node 는 scripts/png.mjs 가 푼다.
 
-import { readAccessor } from '../src/lib/gltf.mjs';
-import { colorsFromUV } from '../src/lib/vertexColor.mjs';
+import { readAccessor } from './gltf.mjs';
+import { colorsFromUV } from './vertexColor.mjs';
 
 /**
  * @param doc     parseGLB 결과

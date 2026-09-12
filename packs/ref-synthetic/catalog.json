@@ -25,6 +25,15 @@
       }
     }
   ],
+  "bodyDims": {
+    "source": "measured-from-pack",
+    "pose": "idle",
+    "heightM": 1.55,
+    "widthM": 0.46,
+    "depthM": 0.154,
+    "walkWidthM": 0.46,
+    "maxWidthM": 0.46
+  },
   "forwardRad": 3.1416,
   "builtBy": "peoplemaker/build-pack",
   "clips": [

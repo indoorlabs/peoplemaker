@@ -10,7 +10,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseGLB } from '../src/lib/gltf.mjs';
-import { deriveClip, applyReach, buildCatalog } from '../src/lib/packBuild.mjs';
+import { attachAnimation } from '../src/lib/gltfWrite.mjs';
+import { deriveClip, applyReach, buildCatalog, deriveBodyDims } from '../src/lib/packBuild.mjs';
 import { validateCatalog, validateSplitFiles } from '../src/lib/motionPack.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -67,6 +68,15 @@ const catalog = buildCatalog({
   // 먼 몸은 굽는 쪽(build-far)이 만들어 sources.json 에 단계 목록으로 적어 둔다.
   bodyFar: Array.isArray(sources.bodyFar)
     ? sources.bodyFar.filter((l) => fs.existsSync(path.join(dir, l.file)))
+    : undefined,
+  // **이 몸을 잰 치수** — 공간 쪽이 복도 폭·창 높이를 검토할 때 쓰는 값이다.
+  bodyDims: split
+    ? deriveBodyDims(
+      parseGLB(fs.readFileSync(bodyFile)),
+      docs.filter((d) => ['idle', 'walk-forward'].includes(d.id))
+        .map((d) => ({ id: d.id, doc: attachAnimation(parseGLB(fs.readFileSync(bodyFile)), d.doc) })),
+      { skeleton: sources.skeleton },
+    )
     : undefined,
 });
 if (sources.note) catalog.note = sources.note;

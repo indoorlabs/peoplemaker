@@ -41,6 +41,15 @@ const RIG = [
  * 채널이 아니라 **뼈 수**가 정하기 때문이다 (Skeleton.update 는 모든 뼈의
  * 행렬을 만든다).
  */
+/**
+ * 뼈 자리에 크기를 먹인 표 — 게이트가 **몸을 키워 보고** 잰 값이 따라오는지
+ * 볼 때 쓴다. 값 하나가 맞는지보다 "입력을 흔들면 출력이 따라 움직이는가" 가
+ * 이 저장소의 물음이다.
+ */
+function scaledRig(rig, scale = 1) {
+  return scale === 1 ? rig : rig.map((b) => ({ ...b, t: b.t.map((v) => v * scale) }));
+}
+
 export function rigWith(boneCount) {
   const rig = RIG.map((b) => ({ ...b }));
   let parent = 'mixamorig:LeftArm';
@@ -208,7 +217,9 @@ class Bin {
 }
 
 export function buildGLB(spec) {
-  const RIG_ = spec.bones ? rigWith(spec.bones) : RIG;
+  // `scale` 은 게이트가 **몸을 키워 보는** 손잡이다 — 잰 키가 그만큼 따라
+  // 커지는지 보려면 흔들 수 있어야 한다.
+  const RIG_ = scaledRig(spec.bones ? rigWith(spec.bones) : RIG, spec.scale ?? 1);
   const { times, hips, legs } = keyframes(spec);
   const json = {
     asset: { version: '2.0', generator: 'peoplemaker/make-fixture-pack' },

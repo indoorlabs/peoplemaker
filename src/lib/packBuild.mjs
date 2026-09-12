@@ -15,6 +15,8 @@
 // 재는 방법을 값과 함께 남긴다 (`measuredBy`). 방법이 바뀌면 값도 바뀌므로,
 // 나중에 수가 달라 보일 때 무엇이 달라졌는지 짚을 자리가 있어야 한다.
 
+import { skinnedMeshOf, skinPoints } from './bodyMesh.mjs';
+import { bakeClip } from './poseBake.mjs';
 import {
   animationDurationS, sampleAnimation, nodeWorldPos, parentMap, findNode,
 } from './gltf.mjs';
@@ -293,6 +295,82 @@ export function applyReach(clip, doc, decl, { skeleton = 'mixamo', forwardRad } 
   return clip;
 }
 
+/** 규약마다 **눈 뼈** — 눈높이를 재는 기준. 없는 리그도 있다. */
+export const EYE_NODES = {
+  biped: /^Bip\d\d [LR] ?Eye$/,
+  mixamo: /(^|:)(LeftEye|RightEye)$/,
+  vrm: /^(leftEye|rightEye)$/,
+};
+
+/**
+ * **이 몸의 치수** — 살을 재서 낸다.
+ *
+ * 사이즈코리아(lib/anthropometry.mjs)와 **다른 값**이다. 저쪽은 모집단
+ * 통계이고 이쪽은 **이 몸 하나**를 잰 것이다. 둘을 섞으면 "한국 남자 평균
+ * 어깨너비" 자리에 Rocketbox 남자 01 의 어깨가 들어앉는다 — 그래서 출처를
+ * `measured-from-pack` 으로 못 박는다.
+ *
+ * 공간 쪽이 바로 쓰는 값이다: 복도 유효폭은 **폭**이고, 창·사이니지 높이는
+ * **눈높이**이며, 군중 밀도의 바닥은 **폭 × 두께**다.
+ *
+ * 자세에 따라 달라지므로 **어느 클립에서** 쟀는지 함께 적는다. 걷는 클립의
+ * 폭도 따로 잰다 — 다만 **걷는다고 늘 넓어지지는 않는다.** 재 보니 남자 01 은
+ * 선 자세가 더 넓었다 (0.586 vs 0.573m — 팔이 몸에서 떨어져 있다). 복도를
+ * 검토하는 쪽은 둘 중 큰 쪽을 쓴다 (maxWidthM).
+ *
+ * @param bodyDoc 몸 문서
+ * @param posed   [{ id, doc }] — 몸에 동작을 **붙인** 문서들
+ */
+export function deriveBodyDims(bodyDoc, posed, { skeleton = 'mixamo' } = {}) {
+  const mesh = skinnedMeshOf(bodyDoc);
+  if (!mesh.position.length || !posed?.length) return null;
+  const still = posed.find((c) => c.id === 'idle') || posed[0];
+
+  const sizeOf = (points) => {
+    const lo = [Infinity, Infinity, Infinity];
+    const hi = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < points.length; i += 3) {
+      for (let c = 0; c < 3; c++) {
+        if (points[i + c] < lo[c]) lo[c] = points[i + c];
+        if (points[i + c] > hi[c]) hi[c] = points[i + c];
+      }
+    }
+    return [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]];
+  };
+
+  const size = sizeOf(skinPoints(mesh, bakeClip(still.doc), 0));
+
+  // 걸을 때 차지하는 폭 — 팔이 흔들려 선 자세보다 넓다.
+  let walkWidthM = null;
+  const walk = posed.find((c) => c.id === 'walk-forward');
+  if (walk) {
+    const wb = bakeClip(walk.doc);
+    let widest = 0;
+    for (let f = 0; f < wb.frames; f += Math.max(1, Math.floor(wb.frames / 8))) {
+      widest = Math.max(widest, sizeOf(skinPoints(mesh, wb, f))[0]);
+    }
+    walkWidthM = +widest.toFixed(3);
+  }
+
+  // 눈높이 — 눈 뼈가 있는 리그만. 없으면 안 적는다 (짐작하지 않는다).
+  const parent = parentMap(still.doc);
+  const eyeIdx = matchNode(still.doc, EYE_NODES[skeleton] || EYE_NODES.mixamo);
+  const eyeHeightM = eyeIdx == null ? null
+    : +nodeWorldPos(still.doc, eyeIdx, sampleAnimation(still.doc, 0, 0), parent)[1].toFixed(3);
+
+  return {
+    source: 'measured-from-pack',
+    pose: still.id,
+    heightM: +size[1].toFixed(3),
+    widthM: +size[0].toFixed(3),
+    depthM: +size[2].toFixed(3),
+    ...(eyeHeightM != null ? { eyeHeightM } : {}),
+    ...(walkWidthM != null ? { walkWidthM } : {}),
+    // 복도 검토가 바로 쓰는 값 — 선 자세와 걸을 때 중 큰 쪽.
+    maxWidthM: +Math.max(size[0], walkWidthM ?? 0).toFixed(3),
+  };
+}
+
 /**
  * 이동 클립들의 진행 방향이 이만큼 넘게 갈리면 팩의 앞을 못 정한다 (rad).
  *
@@ -464,7 +542,7 @@ export function deriveClip(doc, decl, { skeleton = 'mixamo' } = {}) {
  * 순서를 고정한다 — 팩을 다시 구울 때마다 순서가 바뀌면 diff 가 통째로
  * 바뀌어서 무엇이 달라졌는지 안 보인다.
  */
-export function buildCatalog({ packId, version, skeleton, clips, body, bodyFar }) {
+export function buildCatalog({ packId, version, skeleton, clips, body, bodyFar, bodyDims }) {
   return {
     packId,
     version,
@@ -474,6 +552,8 @@ export function buildCatalog({ packId, version, skeleton, clips, body, bodyFar }
     // **먼 사람용 몸** — 줄인 살 + 구운 색, 텍스처 없음. 도시 스케일 화면은
     // 이것만 받으면 된다 (4.2MB → 95KB). 무엇을 얼마로 줄였는지가 함께 남는다.
     ...(bodyFar ? { bodyFar } : {}),
+    // **이 몸을 잰 치수** — 사이즈코리아 통계와 다른 값이다 (출처가 그렇게 적힌다).
+    ...(bodyDims ? { bodyDims } : {}),
     forwardRad: packForwardRad(clips),
     builtBy: 'peoplemaker/build-pack',
     clips: [...clips].sort((a, b) => (a.id < b.id ? -1 : 1)),

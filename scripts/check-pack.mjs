@@ -96,6 +96,9 @@ runGate('check-pack', (g) => {
     ['손이 닿기 전에 뗀다', (c) => { c.clips[1].reach = { part: 'hand-r', atS: 2, releaseS: 1, forwardM: 0.3, heightM: 1.0 }; }, 'clip/sit-down/reach/order'],
     ['손 높이를 0 으로', (c) => { c.clips[1].reach = { part: 'hand-r', atS: 1, releaseS: 2, forwardM: 0.3, heightM: 0 }; }, 'clip/sit-down/reach/height'],
     ['닿는 부위를 아무 이름으로', (c) => { c.clips[1].reach = { part: 'elbow', atS: 1, releaseS: 2, forwardM: 0.3, heightM: 1 }; }, 'clip/sit-down/reach/part'],
+    ['몸 치수의 출처를 통계로', (c) => { c.bodyDims = { source: 'sizekorea8', pose: 'idle', heightM: 1.7, widthM: 0.5, depthM: 0.3 }; }, 'catalog/bodyDims/source'],
+    ['눈높이가 키보다 높다', (c) => { c.bodyDims = { source: 'measured-from-pack', pose: 'idle', heightM: 1.7, widthM: 0.5, depthM: 0.3, eyeHeightM: 1.9 }; }, 'catalog/bodyDims/eye'],
+    ['폭이 키보다 넓다', (c) => { c.bodyDims = { source: 'measured-from-pack', pose: 'idle', heightM: 1.7, widthM: 2.0, depthM: 0.3 }; }, 'catalog/bodyDims/shape'],
   ];
   for (const [why, breakIt, wantId] of breaks) {
     n++;

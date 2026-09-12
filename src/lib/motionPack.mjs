@@ -137,6 +137,36 @@ export function validateCatalog(catalog, { clipFiles = null, packFiles = null } 
     }
   }
 
+  // 이 몸을 잰 치수 — 있으면 말이 되어야 하고, **출처가 그렇게 적혀** 있어야
+  // 한다. 사이즈코리아 통계와 섞이면 "한국 남자 평균" 자리에 이 몸 하나가
+  // 들어앉는다.
+  if (catalog.bodyDims !== undefined) {
+    const d = catalog.bodyDims;
+    if (!d || typeof d !== 'object') fail('catalog/bodyDims', '몸 치수가 값이 아니다');
+    else {
+      if (d.source !== 'measured-from-pack') {
+        fail('catalog/bodyDims/source', `출처가 '${d.source}' 다 — 이 값은 이 몸을 잰 것이지 모집단 통계가 아니다`);
+      }
+      if (!(d.heightM > 0.3 && d.heightM < 3)) fail('catalog/bodyDims/height', `키가 ${d.heightM}m 다`);
+      if (!(d.widthM > 0)) fail('catalog/bodyDims/width', `폭이 ${d.widthM}m 다`);
+      if (!(d.depthM > 0)) fail('catalog/bodyDims/depth', `두께가 ${d.depthM}m 다`);
+      if (d.heightM > 0 && !(d.widthM < d.heightM)) {
+        fail('catalog/bodyDims/shape', `폭 ${d.widthM}m 가 키 ${d.heightM}m 보다 좁지 않다 — 서 있는 사람이 아니다`);
+      }
+      if (d.eyeHeightM !== undefined && !(d.eyeHeightM > 0 && d.eyeHeightM < d.heightM)) {
+        fail('catalog/bodyDims/eye', `눈높이가 ${d.eyeHeightM}m 다 (키 ${d.heightM}m)`);
+      }
+      // **걷는다고 늘 넓어지지는 않는다.** 처음에 "걸을 때가 더 넓다" 를
+      // 계약으로 박았다가 남자 팩 넷이 걸렸다 — 선 자세에서 팔이 몸에서
+      // 떨어져 있어 그쪽이 더 넓다 (0.586 vs 0.573m). 둘 다 잰 값이고,
+      // 복도를 검토하는 쪽은 **큰 쪽**을 쓴다.
+      if (d.walkWidthM !== undefined && !(d.walkWidthM > 0)) {
+        fail('catalog/bodyDims/walk', `걸을 때 폭이 ${d.walkWidthM}m 다`);
+      }
+      if (!d.pose) fail('catalog/bodyDims/pose', '어느 자세에서 잰 값인지가 없다');
+    }
+  }
+
   if (catalog.body !== undefined) {
     if (typeof catalog.body !== 'string' || !/^[\w.-]+\.glb$/.test(catalog.body)) {
       fail('catalog/body', `몸 파일 이름이 '${catalog.body}' 다 — 팩 폴더 안의 .glb 여야 한다`);

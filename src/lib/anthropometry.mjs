@@ -80,6 +80,19 @@ export const DIMENSIONS = {
   },
 };
 
+/**
+ * **팩이 잰 치수와 섞지 않는다.**
+ *
+ * 카탈로그의 `bodyDims` 는 그 팩의 **몸 하나**를 잰 값이다 (출처가
+ * `measured-from-pack` 이다). 여기 DIMENSIONS 는 **모집단 통계**다. 둘은
+ * 쓰임이 다르다:
+ *
+ *   "이 사람이 이 문을 지나가는가"      → 팩의 bodyDims (그 몸의 폭)
+ *   "한국 성인 95%가 지나가는 문인가"   → 여기 (통계의 95 백분위)
+ *
+ * 섞으면 Rocketbox 남자 01 의 어깨가 "한국 남자 평균" 자리에 들어앉는다.
+ */
+
 /** 이 치수의 값 하나 — 없으면 null. 없는 것을 0 으로 돌려주지 않는다. */
 export function dimensionMm(key, { population, percentile = 'mean' } = {}) {
   const d = DIMENSIONS[key];

@@ -19,7 +19,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { farBody, encodeGLB } from '../src/lib/gltfWrite.mjs';
 import { simplifyMesh } from '../src/lib/meshLod.mjs';
-import { skinnedMeshOf, imagesOf } from './read-mesh.mjs';
+import { skinnedMeshOf, imagesOf } from '../src/lib/bodyMesh.mjs';
 import { decodePNG } from './png.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');

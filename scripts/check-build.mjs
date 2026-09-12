@@ -16,7 +16,7 @@ import {
   deriveClip, TRAVEL_MIN_MPS, PLANT_MAX_Y_M, MEASURED_FIELDS,
   packForwardRad, angleDiff, FORWARD_AGREE_RAD,
   plantEvents, PLANT_MIN_DWELL_S, SEATED_HIP_RATIO_MAX, SEAT_FEET_FORWARD_MIN,
-  reachEvents, REACH_PEAK_FRACTION, applyReach,
+  reachEvents, REACH_PEAK_FRACTION, applyReach, deriveBodyDims,
 } from '../src/lib/packBuild.mjs';
 import { FIXTURES, CROUCH, buildGLB } from '../src/lib/fixtureRig.mjs';
 import { readAccessor, parentMap, sampleAnimation, animationDurationS } from '../src/lib/gltf.mjs';
@@ -263,8 +263,15 @@ runGate('check-build', (g) => {
           }
         }
       }
+      // 잰 치수가 카탈로그에 있는가 — 나뉜 팩이면 있어야 한다.
+      n++;
+      if (cat.body && !cat.bodyDims) {
+        g.fail(`dims/${p}/missing`, '몸이 있는 팩인데 잰 치수가 없다 — build-pack 을 다시 돌릴 것');
+      }
       const seated = (cat.clips || []).filter((c) => c.seat);
+      const dims = cat.bodyDims;
       console.log(`  [팩] ${p}: 클립 ${(cat.clips || []).length}개가 지금 코드와 같은 값인지 확인했다`
+        + (dims ? ` · 키 ${dims.heightM}m 폭 ${dims.maxWidthM}m 눈높이 ${dims.eyeHeightM ?? '없음'}` : '')
         + (worst ? ` · 뼈 길이가 달라진 비율 최대 ${(worst.changed * 100).toFixed(0)}% (${worst.id})` : '')
         + (seated.length ? ` · 앉은 클립 ${seated.map((c) => `${c.id} ${c.seat.hipHeightM}m`).join('·')}` : ''));
     }
@@ -296,6 +303,43 @@ runGate('check-build', (g) => {
     n++;
     if (worst !== 0) g.fail('cache/sample', `기억한 값이 ${worst} 만큼 다르다 — 재는 값이 조용히 달라진다`);
     console.log(`  [재기] 푼 것을 기억해도 값이 같다 (어긋남 ${worst})`);
+  }
+
+  // ── 몸의 치수를 **재는가** ──
+  //
+  // 공간 쪽이 복도 폭과 창 높이를 이 값으로 검토한다. "1.7m 쯤 나오면
+  // 맞다" 로는 모자란다 — 몸을 **키워 보고** 잰 값이 따라오는지 본다.
+  {
+    const spec = FIXTURES.find((f) => f.id === 'idle');
+    const dimsAt = (scale) => {
+      const doc = parseGLB(buildGLB({ ...spec, scale }));
+      return deriveBodyDims(doc, [{ id: 'idle', doc }]);
+    };
+    const base = dimsAt(1);
+    n++;
+    if (!base?.heightM) g.fail('dims/none', '픽스처 몸의 치수를 못 잰다');
+    else {
+      for (const scale of [1.25, 0.8]) {
+        n++;
+        const got = dimsAt(scale);
+        const want = base.heightM * scale;
+        if (Math.abs(got.heightM - want) > want * 0.02) {
+          g.fail(`dims/scale/${scale}`, `몸을 ${scale}배로 키웠는데 키가 ${got.heightM}m 다 (${want.toFixed(3)}m 여야)`);
+        }
+        n++;
+        if (!(got.widthM > base.widthM === (scale > 1))) {
+          g.fail(`dims/width/${scale}`, `몸을 ${scale}배로 했는데 폭이 ${got.widthM}m 다 (${base.widthM}m 였다)`);
+        }
+      }
+      n++;
+      // 눈 뼈가 없는 리그에는 **눈높이를 안 적는다** — 키로 지어내지 않는다.
+      if (base.eyeHeightM !== undefined) {
+        g.fail('dims/eye-invented', '눈 뼈가 없는 리그인데 눈높이가 적혀 있다');
+      }
+      n++;
+      if (base.source !== 'measured-from-pack') g.fail('dims/source', `출처가 ${base.source} 다`);
+      console.log(`  [재기] 몸 치수: 픽스처를 1.25배로 키우니 키 ${base.heightM}m → ${dimsAt(1.25).heightM}m`);
+    }
   }
 
   // ── 손이 닿는 구간을 **재는가** ──
