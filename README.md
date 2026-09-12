@@ -95,7 +95,7 @@ const pack = await loadPack({
 //    planCrowd 는 그 몸을 13~15배 싸게 본다 (lib/crowdBudget.mjs 의 PACK_MEASURED).
 const table = measuredFor(pack.catalog.packId);
 const plan = table
-  ? planCrowdMeasured(want, 4, table, ['full', 'instanced'])
+  ? planCrowdMeasured(want, 4, table, ['full', 'instancedLod'])
   : planCrowd(want, 4, ['full', 'instanced']);
 
 // 3. 가까운 사람 — 사람마다 스킨 메시
@@ -108,9 +108,12 @@ const pick = player.walkAt(p, 1.1);   // 원하는 속도 → 클립과 재생 �
 const q = player.spawn({ clipId: 'walk-forward', inPlace: true });
 player.placeAt(q, [x, 0, z], headingRad);   // 프레임마다
 
-// 4. 먼 사람 — 구운 자세, 드로우콜 하나
+// 4. 먼 사람 — 구운 자세, 드로우콜 하나. 살은 줄여서 준다 (lod)
+//    뼈와 가중치는 안 건드리므로 **같은 아틀라스를 그대로 쓴다**.
+//    Rocketbox 몸에서 삼각형 8,064 → 2,016 · 1,000명이 4.81 → 1.46ms.
 const atlas = bakeFromPack(pack);
-const crowd = createInstancedCrowd({ THREE, geometry: geometryOf(pack), atlas, count: n });
+const geom = geometryOf(pack, { lod: 0.25 });
+const crowd = createInstancedCrowd({ THREE, geometry: geom, atlas, count: n });
 crowd.place(i, { position: [x, 0, z], headingRad: h, clipId: 'walk-forward' });
 
 // 5. 프레임마다
@@ -120,6 +123,35 @@ crowd.update(dt);
 
 **배치·경로·활동 스케줄은 이 저장소가 안 한다** — 공간을 아는 쪽의 일이다.
 여기서 주는 것은 "이 사람이 지금 어떤 자세인가" 와 "몇 명까지 감당되는가" 다.
+
+### 먼 사람의 살 줄이기 (LOD)
+
+드로우콜을 하나로 줄이고 나니 **벽이 정점으로 옮겨 갔다.** 드로우콜이 2 인데
+1,000명이 4.81ms 였고, 그러면 남은 것은 삼각형 몫뿐이다. 이차오차(QEM)로
+모서리를 접어 살을 줄인다.
+
+```
+Rocketbox 여자 01 · 먼 단계 · 같은 기계 (2026-09-12)
+
+                  삼각형   200명   1,000명   5,000명
+  안 줄임          8,064   1.46ms   4.81ms      —
+  줄임 (0.25)      2,016   0.95ms   1.46ms   5.32ms
+  줄임 (0.1)         806      —        —     2.46ms
+
+  4ms 예산에 823명 → 3,623명
+```
+
+대가는 살이 원래에서 벗어나는 거리다. 0.25 에서 **최대 17.3mm · 평균
+1.62mm** (키 1.6m 인 몸에서), 0.1 이면 최대 44.9mm 로 커진다. 이 수는 기계를
+안 타는 **이 살의 성질**이라, 게이트가 매번 다시 재서 기록과 견준다.
+
+**뼈도 가중치도 안 건드린다** — 접을 때 두 점 중 하나를 남기고 그 점의 것을
+그대로 쓴다 (새 점을 지어내면 가중치를 섞어야 하고, 어깨와 팔의 가중치를
+섞으면 그 정점이 어느 쪽도 아닌 데로 끌려간다). 그래서 구운 아틀라스가
+그대로 맞는다.
+
+줄이는 데 브라우저에서 74ms 가 든다 (Rocketbox 몸). 첫 화면에서 한 번이다.
+게이트: `scripts/check-lod.mjs`.
 
 ### 동작 옮기기 (retarget)
 
@@ -152,18 +184,23 @@ node scripts/retarget.mjs packs/rocketbox-m01/clips/phone-call.glb rocketbox-f01
 `docs/plan-peoplemaker-ko.md` 의 P1 절반. 계약이 실물로 통과했다:
 
 ```
-클립 5개 (합성 기준 팩) → 재서 카탈로그 → three.js 가 읽고 사람을 세운다
-사람 여럿의 비용을 CPU·GPU 양쪽에서 재고, 드로우콜을 하나로 줄였다
+클립 5개(합성 기준 팩) · Rocketbox 사람 둘(동작 9개씩) → 재서 카탈로그 →
+three.js 가 읽고 사람을 세운다
+드로우콜을 사람 수에서 둘로 줄이고, 그러고 나서 살을 4분의 1로 줄였다
 리그의 앞을 재서, 시킨 쪽으로 실제로 걷는다 (제자리 재생도 같이)
-게이트 7개 · 검사 277 (살이 사람 모양인지까지 잰다)
+동작을 다른 몸으로 옮긴다 (retarget)
+게이트 9개 · 검사 457 (살이 사람 모양인지까지 잰다)
 
-  200명 · 뼈 65   스킨드   드로우콜 201 · CPU 16.9ms · GPU 16.8ms
-                  인스턴싱 드로우콜   2 · CPU 0.04ms · GPU 0.84ms
-  5,000명         인스턴싱 드로우콜   2 · CPU 0.12ms · GPU 2.62ms
+  Rocketbox 여자 01 · 한 프레임 4ms 예산 · Radeon 780M
+    스킨드 (가까이)          28명    드로우콜 3/인 · 정점 5,438
+    먼 단계                 823명    드로우콜 2   · 정점 4,883
+    먼 단계 + 살 줄임      3,623명   드로우콜 2   · 정점 1,030
 
 데모: node scripts/serve-demo.mjs → http://localhost:5180/?people=200&bones=65
+     ?pack=rocketbox-f01&mode=instanced&lod=0.25 — 줄인 살로 세우는 자리
      /demo/webgl.html · /demo/webgpu.html — 같은 코드를 두 렌더러로 (견주는 자리)
 ```
 
-아직 없는 것: 사람이 만든 진짜 클립(Mixamo 는 계정이 필요하다), 사이즈코리아
-치수 5종, 그리고 다수 렌더링(LOD·인스턴싱). **없다는 것을 게이트가 수로 말한다.**
+아직 없는 것: 사이즈코리아 치수 5종, 사람이 만든 진짜 클립(Mixamo 는 계정이
+필요하다), 그리고 먼 단계의 **재료** — 지금은 한 색으로 칠해서, 멀리 있는
+사람들이 다 같은 회색이다. **없다는 것을 게이트가 수로 말한다.**

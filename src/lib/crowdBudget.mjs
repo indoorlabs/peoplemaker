@@ -125,7 +125,7 @@ export const P1_VERDICT = {
   target: '200명 60fps',
   measured: 'skinned 200명 = CPU 16.9 · GPU 16.8ms (60fps 를 겨우 못 넘는다) / instanced 200명 = CPU 0.04 · GPU 0.84ms',
   verdict: '드로우콜을 하나로 줄이면 넘는다. 5,000명까지도 GPU 2.6ms 다 — 이제 벽은 사람 수가 아니라 몸의 정점 수다',
-  next: '진짜 캐릭터(정점 5,000~15,000)로 다시 재야 한다. 지금 몸은 1,560이다',
+  next: '진짜 몸으로 다시 쟀고(PACK_MEASURED.rocketbox · 정점 4,883), 정점이 벽이라 살을 줄였다 — 4ms 에 823명이 3,623명이 됐다 (instancedLod). 다음 벽은 값이 아니라 그림이다: 먼 단계는 한 색으로 칠한다',
 };
 
 export const INSTANCED_MS_PER_PERSON = 0.00055;
@@ -330,6 +330,43 @@ export const PACK_MEASURED = {
         { people: 1000, drawCalls: 2, frameMs: 4.811 },
       ],
     },
+    // **살을 줄인 먼 단계** — 같은 몸을 삼각형 4분의 1로 접었다 (lib/meshLod.mjs).
+    //
+    // 위 표에서 드로우콜은 이미 2 인데 1,000명이 4.81ms 였다. 드로우콜이
+    // 아니라면 남은 것은 정점·삼각형 몫이고, 그것은 살을 줄이는 것 말고
+    // 줄일 길이 없다. 줄여서 다시 쟀다 (2026-09-12, 같은 기계):
+    //
+    //   사람    삼각형      안 줄임    줄임(0.25)
+    //    200    40만/200만    1.46       0.95
+    //   1000   201만/806만    4.81       1.46
+    //   5000  1008만/4032만   —          5.32
+    //
+    // **4ms 예산이 823명에서 3,623명으로 늘었다.** 뼈와 가중치는 안 건드리므로
+    // 구운 아틀라스는 그대로다 — 굽는 쪽은 아무것도 안 바뀐다.
+    //
+    // 대가는 살이 원래에서 벗어나는 거리다. 벗어남은 기계와 무관한 **이 살의
+    // 성질**이라, 게이트가 매번 다시 재서 이 수와 견준다 (check-lod).
+    instancedLod: {
+      ratio: 0.25,
+      verts: 1030,
+      triangles: 2016,
+      from: { verts: 4883, triangles: 8064 },
+      // 원래 정점에서 줄인 살의 면까지 (키 1.6m 인 몸에서)
+      deviation: { maxMm: 17.3, meanMm: 1.62 },
+      // 브라우저에서 줄이는 데 드는 시간 — 받는 쪽이 첫 화면에서 한 번 치른다
+      buildMs: 74,
+      points: [
+        { people: 200, drawCalls: 2, frameMs: 0.951 },
+        { people: 500, drawCalls: 2, frameMs: 1.159 },
+        { people: 1000, drawCalls: 2, frameMs: 1.461 },
+        { people: 2000, drawCalls: 2, frameMs: 2.441 },
+        { people: 5000, drawCalls: 2, frameMs: 5.323 },
+      ],
+      // 더 줄이면 더 싸다 — 삼각형에 거의 곧게 붙는다. 5,000명이 10분의 1
+      // (삼각형 806 · 정점 425)에서 2.462ms 였다. 벗어남은 최대 44.9mm ·
+      // 평균 5.25mm 로 커진다. 단계를 하나 더 둘 자리가 여기다.
+      tenth: { ratio: 0.1, verts: 425, triangles: 806, people: 5000, frameMs: 2.462 },
+    },
   },
 };
 
@@ -378,11 +415,18 @@ export function frameMsAt(points, people) {
  * 두 단계의 값은 **더한다.** 각 표에 들어 있는 고정 비용(빈 장면의 약 0.6ms)이
  * 두 번 세어져 조금 비싸게 보는데, 싸게 보는 것보다 낫다.
  *
- * @param tiers 쓸 수 있는 단계 — ['full'] 또는 ['full', 'instanced']
+ * 먼 단계는 **살을 줄인 것**(instancedLod)과 안 줄인 것(instanced) 둘이다.
+ * 둘 다 쓸 수 있다고 하면 줄인 쪽을 쓴다 — 같은 예산에 사람이 네 배다.
+ * 줄이는 쪽을 안 쓰는 화면(가까이서 보는 소수)은 tiers 에서 빼면 된다.
+ *
+ * @param tiers 쓸 수 있는 단계 — ['full'] · ['full', 'instanced'] · ['full', 'instancedLod']
  */
 export function planCrowdMeasured(want, budgetMs, table, tiers = ['full']) {
   const full = table?.points || [];
-  const inst = tiers.includes('instanced') ? table?.instanced?.points || null : null;
+  const farTier = tiers.includes('instancedLod') && table?.instancedLod ? 'instancedLod'
+    : tiers.includes('instanced') && table?.instanced ? 'instanced'
+      : null;
+  const inst = farTier ? table[farTier].points || null : null;
   const fullAt = (k) => frameMsAt(full, k);
   const instAt = (k) => frameMsAt(inst, k);
   const out = (nFull, nInst) => {
@@ -390,7 +434,7 @@ export function planCrowdMeasured(want, budgetMs, table, tiers = ['full']) {
     const b = inst ? instAt(nInst) : { ms: 0, extrapolated: false };
     const mix = [];
     if (nFull) mix.push({ tier: 'full', count: nFull });
-    if (nInst) mix.push({ tier: 'instanced', count: nInst });
+    if (nInst) mix.push({ tier: farTier, count: nInst });
     return {
       mix,
       ms: +(a.ms + b.ms).toFixed(3),

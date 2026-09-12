@@ -272,6 +272,40 @@ runGate('check-surface', async (g) => {
         const geom = api.geometryOf(pack);
         if (!geom?.getAttribute('skinIndex')) g.fail('bake/geometry', '살에 스킨 정보가 없다');
         else {
+          // ── 먼 사람용으로 살을 줄여 주는가 ──
+          //
+          // 문에서 `{ lod }` 를 받아 줄인 기하를 내야 한다. 같은 아틀라스로
+          // 그대로 세워져야 한다는 것이 요점이다 — 뼈와 가중치는 안 건드리므로
+          // 굽는 쪽은 아무것도 안 바뀐다.
+          n++;
+          const stats = {};
+          const thin = api.geometryOf(pack, { lod: 0.5, lodStats: stats });
+          if (!(thin.getAttribute('position').count < geom.getAttribute('position').count)) {
+            g.fail('lod/smaller', `줄이라고 했는데 정점이 ${thin.getAttribute('position').count} 그대로다`);
+          }
+          n++;
+          for (const k of ['position', 'normal', 'skinIndex', 'skinWeight']) {
+            if (!thin.getAttribute(k)) g.fail(`lod/attr/${k}`, `줄인 살에 ${k} 가 없다`);
+          }
+          n++;
+          if (!thin.index) g.fail('lod/index', '줄인 살에 인덱스가 없다');
+          n++;
+          if (!(stats.trianglesAfter > 0 && stats.trianglesAfter < stats.trianglesBefore)) {
+            g.fail('lod/stats', '얼마나 줄었는지를 안 알려준다');
+          }
+          n++;
+          // 줄인 살로도 같은 아틀라스로 군중이 서는가.
+          try {
+            const c2 = api.createInstancedCrowd({ THREE, geometry: thin, atlas, count: 4 });
+            c2.place(0, { position: [0, 0, 0], clipId: 'walk-forward' });
+            c2.update(0.1);
+          } catch (e) { g.fail('lod/crowd', `줄인 살로는 군중을 못 세운다 — ${e.message}`); }
+          n++;
+          // 안 주거나 1 이면 그대로여야 한다 — 예전 부름이 안 바뀐다.
+          if (api.geometryOf(pack, { lod: 1 }).getAttribute('position').count !== geom.getAttribute('position').count) {
+            g.fail('lod/none', 'lod 1 인데 살이 달라졌다');
+          }
+
           n++;
           // 문에서 받은 것만으로 군중이 서는가 — 여기까지 되면 소비처는
           // 이 파일 하나만 알면 된다.

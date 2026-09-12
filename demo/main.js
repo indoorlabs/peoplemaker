@@ -31,6 +31,8 @@ const boneOverride = Number(q.get('bones') || 0);
 // 'skinned' 사람마다 스킨 메시 (드로우콜 = 사람 수)
 // 'instanced' 구운 자세 + InstancedMesh (드로우콜 1)
 const mode = q.get('mode') || 'skinned';
+// 먼 단계의 살을 얼마로 줄일 것인가 (0.25 = 삼각형 4분의 1). 안 주면 안 줄인다.
+const lod = Number(q.get('lod') || 0);
 const hud = document.getElementById('hud');
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -68,6 +70,7 @@ const side = Math.ceil(Math.sqrt(want));
 const spot = (i) => [(i % side) * 1.6 - side * 0.8, 0, Math.floor(i / side) * 1.6 - side * 0.8];
 let verts = 0;
 let crowd = null;
+const lodStats = {};
 
 if (mode === 'instanced') {
   // 구운 자세 + InstancedMesh — 드로우콜 하나.
@@ -89,7 +92,10 @@ if (mode === 'instanced') {
   } else {
     // 앱이 쓰는 길과 같은 길 — 재는 것이 앱이 그리는 것이어야 한다.
     atlas = bakeFromPack(pack, ['walk-forward', 'idle']);
-    geom = geometryOf(pack);
+    // 살을 줄이는 데 드는 시간도 잰다 — 받는 쪽이 첫 화면에서 치르는 값이다.
+    const t0 = performance.now();
+    geom = geometryOf(pack, { lod, lodStats });
+    lodStats.ms = +(performance.now() - t0).toFixed(1);
   }
   verts = geom.attributes.position.count;
   crowd = createInstancedCrowd({ THREE, geometry: geom, atlas, count: want });
@@ -138,6 +144,7 @@ window.__crowdStats = () => ({
   뼈: bones,
   총뼈: bones * (crowd ? want : player.people.length),
   몸정점: verts,
+  ...(lod ? { 살줄임: lod, 줄이기ms: lodStats.ms ?? null, 삼각형원본: lodStats.trianglesBefore ?? null } : {}),
   드로우콜: renderer.info.render.calls,
   삼각형: renderer.info.render.triangles,
   프로그램: renderer.info.programs?.length ?? null,

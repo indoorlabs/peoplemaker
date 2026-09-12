@@ -18,3 +18,4 @@ export * from './crowdBudget.mjs';
 export * from './fixtureRig.mjs';
 export * from './gltfWrite.mjs';
 export * from './retarget.mjs';
+export * from './meshLod.mjs';

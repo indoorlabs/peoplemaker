@@ -15,6 +15,7 @@
 import { validateCatalog } from '../lib/motionPack.mjs';
 import { parseGLB } from '../lib/gltf.mjs';
 import { bakeClip, bakeAtlas } from '../lib/poseBake.mjs';
+import { simplifyMesh } from '../lib/meshLod.mjs';
 
 export { createClipPlayer } from './clipPlayer.mjs';
 export { createInstancedCrowd } from './instancedCrowd.mjs';
@@ -159,8 +160,15 @@ export function bakeFromPack(pack, clipIds) {
  * 알파로 오려 내는 조각(속눈썹·머리카락 카드)은 뺀다. 인스턴싱 셰이더는
  * 한 색으로 칠하므로, 넣으면 얇은 판이 머리 둘레에 통째로 칠해진다.
  * 조각들은 한 skin 을 나눠 쓰므로 뼈 번호가 그대로 맞는다.
+ *
+ * **먼 사람에게는 살을 줄여 준다** — `{ lod: 0.25 }` 면 삼각형을 4분의 1로
+ * 접는다 (lib/meshLod.mjs). 뼈와 가중치는 그대로라 **같은 아틀라스를 그대로
+ * 쓴다** — 굽는 쪽은 아무것도 안 바뀐다.
+ *
+ * @param opts 클립 id (예전 모양) 또는 { clipId, lod, lodStats }
  */
-export function geometryOf(pack, clipId) {
+export function geometryOf(pack, opts) {
+  const { clipId, lod, lodStats } = typeof opts === 'string' || opts == null ? { clipId: opts } : opts;
   // 나뉜 팩은 몸이 따로 있다. 예전 팩은 받아 둔 클립 아무것이나 — 동작을
   // 필요한 것만 받으므로 첫 클립이 없을 수 있다.
   const gltf = clipId ? pack.gltfOf(clipId)
@@ -176,7 +184,47 @@ export function geometryOf(pack, clipId) {
   if (!parts.length) throw new Error('스킨 메시가 없다');
   const solid = parts.filter((p) => !p.cutout).map((p) => p.geom);
   const use = solid.length ? solid : parts.map((p) => p.geom);
-  return use.length === 1 ? use[0] : mergeSkinned(use);
+  const merged = use.length === 1 ? use[0] : mergeSkinned(use);
+  if (!(lod > 0) || lod >= 1) return merged;
+  return simplifiedGeometry(merged, lod, lodStats);
+}
+
+/**
+ * 기하를 줄여 새 기하로 — three 는 주입받으므로 **원래 기하에서 틀을 빌린다**.
+ *
+ * 줄이는 셈 자체는 순수 층에 있다 (lib/meshLod.mjs). 여기서 하는 일은 three 의
+ * 속성에서 배열을 꺼내고 돌려 담는 것뿐이다.
+ */
+function simplifiedGeometry(geom, ratio, stats) {
+  const read = (name, size) => {
+    const a = geom.getAttribute(name);
+    if (!a) return null;
+    const out = name === 'skinIndex' ? new Uint16Array(a.count * size) : new Float32Array(a.count * size);
+    for (let i = 0; i < a.count; i++) for (let c = 0; c < size; c++) out[i * size + c] = a.getComponent(i, c);
+    return out;
+  };
+  const index = new Uint32Array(geom.index ? geom.index.count : geom.getAttribute('position').count);
+  if (geom.index) for (let i = 0; i < geom.index.count; i++) index[i] = geom.index.getX(i);
+  else for (let i = 0; i < index.length; i++) index[i] = i;
+
+  const small = simplifyMesh({
+    position: read('position', 3),
+    normal: read('normal', 3),
+    skinIndex: read('skinIndex', 4),
+    skinWeight: read('skinWeight', 4),
+    index,
+  }, { ratio });
+  if (stats) Object.assign(stats, small.stats);
+
+  const out = new geom.constructor();
+  const Attr = plainAttributeClass([geom]);
+  out.setAttribute('position', new Attr(small.position, 3));
+  out.setAttribute('normal', new Attr(small.normal, 3));
+  out.setAttribute('skinIndex', new Attr(small.skinIndex, 4));
+  out.setAttribute('skinWeight', new Attr(small.skinWeight, 4));
+  out.setIndex(new Attr(small.index, 1));
+  out.computeBoundingSphere?.();
+  return out;
 }
 
 /**
