@@ -217,12 +217,18 @@ export function retargetClip(source, target, { fps = 30, animIndex = 0, sourceSk
   const same = S.sk === T.sk;
 
   // 짝 — 같은 규약이면 이름이 같은 뼈 전부(손가락·얼굴까지), 다르면 공통 뼈만.
+  //
+  // **번호는 떼고 견준다.** 3ds Max 는 장면마다 바이페드에 번호를 매겨서,
+  // 어른 몸은 Bip01 이고 어린이 몸은 Bip02 다. 이름을 그대로 견주면 같은
+  // 규약인데도 짝이 0개가 되어 "짝지을 뼈가 없다" 로 멈춘다 (어린이를 받다
+  // 밟았다). 한 몸 안에서는 접두어가 하나뿐이라 떼도 안 섞인다.
   const pair = new Map();   // 대상 노드 → 원본 노드
   if (same) {
-    const byName = new Map(S.names.map((n, i) => [n, i]));
+    const bare = BARE[S.sk] || ((n) => n);
+    const byName = new Map(S.names.map((n, i) => [bare(n), i]));
     for (const i of T.order) {
       if (!T.joints.has(i) && i !== T.carrier) continue;
-      const j = byName.get(T.names[i]);
+      const j = byName.get(bare(T.names[i]));
       if (j != null) pair.set(i, j);
     }
   } else {

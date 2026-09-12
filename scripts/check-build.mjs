@@ -18,6 +18,63 @@ import {
   plantEvents, PLANT_MIN_DWELL_S,
 } from '../src/lib/packBuild.mjs';
 import { FIXTURES, buildGLB } from '../src/lib/fixtureRig.mjs';
+import { readAccessor } from '../src/lib/gltf.mjs';
+
+/**
+ * 이 클립을 틀면 **뼈 길이가 그대로인가.**
+ *
+ * Biped 동작은 회전만이 아니라 뼈마다 자리(translation)도 싣는다. 그래서 어른
+ * 동작을 어린이 몸에 그냥 접붙이면 뼈 길이가 어른 것으로 덮여 **아이가 어른
+ * 크기로 늘어난다** — 키 1.433m 가 1.740m 가 됐다 (+21.4%). 화면에서는 그냥
+ * 걷는 사람이라 아무도 못 알아챈다.
+ *
+ * 재는 법을 두 번 고쳤다:
+ *
+ * 1. **살의 경계상자**로 쟀더니 손 흔들기가 8%, 앉기가 −19% 로 걸렸다 —
+ *    그것은 몸 크기가 아니라 **자세**의 크기다.
+ * 2. 뼈 길이를 FK 로 풀어 쟀더니 맞기는 한데 게이트가 3분 늘었다.
+ *    `sampleAnimation` 이 시각 하나를 뽑으려고 클립을 통째로 푼다 (회전
+ *    트랙까지 전부).
+ *
+ * 지금은 **이동 트랙만** 본다. 뼈 길이를 바꿀 수 있는 것은 그것뿐이고,
+ * 회전 트랙은 안 풀어도 된다. 뼈가 부모에게서 얼마나 떨어져 있는지를
+ * 쉬는 자세(node.translation)와 견준다.
+ *
+ * 뿌리의 이동(root motion)은 뼈 하나뿐이므로 **전체 뼈 중 몇 퍼센트가**
+ * 달라졌는지로 본다 — 크기가 덮이면 거의 전부가 함께 달라진다.
+ */
+function boneLengthReport(doc) {
+  const anim = doc.json.animations?.[0];
+  if (!anim?.channels?.length) return null;
+  const nodes = doc.json.nodes || [];
+  const bones = new Set(anim.channels.map((ch) => ch.target?.node).filter((i) => i != null));
+  if (bones.size < 4) return null;
+
+  const ratios = [];
+  for (const ch of anim.channels) {
+    if (ch.target?.path !== 'translation') continue;
+    const rest = nodes[ch.target.node]?.translation;
+    const restLen = rest ? Math.hypot(rest[0], rest[1], rest[2]) : 0;
+    // 원점에 있는 뼈(뿌리)는 길이가 0 이라 비율을 못 낸다 — 그런 뼈는 건너뛴다.
+    if (!(restLen > 1e-3)) continue;
+    const out = readAccessor(doc, anim.samplers[ch.sampler].output);
+    const keys = out.length / 3;
+    let worst = 1;
+    for (const k of [0, Math.floor(keys / 2), keys - 1]) {
+      const len = Math.hypot(out[k * 3], out[k * 3 + 1], out[k * 3 + 2]);
+      const r = len / restLen;
+      if (Math.abs(r - 1) > Math.abs(worst - 1)) worst = r;
+    }
+    ratios.push(worst);
+  }
+  if (!ratios.length) return { changed: 0, median: 1, bones: bones.size, translated: 0 };
+  const changed = ratios.filter((r) => Math.abs(r - 1) > 0.03).length / bones.size;
+  const sorted = [...ratios].sort((a, b) => a - b);
+  return { changed, median: sorted[Math.floor(sorted.length / 2)], bones: bones.size, translated: ratios.length };
+}
+
+/** 이만큼 넘는 뼈가 길이를 바꾸면 그 클립은 그 몸의 것이 아니다. */
+const SIZE_TOLERANCE = 0.2;
 
 /** 사양 하나를 만들어 바로 재 본다 — 파일을 안 거친다. */
 function roundTrip(spec, decl = {}) {
@@ -152,11 +209,25 @@ runGate('check-build', (g) => {
     for (const p of packs) {
       const cat = JSON.parse(fs.readFileSync(path.join(dir, p, 'catalog.json'), 'utf8'));
       const src = JSON.parse(fs.readFileSync(path.join(dir, p, 'sources.json'), 'utf8'));
+      let worst = null;
       for (const decl of src.clips || []) {
         const file = path.join(dir, p, 'clips', `${decl.id}.glb`);
         if (!fs.existsSync(file)) continue;   // GLB 는 저장소에 안 둘 수 있다 (.gitignore)
         n++;
-        const fresh = deriveClip(parseGLB(fs.readFileSync(file)), decl, { skeleton: src.skeleton }).clip;
+        const clipDoc = parseGLB(fs.readFileSync(file));
+
+        // ── 클립이 **이 몸의 것인가** (뼈 길이가 그대로인가) ──
+        n++;
+        const size = boneLengthReport(clipDoc);
+        if (size) {
+          if (!worst || size.changed > worst.changed) worst = { ...size, id: decl.id };
+          if (size.changed > SIZE_TOLERANCE) {
+            g.fail(`size/${p}/${decl.id}`,
+              `뼈 ${(size.changed * 100).toFixed(0)}% 의 길이가 달라진다 (가운데 값 ${size.median.toFixed(3)}배) — 다른 몸의 동작을 그냥 접붙인 것이다 (옮겨 붙일 것)`);
+          }
+        }
+
+        const fresh = deriveClip(clipDoc, decl, { skeleton: src.skeleton }).clip;
         const baked = (cat.clips || []).find((c) => c.id === decl.id);
         if (!baked) { g.fail(`stale/${p}/${decl.id}`, '카탈로그에 없다 — 다시 구울 것'); continue; }
         for (const f of MEASURED_FIELDS) {
@@ -166,7 +237,61 @@ runGate('check-build', (g) => {
           }
         }
       }
-      console.log(`  [팩] ${p}: 클립 ${(cat.clips || []).length}개가 지금 코드와 같은 값인지 확인했다`);
+      console.log(`  [팩] ${p}: 클립 ${(cat.clips || []).length}개가 지금 코드와 같은 값인지 확인했다`
+        + (worst ? ` · 뼈 길이가 달라진 비율 최대 ${(worst.changed * 100).toFixed(0)}% (${worst.id})` : ''));
+    }
+  }
+
+  // ── 뼈 길이 검사가 **진짜로 잡는가** ──
+  //
+  // 위에서 팩을 다 훑어도 "달라진 뼈가 없다" 만 나오면, 그 검사가 눈을 감고
+  // 있는 것인지 알 수 없다. 그래서 멀쩡한 클립의 이동 트랙을 1.25배로 늘려
+  // 놓고 — 어른 동작을 아이에게 접붙였을 때 일어나는 바로 그 일이다 —
+  // 걸리는지 본다.
+  {
+    const dir = path.join(ROOT, 'packs');
+    const packs = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+    let victim = null;
+    for (const p of packs) {
+      const clips = path.join(dir, p, 'clips');
+      if (!fs.existsSync(clips)) continue;
+      for (const f of fs.readdirSync(clips)) {
+        if (!f.endsWith('.glb')) continue;
+        const doc = parseGLB(fs.readFileSync(path.join(clips, f)));
+        const r = boneLengthReport(doc);
+        // 뼈마다 자리를 싣는 클립이라야 이 검사가 뜻이 있다.
+        if (r && r.translated >= 4) { victim = { file: path.join(clips, f), where: `${p}/${f}` }; break; }
+      }
+      if (victim) break;
+    }
+    if (!victim) {
+      console.log('  [재기] 뼈마다 자리를 싣는 클립이 없어 크기 검사를 흔들어 보지 못했다 (Rocketbox 팩이 없다)');
+    } else {
+      n++;
+      const before = boneLengthReport(parseGLB(fs.readFileSync(victim.file)));
+      if (before.changed > SIZE_TOLERANCE) {
+        g.fail('size/self/clean', `멀쩡한 클립(${victim.where})이 이미 걸린다 — 검사가 너무 빡빡하다`);
+      }
+      n++;
+      // 이동 트랙을 늘린다 — 접근자 바이트를 그 자리에서 고친다.
+      const doc = parseGLB(fs.readFileSync(victim.file));
+      const anim = doc.json.animations[0];
+      for (const ch of anim.channels) {
+        if (ch.target?.path !== 'translation') continue;
+        const acc = doc.json.accessors[anim.samplers[ch.sampler].output];
+        const bv = doc.json.bufferViews[acc.bufferView];
+        const base = (bv.byteOffset || 0) + (acc.byteOffset || 0);
+        const dv = new DataView(doc.bin.buffer, doc.bin.byteOffset, doc.bin.byteLength);
+        for (let i = 0; i < acc.count * 3; i++) {
+          const o = base + i * 4;
+          dv.setFloat32(o, dv.getFloat32(o, true) * 1.25, true);
+        }
+      }
+      const after = boneLengthReport(doc);
+      if (!(after.changed > SIZE_TOLERANCE)) {
+        g.fail('size/self/stretched', `이동을 1.25배로 늘렸는데 달라진 뼈가 ${(after.changed * 100).toFixed(0)}% 뿐이다 — 검사가 눈을 감고 있다`);
+      }
+      console.log(`  [재기] 크기 검사: ${victim.where} 를 1.25배로 늘리니 달라진 뼈 ${(before.changed * 100).toFixed(0)}% → ${(after.changed * 100).toFixed(0)}% (가운데 값 ${after.median.toFixed(2)}배)`);
     }
   }
 

@@ -28,6 +28,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { bodyOnly, motionOnly, extractAnimation, encodeGLB } from '../src/lib/gltfWrite.mjs';
+import { retargetClip, animationOf } from '../src/lib/retarget.mjs';
 import { NodeIO } from '@gltf-transform/core';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -42,6 +43,11 @@ const PRESETS = {
   'rocketbox-m02': { avatar: 'Adults/Male_Adult_02', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '남자 02', en: 'man 02', tags: ['male', 'adult'] },
   'rocketbox-business-f01': { avatar: 'Professions/Business_Female_01', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '정장 여자 01', en: 'business woman 01', tags: ['female', 'adult', 'business'] },
   'rocketbox-business-m01': { avatar: 'Professions/Business_Male_01', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '정장 남자 01', en: 'business man 01', tags: ['male', 'adult', 'business'] },
+  // **어린이는 걸음 클립이 어른 것뿐이다.** Rocketbox 의 동작 326개가 전부
+  // f_/m_ (어른)이라, 그대로 붙이면 키 차이만큼 발이 뜨거나 파묻힐 수 있다.
+  // 받아서 **재 보고** 정한다 — 뜨면 scripts/retarget.mjs 로 옮겨 붙인다.
+  'rocketbox-c01': { avatar: 'Children/Male_Child_01', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '남자아이 01', en: 'boy 01', tags: ['male', 'child'] },
+  'rocketbox-c02': { avatar: 'Children/Female_Child_01', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '여자아이 01', en: 'girl 01', tags: ['female', 'child'] },
 };
 
 /**
@@ -75,11 +81,14 @@ if (!avatar || !walk || !idle) { console.error(`${packId}: 인물·걷기·서�
 const avatarName = path.basename(avatar);
 
 // ── 1. 내려받기 ──
-async function fetchTo(rel, dst) {
+async function fetchTo(rel, dst, { optional = false } = {}) {
   if (fs.existsSync(dst) && fs.statSync(dst).size > 0) return dst;
   fs.mkdirSync(path.dirname(dst), { recursive: true });
   const url = `${RAW}/${rel.split('/').map(encodeURIComponent).join('/')}`;
   const res = await fetch(url);
+  // 없어도 되는 파일은 null 로 — 크게 실패하는 것이 기본이고, 없어도 되는
+  // 것만 부르는 쪽이 그렇다고 말한다.
+  if (res.status === 404 && optional) return null;
   if (!res.ok) throw new Error(`${rel} 를 못 받았다 (HTTP ${res.status})`);
   fs.writeFileSync(dst, Buffer.from(await res.arrayBuffer()));
   console.log(`  받음 ${rel} (${(fs.statSync(dst).size / 1024 / 1024).toFixed(1)} MB)`);
@@ -222,7 +231,18 @@ async function graft(bodyGlb, clipGlb, textures, outPath) {
   const clip = await io.read(clipGlb);
   const root = body.getRoot();
   const buffer = root.listBuffers()[0] || body.createBuffer();
-  const byName = new Map(root.listNodes().map((n) => [n.getName(), n]));
+  // **Bip 번호를 떼고 잇는다.**
+  //
+  // 어른 몸은 `Bip01 …`, 어린이 몸은 `Bip02 …` 다 (3ds Max 에서 한 장면에
+  // 둘째 바이페드가 받는 번호다). 동작 326개는 전부 Bip01 로 만들어져 있어서,
+  // 이름을 그대로 맞추면 어린이에게는 **트랙이 하나도 안 붙는다** — 105개가
+  // 전부 건너뛰어졌고, 그 결과가 "애니메이션이 0개다" 였다.
+  //
+  // 번호만 떼면 84개 중 83개가 이름으로 맞는다 (남는 하나는 뼈가 아니라
+  // 메시다). 뼈대 규약이 같은 것이지 다른 리그가 아니므로, 옮겨 붙이기
+  // (retarget)가 아니라 **이름 맞추기**가 맞다.
+  const unnumber = (name) => (name || '').replace(/^Bip\d\d\b/, 'Bip');
+  const byName = new Map(root.listNodes().map((n) => [unnumber(n.getName()), n]));
   for (const a of root.listAnimations()) a.dispose();          // 몸 쪽 빈 Take
   const src = clip.getRoot().listAnimations()[0];
   if (!src) throw new Error(`${clipGlb}: 애니메이션이 없다`);
@@ -232,7 +252,7 @@ async function graft(bodyGlb, clipGlb, textures, outPath) {
   for (const ch of src.listChannels()) {
     // 몸에 없는 노드(Footsteps · MotionExtractionHelper · 얼굴 세부)는 건너뛴다 —
     // 거기 매달린 살이 없으니 그려질 것도 없다.
-    const dst = byName.get(ch.getTargetNode()?.getName());
+    const dst = byName.get(unnumber(ch.getTargetNode()?.getName()));
     if (!dst) { skipped++; continue; }
     const s = ch.getSampler();
     const sampler = body.createAnimationSampler()
@@ -280,9 +300,14 @@ const bodyGlb = fbx2glb(bodyFbx, path.join(work, avatarName));
 const mats = (await new NodeIO().read(bodyGlb)).getRoot().listMaterials().map((m) => m.getName());
 const prefix = (mats.find((m) => /_body$/.test(m)) || '').replace(/_body$/, '');
 if (!prefix) throw new Error(`${avatarName}: 몸 재질(_body)을 못 찾았다 — 재질 ${mats.join(', ')}`);
+// 몸·머리는 인물마다 있고, **opacity 는 없는 인물이 있다** — 속눈썹·머리카락
+// 카드가 없는 몸(어린이)이 그렇다. 없으면 없는 대로 간다: 그 재질을 쓰는
+// 조각이 아예 없으므로, 빈 자리를 지어내면 오히려 1×1 자리표시가 남는다.
 const textures = {};
 for (const p of ['body', 'head', 'opacity']) {
-  const tga = await fetchTo(`Avatars/${avatar}/Textures/${prefix}_${p}_color.tga`, path.join(work, `${prefix}_${p}_color.tga`));
+  const rel = `Avatars/${avatar}/Textures/${prefix}_${p}_color.tga`;
+  const tga = await fetchTo(rel, path.join(work, `${prefix}_${p}_color.tga`), { optional: p === 'opacity' });
+  if (!tga) { console.log(`  텍스처 ${p}: 없다 (이 인물에는 그 재질이 없다)`); continue; }
   const img = downscale(decodeTGA(fs.readFileSync(tga)), 1024);
   textures[p] = encodePNG(img);
   console.log(`  텍스처 ${p}: ${img.w}×${img.h}${img.hasAlpha ? ' RGBA' : ''} → ${(textures[p].length / 1024).toFixed(0)} KB`);
@@ -305,7 +330,27 @@ for (const x of sex ? EXTRAS.filter((e) => !e.only || e.only === sex) : []) {
 const full = path.join(work, 'full');
 fs.rmSync(path.join(dir, 'clips'), { recursive: true, force: true });
 fs.mkdirSync(path.join(dir, 'clips'), { recursive: true });
+/**
+ * **몸 크기가 다르면 접붙이면 안 된다.**
+ *
+ * Biped 동작은 회전만이 아니라 뼈마다 **자리(translation)** 도 싣는다. 그래서
+ * 어른 동작을 어린이 몸에 그냥 접붙이면 뼈 길이가 어른 것으로 덮여, 아이가
+ * 어른 크기로 늘어난다 — 재 보니 키 1.433m 가 1.740m 가 됐다 (+21.4%).
+ * 화면에서는 그냥 걷는 사람이라 아무도 못 알아챈다.
+ *
+ * 엉덩이 높이 비로 가른다. 이 자산에서 잰 값:
+ *
+ *   어른   0.997 ~ 1.007   (동작 리그가 곧 그 몸이다)
+ *   어린이 0.788 · 0.826
+ *
+ * 2% 를 넘으면 **옮겨 붙인다**(retarget) — 뼈 길이는 대상 몸의 것을 지키고,
+ * 몸 전체의 이동만 엉덩이 높이 비로 줄인다. 남자아이 걸음이 1.018m/s 에서
+ * 0.804m/s 가 됐고, 키는 0.1% 만 달라졌다.
+ */
+const RETARGET_HIP_TOLERANCE = 0.02;
+
 let bodyDoc = null;
+const retargeted = new Map();
 for (const [id, clipGlb] of [['walk-forward', walkGlb], ['idle', idleGlb], ...extras.map((x) => [x.id, x.glb])]) {
   const fullPath = path.join(full, `${id}.glb`);
   const r = await graft(bodyGlb, clipGlb, textures, fullPath);
@@ -316,20 +361,36 @@ for (const [id, clipGlb] of [['walk-forward', walkGlb], ['idle', idleGlb], ...ex
     fs.writeFileSync(path.join(dir, 'body.glb'), b);
     console.log(`  body.glb: 텍스처 ${r.textured} · ${Math.round(b.byteLength / 1024)} KB`);
   }
-  const { doc: motion, missing } = motionOnly(bodyDoc, extractAnimation(doc));
+
+  // 접붙인 것을 쓸지, 옮겨 붙일지 — 몸 크기가 정한다.
+  const moved = retargetClip(parseGLB(fs.readFileSync(clipGlb)), bodyDoc, { targetSkeleton: 'biped' });
+  const hip = moved.report.hipScale;
+  const takeover = Math.abs(hip - 1) > RETARGET_HIP_TOLERANCE;
+  if (takeover) retargeted.set(id, hip);
+  const anim = takeover ? animationOf(bodyDoc, moved, id) : extractAnimation(doc);
+
+  const { doc: motion, missing } = motionOnly(bodyDoc, anim);
   if (missing.length) throw new Error(`${id}: 몸에 없는 뼈 ${missing.slice(0, 4).join(', ')}`);
   const m = encodeGLB(motion);
   fs.writeFileSync(path.join(dir, 'clips', `${id}.glb`), m);
-  console.log(`  ${id}.glb: 트랙 ${r.kept} · 건너뜀 ${r.skipped} · 동작만 ${Math.round(m.byteLength / 1024)} KB (몸째였으면 ${r.kb} KB)`);
+  console.log(`  ${id}.glb: ${takeover ? `옮겨 붙임 (엉덩이 비 ${hip} · 짝 ${moved.report.pairs})` : `트랙 ${r.kept} · 건너뜀 ${r.skipped}`} · 동작만 ${Math.round(m.byteLength / 1024)} KB (몸째였으면 ${r.kb} KB)`);
+}
+if (retargeted.size) {
+  console.log(`  ${retargeted.size}개를 옮겨 붙였다 — 동작 리그가 이 몸보다 ${((1 / [...retargeted.values()][0] - 1) * 100).toFixed(0)}% 크다`);
 }
 
 // ── 5. 사람이 적는 것만 적고, 나머지는 잰다 ──
 const name = { ko: preset.ko || avatarName, en: preset.en || avatarName };
-const source = (anim) => ({
+const source = (anim, id) => ({
   tool: 'microsoft/Microsoft-Rocketbox',
   avatar: `Assets/Avatars/${avatar}/Export/${avatarName}.fbx`,
   animation: anim,
   convertedBy: 'FBX2glTF 0.9.7 + peoplemaker/import-rocketbox',
+  // 옮겨 붙인 클립은 그 사실이 남아야 한다 — 라이선스는 안 바뀌지만,
+  // 어느 몸의 동작을 어떤 비로 줄였는지는 나중에 아무도 못 알아낸다.
+  ...(retargeted.has(id)
+    ? { retargetedBy: `peoplemaker/retarget (biped → biped, 엉덩이 높이 비 ${retargeted.get(id)})` }
+    : {}),
 });
 const sources = {
   packId,
@@ -338,12 +399,12 @@ const sources = {
   note: `Microsoft Rocketbox 의 ${avatarName} (MIT, Copyright (c) Microsoft Corporation). 몸과 동작이 원래 다른 파일이라 scripts/import-rocketbox.mjs 가 접붙였다 — 동작은 뼈 이름으로 맞췄고, 텍스처는 2048 TGA 를 1024 PNG 로 줄였다. 한 팩에 한 사람이다: 두 사람을 한 팩에 넣으면 속도에 맞춰 클립을 고르다 걷는 도중 사람이 바뀐다.`,
   clips: [
     { id: 'walk-forward', name: { ko: `앞으로 걷기 (${name.ko})`, en: `Walk forward (${name.en})` }, license: 'MIT',
-      source: source(`Assets/Animations/all_animations_max_motextr_xy/${walk}.max.fbx`), tags: ['walk', ...(preset.tags || [])] },
+      source: source(`Assets/Animations/all_animations_max_motextr_xy/${walk}.max.fbx`, 'walk-forward'), tags: ['walk', ...(preset.tags || [])] },
     { id: 'idle', name: { ko: `서 있기 (${name.ko})`, en: `Idle (${name.en})` }, license: 'MIT',
-      source: source(`Assets/Animations/all_animations_max_motextr_static/${idle}.max.fbx`), tags: ['idle', ...(preset.tags || [])] },
+      source: source(`Assets/Animations/all_animations_max_motextr_static/${idle}.max.fbx`, 'idle'), tags: ['idle', ...(preset.tags || [])] },
     ...extras.map((x) => ({
       id: x.id, name: { ko: `${x.ko} (${name.ko})`, en: `${x.en} (${name.en})` }, license: 'MIT',
-      source: source(`Assets/Animations/all_animations_max_motextr_static/${x.file}.max.fbx`), tags: [...x.tags, ...(preset.tags || [])],
+      source: source(`Assets/Animations/all_animations_max_motextr_static/${x.file}.max.fbx`, x.id), tags: [...x.tags, ...(preset.tags || [])],
     })),
   ],
 };

@@ -23,7 +23,7 @@ import { parseGLB } from '../src/lib/gltf.mjs';
 import { bakeClip } from '../src/lib/poseBake.mjs';
 import { attachAnimation } from '../src/lib/gltfWrite.mjs';
 import { PACK_MEASURED, planCrowdMeasured, frameMsAt } from '../src/lib/crowdBudget.mjs';
-import { skinnedMeshOf } from './read-mesh.mjs';
+import { skinnedMeshOf, skinPoints } from './read-mesh.mjs';
 
 // ── 아는 모양 ────────────────────────────────────────────────────
 
@@ -89,26 +89,6 @@ function withSkin(pos, idx) {
     if (len > 1e-12) for (let k = 0; k < 3; k++) nor[v * 3 + k] /= len;
   }
   return { position: Float32Array.from(pos), normal: nor, skinIndex: si, skinWeight: sw, index: Uint32Array.from(idx) };
-}
-
-/** 구운 한 프레임의 뼈 행렬로 살에 자세를 입힌다 — 셰이더가 하는 셈과 같다. */
-function skinPoints(mesh, baked, frame) {
-  const out = new Float32Array(mesh.position.length);
-  const at = frame * baked.bones * 16;
-  for (let v = 0; v < mesh.position.length / 3; v++) {
-    const x = mesh.position[v * 3], y = mesh.position[v * 3 + 1], z = mesh.position[v * 3 + 2];
-    let ox = 0, oy = 0, oz = 0;
-    for (let c = 0; c < 4; c++) {
-      const w = mesh.skinWeight[v * 4 + c];
-      if (!(w > 0)) continue;
-      const m = at + mesh.skinIndex[v * 4 + c] * 16;
-      ox += w * (baked.data[m] * x + baked.data[m + 4] * y + baked.data[m + 8] * z + baked.data[m + 12]);
-      oy += w * (baked.data[m + 1] * x + baked.data[m + 5] * y + baked.data[m + 9] * z + baked.data[m + 13]);
-      oz += w * (baked.data[m + 2] * x + baked.data[m + 6] * y + baked.data[m + 10] * z + baked.data[m + 14]);
-    }
-    out[v * 3] = ox; out[v * 3 + 1] = oy; out[v * 3 + 2] = oz;
-  }
-  return out;
 }
 
 const boxOf = (P) => {

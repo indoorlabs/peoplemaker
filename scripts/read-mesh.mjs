@@ -83,3 +83,44 @@ export function imagesOf(doc, decode) {
     return out;
   };
 }
+
+/**
+ * 구운 한 프레임의 뼈 행렬로 살에 자세를 입힌다 — 셰이더가 하는 셈과 같다.
+ *
+ * @param baked lib/poseBake.mjs 의 bakeClip 결과
+ */
+export function skinPoints(mesh, baked, frame) {
+  const out = new Float32Array(mesh.position.length);
+  const at = frame * baked.bones * 16;
+  for (let v = 0; v < mesh.position.length / 3; v++) {
+    const x = mesh.position[v * 3], y = mesh.position[v * 3 + 1], z = mesh.position[v * 3 + 2];
+    let ox = 0, oy = 0, oz = 0;
+    for (let c = 0; c < 4; c++) {
+      const w = mesh.skinWeight[v * 4 + c];
+      if (!(w > 0)) continue;
+      const m = at + mesh.skinIndex[v * 4 + c] * 16;
+      ox += w * (baked.data[m] * x + baked.data[m + 4] * y + baked.data[m + 8] * z + baked.data[m + 12]);
+      oy += w * (baked.data[m + 1] * x + baked.data[m + 5] * y + baked.data[m + 9] * z + baked.data[m + 13]);
+      oz += w * (baked.data[m + 2] * x + baked.data[m + 6] * y + baked.data[m + 10] * z + baked.data[m + 14]);
+    }
+    out[v * 3] = ox; out[v * 3 + 1] = oy; out[v * 3 + 2] = oz;
+  }
+  return out;
+}
+
+/**
+ * 점 무리의 **가장 긴 축 길이** — 몸의 키를 공간에 안 매이게 재는 법.
+ *
+ * 바인드 자세는 z 가 위이고(Rocketbox), 자세를 입히면 y 가 위다. 축을 골라
+ * 재면 둘을 못 견준다.
+ */
+export function longestExtent(points) {
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < points.length; i += 3) {
+    for (let c = 0; c < 3; c++) {
+      if (points[i + c] < lo[c]) lo[c] = points[i + c];
+      if (points[i + c] > hi[c]) hi[c] = points[i + c];
+    }
+  }
+  return Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
+}

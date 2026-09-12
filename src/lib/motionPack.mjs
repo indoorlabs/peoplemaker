@@ -23,7 +23,7 @@
 export const SKELETONS = {
   mixamo: 'Mixamo 본 이름 규약 (mixamorig:Hips …) — Blender·three.js·Unreal 이 그대로 읽는다',
   vrm: 'VRM 휴머노이드 본 매핑 — 아바타 교체가 가장 쉽다',
-  biped: '3ds Max Biped 본 이름 규약 (Bip01 …) — Microsoft Rocketbox(MIT) 가 쓴다',
+  biped: '3ds Max Biped 본 이름 규약 (Bip01 · Bip02 … — 번호는 장면마다 매겨진다) — Microsoft Rocketbox(MIT) 가 쓴다',
 };
 
 /**

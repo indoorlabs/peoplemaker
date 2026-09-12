@@ -100,16 +100,19 @@ export const FOOT_NODES = {
   // 땅에서 0.1m 쯤 떠 있다 — 문턱(PLANT_MAX_Y_M)을 한 번도 안 넘으니 접촉이
   // 0회로 나오고, 그러면 걷는 클립이 걷는 클립으로 안 잡힌다 (Rocketbox 를
   // 재 보고 알았다: 바인드 자세에서 Foot 0.10m · Toe0 0.002m).
-  biped: { 'foot-l': /^Bip01 L Toe0$/, 'foot-r': /^Bip01 R Toe0$/ },
+  // 번호(Bip01 · Bip02)는 3ds Max 가 **장면마다** 매긴다 — 어른 몸은 Bip01,
+  // 어린이 몸은 Bip02 다. 같은 규약이므로 번호는 안 본다 (retarget.mjs 는
+  // 처음부터 그렇게 하고 있었다).
+  biped: { 'foot-l': /^Bip\d\d L Toe0$/, 'foot-r': /^Bip\d\d R Toe0$/ },
 };
 
 /** 규약마다 뿌리 뼈 — 이동을 재는 기준. */
 export const ROOT_NODES = {
   mixamo: /(^|:)Hips$/,
   vrm: /^hips$/,
-  // Biped 는 몸 전체가 Bip01 에 매달려 있고 이동도 거기 실린다 (Pelvis 는
-  // 그 아이다). 걷는 클립 하나를 재 보니 Bip01 이 1.167s 에 1.412m 갔다.
-  biped: /^Bip01$/,
+  // Biped 는 몸 전체가 Bip01(또는 Bip02 …)에 매달려 있고 이동도 거기 실린다
+  // (Pelvis 는 그 아이다). 걷는 클립 하나를 재 보니 1.167s 에 1.412m 갔다.
+  biped: /^Bip\d\d$/,
 };
 
 const matchNode = (doc, re) => {
