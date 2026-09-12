@@ -9,6 +9,7 @@
 //   createClipPlayer  가까운 사람 — 사람마다 스킨 메시
 //   createInstancedCrowd  먼 사람 — 구운 자세, 드로우콜 하나
 //   createMixedCrowd      먼 사람 여러 몸 — 드로우콜은 팩 수
+//   planActivity·startActivity  회의·대피 같은 **활동**을 동작 차례로 (자리는 안 정한다)
 //
 // three 는 **주입받는다**. 소비처가 이미 three 를 쓰고 있고, 이 저장소가 제
 // 판을 끌어오면 한 페이지에 두 벌이 뜬다.
@@ -23,6 +24,7 @@ export { createClipPlayer } from './clipPlayer.mjs';
 export { createInstancedCrowd } from './instancedCrowd.mjs';
 export { createMixedCrowd } from './mixedCrowd.mjs';
 export { pickWalkClip, contactsAt, durationAt, strideS, TIME_SCALE_MAX } from '../lib/packRuntime.mjs';
+export { ACTIVITIES, planActivity, startActivity, clipForRole } from '../lib/activity.mjs';
 import { attachAnimation } from '../lib/gltfWrite.mjs';
 
 export {

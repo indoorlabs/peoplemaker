@@ -87,6 +87,12 @@ const EXTRAS = [
   { id: 'clap', anim: 'claphands_01', ko: '박수', en: 'Clapping', tags: ['social'] },
   { id: 'work-table', anim: 'work_table', ko: '책상에서 일하기', en: 'Working at a table', tags: ['work'] },
   { id: 'stretch', anim: 'idle_stretch_arms_01', ko: '기지개', en: 'Stretching', tags: ['idle'] },
+  // **이동 클립** — 제자리 동작과 다른 폴더(_xy)에서 받는다. 걷기 하나뿐일
+  // 때는 모든 속도를 재생 속도로만 맞췄다 (빨리 걸으라면 걷기를 빨리 돌렸다).
+  // 뛰기가 있어야 대피가 대피가 된다.
+  { id: 'run', anim: 'run_neutral_01', ko: '뛰기', en: 'Running', tags: ['run', 'travel'], travel: true },
+  { id: 'walk-fast', anim: 'walk_fast_01', ko: '빨리 걷기', en: 'Walking fast', tags: ['walk', 'travel'], travel: true },
+  { id: 'walk-slow', anim: 'walk_slow_01', ko: '천천히 걷기', en: 'Walking slowly', tags: ['walk', 'travel'], travel: true },
   { id: 'phone-call', anim: 'cell_phone_talk_01', ko: '전화 통화', en: 'Phone call', tags: ['phone', 'talk'], only: 'm' },
 ];
 
@@ -343,7 +349,8 @@ const sex = /^([fm])_/.exec(walk)?.[1];
 const extras = [];
 for (const x of sex ? EXTRAS.filter((e) => !e.only || e.only === sex) : []) {
   const file = `${sex}_${x.anim}`;
-  const fbx = await fetchTo(`Animations/all_animations_max_motextr_static/${file}.max.fbx`, path.join(CACHE, 'anims', `${file}.max.fbx`));
+  const folder = x.travel ? 'all_animations_max_motextr_xy' : 'all_animations_max_motextr_static';
+  const fbx = await fetchTo(`Animations/${folder}/${file}.max.fbx`, path.join(CACHE, 'anims', `${file}.max.fbx`));
   extras.push({ ...x, file, glb: fbx2glb(fbx, path.join(CACHE, 'anims', file)) });
 }
 // **몸 하나 + 동작들로 쓴다.** 접붙인 온전한 GLB 는 캐시에 두고, 거기서 몸
@@ -435,7 +442,7 @@ const sources = {
       source: source(`Assets/Animations/all_animations_max_motextr_static/${idle}.max.fbx`, 'idle'), tags: ['idle', ...(preset.tags || [])] },
     ...extras.map((x) => ({
       id: x.id, name: { ko: `${x.ko} (${name.ko})`, en: `${x.en} (${name.en})` }, license: 'MIT',
-      source: source(`Assets/Animations/all_animations_max_motextr_static/${x.file}.max.fbx`, x.id), tags: [...x.tags, ...(preset.tags || [])],
+      source: source(`Assets/Animations/all_animations_max_motextr_${x.travel ? 'xy' : 'static'}/${x.file}.max.fbx`, x.id), tags: [...x.tags, ...(preset.tags || [])],
     })),
   ],
 };
