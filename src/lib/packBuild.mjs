@@ -124,6 +124,20 @@ export const SEATED_HIP_RATIO_MAX = 0.8;
 /** 앉았다고 하려면 그 높이에 이만큼(클립의 비율)은 머물러야 한다. */
 export const SEAT_DWELL_MIN = 0.2;
 
+/**
+ * 앉았다고 하려면 발이 엉덩이보다 이만큼은 앞에 있어야 한다 (m).
+ *
+ * 엉덩이가 낮다는 것만으로는 앉은 것이 아니다 — **쪼그린 사람**도 낮다.
+ * 가르는 것은 다리 모양이다. 재 보니 (Rocketbox 여자 01):
+ *
+ *   앉기      발이 엉덩이 앞으로 0.554m · 책상에 앉기 0.566m
+ *   쪼그리기  0.075m
+ *   서기·걷기 0.088 ~ 0.107m
+ *
+ * 쪼그린 사람을 앉았다고 하면 공간 쪽이 거기에 의자를 놓는다.
+ */
+export const SEAT_FEET_FORWARD_MIN = 0.25;
+
 /** 규약마다 뿌리 뼈 — 이동을 재는 기준. */
 export const ROOT_NODES = {
   mixamo: /(^|:)Hips$/,
@@ -264,21 +278,41 @@ export function deriveClip(doc, decl, { skeleton = 'mixamo' } = {}) {
     const dwell = hipYs.filter((y) => Math.abs(y - low) <= 0.02).length / hipYs.length;
     const ratio = restY > 0.2 ? low / restY : null;
     if (ratio != null && ratio < SEATED_HIP_RATIO_MAX && dwell >= SEAT_DWELL_MIN) {
-      // 발이 가장 낮게 간 곳 — 위에서 발 뼈를 이미 찾았다.
+      // 발이 가장 낮게 간 곳과, **엉덩이 앞으로 얼마나 나가 있는지**.
+      // 앞으로 나간 정도는 **낮게 머무는 동안만** 본다 — 서 있다가 앉는
+      // 클립은 앞쪽 절반이 선 자세라, 클립 전체로 평균 내면 묽어진다.
+      const feet = Object.values(footMap).map((re) => matchNode(doc, re)).filter((i) => i != null);
       let ground = 0;
-      for (const [, re] of Object.entries(footMap)) {
-        const fi = matchNode(doc, re);
-        if (fi == null) continue;
-        for (let i = 0; i < steps; i++) {
-          ground = Math.min(ground, nodeWorldPos(doc, fi, at((durationS * i) / steps), parent)[1]);
+      let forwardSum = 0;
+      let forwardN = 0;
+      for (let i = 0; i < steps; i++) {
+        const sampled = at((durationS * i) / steps);
+        const hip = nodeWorldPos(doc, hipIdx, sampled, parent);
+        let fx = 0; let fz = 0;
+        for (const fi of feet) {
+          const p = nodeWorldPos(doc, fi, sampled, parent);
+          ground = Math.min(ground, p[1]);
+          fx += p[0] / feet.length;
+          fz += p[2] / feet.length;
+        }
+        if (feet.length && Math.abs(hip[1] - low) <= 0.02) {
+          forwardSum += Math.hypot(fx - hip[0], fz - hip[2]);
+          forwardN++;
         }
       }
-      clip.seat = {
-        hipHeightM: +low.toFixed(3),
-        hipRatio: +ratio.toFixed(3),
-        groundOffsetM: +ground.toFixed(3),
-        dwell: +dwell.toFixed(2),
-      };
+      const forward = forwardN ? forwardSum / forwardN : 0;
+      // **쪼그린 사람은 앉은 것이 아니다.** 엉덩이만 보면 둘이 같다.
+      if (forward >= SEAT_FEET_FORWARD_MIN) {
+        clip.seat = {
+          hipHeightM: +low.toFixed(3),
+          hipRatio: +ratio.toFixed(3),
+          feetForwardM: +forward.toFixed(3),
+          groundOffsetM: +ground.toFixed(3),
+          dwell: +dwell.toFixed(2),
+        };
+      } else {
+        notes.push(`엉덩이는 ${low.toFixed(2)}m 로 낮지만 발이 ${forward.toFixed(2)}m 앞이라 앉은 것으로 안 센다`);
+      }
     }
   }
 

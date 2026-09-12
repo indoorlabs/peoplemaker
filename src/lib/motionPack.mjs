@@ -180,6 +180,11 @@ export function validateCatalog(catalog, { clipFiles = null, packFiles = null } 
       if (typeof c.seat.groundOffsetM !== 'number') {
         fail(`${tag}/ground`, '이 클립의 바닥(groundOffsetM)이 없다 — 놓는 쪽이 발을 어디에 둘지 모른다');
       }
+      // 앉으면 발이 엉덩이 앞으로 나간다. 안 나가 있으면 쪼그린 것이고,
+      // 거기에 의자를 놓으면 안 된다.
+      if (!(c.seat.feetForwardM > 0)) {
+        fail(`${tag}/feet`, `발이 엉덩이 앞으로 ${c.seat.feetForwardM} 나가 있다 — 앉은 자세가 아니다`);
+      }
     }
 
     // 파일이 실제로 있는가. 목록을 받은 경우에만 본다 — 순수 층은 파일을

@@ -101,6 +101,15 @@ export const FIXTURES = [
   },
 ];
 
+/**
+ * 게이트가 쓰는 여벌 사양 — 팩에는 안 들어간다.
+ *
+ * 쪼그리기는 **엉덩이가 앉은 만큼 내려가지만 발이 앞으로 안 나간다.**
+ * 앉기를 엉덩이 높이만으로 재면 이것도 앉은 것이 되고, 공간 쪽이 거기에
+ * 의자를 놓는다.
+ */
+export const CROUCH = { id: 'crouch', durationS: 2.4, speedMps: 0, cycles: 0, kind: 'crouch' };
+
 /** 클립 하나의 키프레임을 낸다. */
 function keyframes(spec) {
   const fps = 30;
@@ -147,6 +156,17 @@ function keyframes(spec) {
       hips.translation.push([0, 0.90 + 0.008 * Math.sin(2 * Math.PI * u), 0]);
       hips.rotation.push(quatX(0.01 * Math.sin(2 * Math.PI * u)));
       for (const k of Object.keys(legs)) legs[k].push([0, 0, 0, 1]);
+    } else if (spec.kind === 'crouch') {
+      // 쪼그리기 — 엉덩이는 앉은 만큼 내려가는데 **발은 제자리**다.
+      // 넓적다리를 앞으로 접고 종아리를 그만큼 되접어 발을 몸 아래 둔다.
+      const s = Math.min(1, u / 0.75);
+      const ease = s * s * (3 - 2 * s);
+      hips.translation.push([0, 0.90 - 0.5 * ease, 0]);
+      hips.rotation.push(quatX(0.25 * ease));
+      legs['mixamorig:LeftUpLeg'].push(quatX(-1.4 * ease));
+      legs['mixamorig:RightUpLeg'].push(quatX(-1.4 * ease));
+      legs['mixamorig:LeftLeg'].push(quatX(2.4 * ease));
+      legs['mixamorig:RightLeg'].push(quatX(2.4 * ease));
     } else {
       // 앉기 — 엉덩이가 내려가고 넓적다리가 접힌다. 0.75 지점에서 앉는다.
       //

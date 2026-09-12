@@ -45,6 +45,7 @@
       "seat": {
         "hipHeightM": 0.4,
         "hipRatio": 0.421,
+        "feetForwardM": 0.328,
         "groundOffsetM": -0.197,
         "dwell": 0.33
       },

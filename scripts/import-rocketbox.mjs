@@ -72,6 +72,21 @@ const EXTRAS = [
   // 앉았는데 발끝이 12cm 땅속으로 들어갔다. 옮겨 붙이면 짝지은 뼈 전부의
   // 세계 회전을 다시 쓰므로 발끝이 1cm 에 선다.
   { id: 'sit', anim: 'sit_chair_idle_neutral_01', ko: '앉아 있기', en: 'Sitting', tags: ['sit', 'seated'], retarget: true },
+  // 책상에 앉은 사람 — 사무실 재실자의 기본 자세다. 의자 동작과 같은 이유로
+  // 옮겨 붙인다 (쉬는 자세부터 앉아 있다).
+  { id: 'sit-table', anim: 'sit_table_idle_neutral_01', ko: '책상에 앉아 있기', en: 'Sitting at a table', tags: ['sit', 'seated', 'work'], retarget: true },
+  // 문 — 계약이 "접촉 이벤트는 앉기·**문 열기**를 공간에 맞출 때 쓴다" 고
+  // 적어 둔 그 문이다.
+  { id: 'door-open', anim: 'try_door_inwards', ko: '문 열기', en: 'Opening a door', tags: ['door', 'reach'] },
+  { id: 'door-knock', anim: 'knock_door', ko: '문 두드리기', en: 'Knocking on a door', tags: ['door', 'reach'] },
+  // 쪼그리기 — 엉덩이가 앉은 만큼 내려가지만 **의자가 없다**. 앉기와 가르는
+  // 값이 계약에 있어야 한다 (그래서 받는다).
+  { id: 'crouch', anim: 'crouch_idle', ko: '쪼그려 앉기', en: 'Crouching', tags: ['crouch'], retarget: true },
+  { id: 'documents', anim: 'documents_check', ko: '서류 보기', en: 'Checking documents', tags: ['work', 'hold'] },
+  { id: 'drink', anim: 'drink_drinking', ko: '마시기', en: 'Drinking', tags: ['hold'] },
+  { id: 'clap', anim: 'claphands_01', ko: '박수', en: 'Clapping', tags: ['social'] },
+  { id: 'work-table', anim: 'work_table', ko: '책상에서 일하기', en: 'Working at a table', tags: ['work'] },
+  { id: 'stretch', anim: 'idle_stretch_arms_01', ko: '기지개', en: 'Stretching', tags: ['idle'] },
   { id: 'phone-call', anim: 'cell_phone_talk_01', ko: '전화 통화', en: 'Phone call', tags: ['phone', 'talk'], only: 'm' },
 ];
 

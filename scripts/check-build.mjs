@@ -15,9 +15,9 @@ import { parseGLB } from '../src/lib/gltf.mjs';
 import {
   deriveClip, TRAVEL_MIN_MPS, PLANT_MAX_Y_M, MEASURED_FIELDS,
   packForwardRad, angleDiff, FORWARD_AGREE_RAD,
-  plantEvents, PLANT_MIN_DWELL_S, SEATED_HIP_RATIO_MAX,
+  plantEvents, PLANT_MIN_DWELL_S, SEATED_HIP_RATIO_MAX, SEAT_FEET_FORWARD_MIN,
 } from '../src/lib/packBuild.mjs';
-import { FIXTURES, buildGLB } from '../src/lib/fixtureRig.mjs';
+import { FIXTURES, CROUCH, buildGLB } from '../src/lib/fixtureRig.mjs';
 import { readAccessor, parentMap } from '../src/lib/gltf.mjs';
 
 /**
@@ -287,7 +287,26 @@ runGate('check-build', (g) => {
     const shallow = roundTrip({ ...sitSpec, id: 'shallow', seatDropM: 0.1 });
     if (shallow.seat) g.fail('seat/shallow', `10cm 만 내려갔는데 앉았다고 한다 (문턱 ${SEATED_HIP_RATIO_MAX})`);
     const deep = roundTrip({ ...sitSpec, id: 'deep', seatDropM: 0.5 });
-    console.log(`  [재기] 앉은 높이: 0.5m 내려가면 ${deep.seat?.hipHeightM}m · 0.1m 내려가면 ${shallow.seat ? shallow.seat.hipHeightM + 'm' : '앉은 것으로 안 센다'}`);
+    n++;
+    // **쪼그린 사람은 앉은 것이 아니다.** 엉덩이 높이는 앉은 것과 같고,
+    // 다른 것은 발이다 — 앉으면 앞으로 나가고 쪼그리면 몸 아래 있다.
+    const crouch = roundTrip(CROUCH);
+    if (crouch.seat) {
+      g.fail('seat/crouch', `쪼그린 자세에 앉은 값이 붙었다 (엉덩이 ${crouch.seat.hipHeightM}m · 발 ${crouch.seat.feetForwardM}m 앞)`);
+    }
+    n++;
+    if (!(deep.seat?.feetForwardM >= SEAT_FEET_FORWARD_MIN)) {
+      g.fail('seat/forward', `앉은 클립인데 발이 ${deep.seat?.feetForwardM}m 밖에 안 나갔다`);
+    }
+    n++;
+    // 둘의 엉덩이 높이가 같아야 이 검사가 뜻이 있다 — 높이로는 못 가른다는 것.
+    const crouchY = roundTrip({ ...CROUCH, id: 'crouchY' });
+    if (Math.abs((crouchY.seat?.hipHeightM ?? 0.4) - deep.seat.hipHeightM) > 0.05) {
+      g.setupFail('쪼그리기와 앉기의 엉덩이 높이가 달라 이 검사가 뜻을 잃는다');
+    }
+    console.log(`  [재기] 앉은 높이: 0.5m 내려가면 ${deep.seat?.hipHeightM}m (발 ${deep.seat?.feetForwardM}m 앞) · `
+      + `0.1m 내려가면 ${shallow.seat ? shallow.seat.hipHeightM + 'm' : '앉은 것으로 안 센다'} · `
+      + `쪼그리기는 같은 높이(0.40m)인데 ${crouch.seat ? '앉았다고 한다' : '안 센다'}`);
   }
 
   // ── 뼈 길이 검사가 **진짜로 잡는가** ──
