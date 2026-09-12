@@ -351,10 +351,28 @@ export const PACK_MEASURED = {
       verts: 1030,
       triangles: 2016,
       from: { verts: 4883, triangles: 8064 },
-      // 원래 정점에서 줄인 살의 면까지 (키 1.6m 인 몸에서)
+      // 원래 정점에서 줄인 살의 면까지 (키 1.74m 인 몸에서)
       deviation: { maxMm: 17.3, meanMm: 1.62 },
-      // 브라우저에서 줄이는 데 드는 시간 — 받는 쪽이 첫 화면에서 한 번 치른다
+      // 브라우저에서 줄이는 데 드는 시간 — 받는 쪽이 첫 화면에서 한 번 치른다.
+      // 색까지 구우면 130ms 다 (1024² PNG 둘을 캔버스로 푸는 값이 든다).
       buildMs: 74,
+      /**
+       * **색** — baseColorTexture 를 UV 로 찍어 정점마다 하나 (lib/vertexColor.mjs).
+       *
+       * 이 수는 기계를 안 타는 **이 살의 성질**이라 게이트가 다시 재서 그대로
+       * 견준다 (check-color). v 가 뒤집히거나 조각이 섞이면 평균색이 움직인다.
+       *
+       * 값은 거의 안 변했다 — 1,000명 1.46 → 1.37ms · 5,000명 5.32 → 5.57ms.
+       * 재기의 흔들림과 같은 자릿수다 (정점마다 12바이트가 느는 것이 전부고,
+       * 드로우콜도 재료도 그대로다).
+       */
+      color: {
+        from: 'baseColorTexture (1024×1024 PNG 둘) · UV 로 찍었다',
+        spread: 0.199,        // 채널 표준편차의 평균 — 한 색이면 0
+        distinct: 141,        // 16단계로 센 색 가짓수
+        mean: [0.515, 0.364, 0.348],
+        buildMs: 130,         // 줄이기 + 그림 풀기 + 찍기 (브라우저)
+      },
       points: [
         { people: 200, drawCalls: 2, frameMs: 0.951 },
         { people: 500, drawCalls: 2, frameMs: 1.159 },

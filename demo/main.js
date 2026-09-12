@@ -33,6 +33,8 @@ const boneOverride = Number(q.get('bones') || 0);
 const mode = q.get('mode') || 'skinned';
 // 먼 단계의 살을 얼마로 줄일 것인가 (0.25 = 삼각형 4분의 1). 안 주면 안 줄인다.
 const lod = Number(q.get('lod') || 0);
+// 먼 단계에 팩의 텍스처를 정점 색으로 구워 넣을 것인가 (?color=1).
+const bakeColor = q.get('color') === '1';
 const hud = document.getElementById('hud');
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -94,7 +96,7 @@ if (mode === 'instanced') {
     atlas = bakeFromPack(pack, ['walk-forward', 'idle']);
     // 살을 줄이는 데 드는 시간도 잰다 — 받는 쪽이 첫 화면에서 치르는 값이다.
     const t0 = performance.now();
-    geom = geometryOf(pack, { lod, lodStats });
+    geom = geometryOf(pack, { lod, color: bakeColor, lodStats });
     lodStats.ms = +(performance.now() - t0).toFixed(1);
   }
   verts = geom.attributes.position.count;
@@ -145,6 +147,7 @@ window.__crowdStats = () => ({
   총뼈: bones * (crowd ? want : player.people.length),
   몸정점: verts,
   ...(lod ? { 살줄임: lod, 줄이기ms: lodStats.ms ?? null, 삼각형원본: lodStats.trianglesBefore ?? null } : {}),
+  ...(bakeColor ? { 정점색: true } : {}),
   드로우콜: renderer.info.render.calls,
   삼각형: renderer.info.render.triangles,
   프로그램: renderer.info.programs?.length ?? null,

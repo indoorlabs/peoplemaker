@@ -306,6 +306,52 @@ runGate('check-surface', async (g) => {
             g.fail('lod/none', 'lod 1 인데 살이 달라졌다');
           }
 
+          // ── 먼 사람에게 색을 주는가 ──
+          //
+          // 기준 팩은 텍스처가 없고 baseColorFactor 만 있다. 그 길로 문
+          // 끝까지 — 색이 붙고, 그 색으로 군중이 서는가.
+          n++;
+          const painted = api.geometryOf(pack, { color: true });
+          const cattr = painted.getAttribute('color');
+          if (!cattr) g.fail('color/attr', '색을 달라 했는데 안 붙는다');
+          else {
+            n++;
+            if (cattr.count !== painted.getAttribute('position').count) {
+              g.fail('color/count', `색이 ${cattr.count}개인데 정점은 ${painted.getAttribute('position').count}개다`);
+            }
+            n++;
+            // three 가 카탈로그의 baseColorFactor 를 읽어 온 그 색인가.
+            let mat = null;
+            (pack.body || pack.gltfOf(pack.catalog.clips[0].id)).scene.traverse((o) => {
+              if (o.isSkinnedMesh && !mat) mat = Array.isArray(o.material) ? o.material[0] : o.material;
+            });
+            const want = { r: 1, g: 1, b: 1 };
+            if (mat?.color?.getRGB) mat.color.getRGB(want, 'srgb');
+            if (Math.abs(cattr.getX(0) - want.r) > 1e-3 || Math.abs(cattr.getZ(0) - want.b) > 1e-3) {
+              g.fail('color/factor', `첫 정점이 ${cattr.getX(0).toFixed(3)},${cattr.getY(0).toFixed(3)},${cattr.getZ(0).toFixed(3)} 다 — 재료는 ${want.r.toFixed(3)},${want.g.toFixed(3)},${want.b.toFixed(3)}`);
+            }
+            n++;
+            // **팩의 기하를 건드리지 않았는가** — 가까운 사람이 쓰는 것이다.
+            if (geom.getAttribute('color')) g.fail('color/mutated', '색을 구우면서 팩의 살에 색을 붙였다');
+            n++;
+            // 색이 있는 살로 세우면 셰이더가 그 색을 쓰는가 (#define).
+            let c3 = null;
+            try {
+              c3 = api.createInstancedCrowd({ THREE, geometry: painted, atlas, count: 2 });
+            } catch (e) { g.fail('color/crowd', `색 있는 살로 군중을 못 세운다 — ${e.message}`); }
+            if (c3) {
+              n++;
+              if (c3.mesh.material.defines?.USE_BAKED_COLOR === undefined) {
+                g.fail('color/define', '색이 있는데 셰이더가 그것을 안 쓴다');
+              }
+              n++;
+              const plain = api.createInstancedCrowd({ THREE, geometry: geom, atlas, count: 2 });
+              if (plain.mesh.material.defines?.USE_BAKED_COLOR !== undefined) {
+                g.fail('color/define-off', '색이 없는데 셰이더가 색을 읽으려 한다 — 화면이 까매진다');
+              }
+            }
+          }
+
           n++;
           // 문에서 받은 것만으로 군중이 서는가 — 여기까지 되면 소비처는
           // 이 파일 하나만 알면 된다.

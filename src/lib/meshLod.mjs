@@ -42,6 +42,9 @@
  * 남겨 다시 정규화한다. 같은 자리의 정점은 대개 가중치가 같아서 이 셈이
  * 아무것도 안 바꾸지만, 몸 조각과 머리 조각이 맞닿는 자리는 다를 수 있다.
  *
+ * 색(있으면)은 **평균 낸다.** UV 솔기에서 갈라진 정점은 텍스처의 서로 다른
+ * 자리를 찍고 있고, 그 자리의 살은 실제로 두 색 사이다.
+ *
  * @param mesh { position, normal?, skinIndex?, skinWeight?, index }
  * @param toleranceM 이 거리 안이면 같은 자리로 본다 (기본 0.01mm)
  */
@@ -58,6 +61,9 @@ export function weldMesh(mesh, { toleranceM = 1e-5 } = {}) {
   const outPos = [];
   const normAcc = [];
   const skinAcc = [];     // 대표 정점마다 Map(뼈 → 가중치 합)
+  const colorAcc = [];
+  const colorCount = [];
+  const hasColor = !!mesh.color;
 
   for (let v = 0; v < nIn; v++) {
     const x = pos[v * 3], y = pos[v * 3 + 1], z = pos[v * 3 + 2];
@@ -68,9 +74,14 @@ export function weldMesh(mesh, { toleranceM = 1e-5 } = {}) {
       key.set(k, to);
       outPos.push(x, y, z);
       normAcc.push(0, 0, 0);
+      if (hasColor) { colorAcc.push(0, 0, 0); colorCount.push(0); }
       if (hasSkin) skinAcc.push(new Map());
     }
     remap[v] = to;
+    if (hasColor) {
+      for (let c = 0; c < 3; c++) colorAcc[to * 3 + c] += mesh.color[v * 3 + c];
+      colorCount[to]++;
+    }
     if (mesh.normal) {
       normAcc[to * 3] += mesh.normal[v * 3];
       normAcc[to * 3 + 1] += mesh.normal[v * 3 + 1];
@@ -95,6 +106,14 @@ export function weldMesh(mesh, { toleranceM = 1e-5 } = {}) {
     const len = Math.hypot(x, y, z);
     if (len > 1e-9) { normal[v * 3] = x / len; normal[v * 3 + 1] = y / len; normal[v * 3 + 2] = z / len; }
     else normal[v * 3 + 1] = 1;
+  }
+
+  let color = null;
+  if (hasColor) {
+    color = new Float32Array(nOut * 3);
+    for (let v = 0; v < nOut; v++) {
+      for (let c = 0; c < 3; c++) color[v * 3 + c] = colorAcc[v * 3 + c] / (colorCount[v] || 1);
+    }
   }
 
   let skinIndex = null;
@@ -123,7 +142,7 @@ export function weldMesh(mesh, { toleranceM = 1e-5 } = {}) {
   }
 
   return {
-    position, normal, skinIndex, skinWeight,
+    position, normal, color, skinIndex, skinWeight,
     index: Uint32Array.from(tri),
     stats: { before: nIn, after: nOut, merged: nIn - nOut, degenerate },
   };
@@ -381,6 +400,9 @@ export function simplifyMesh(mesh, {
   const out = {
     position: new Float32Array(at * 3),
     normal: new Float32Array(at * 3),
+    // 색은 **남은 점의 것을 그대로** 쓴다 — 위치·가중치와 같은 규약이다.
+    // 두 색을 섞으면 그 정점에 원래 없던 색이 생긴다.
+    color: src.color ? new Float32Array(at * 3) : null,
     skinIndex: src.skinIndex ? new Uint16Array(at * 4) : null,
     skinWeight: src.skinWeight ? new Float32Array(at * 4) : null,
   };
@@ -388,6 +410,7 @@ export function simplifyMesh(mesh, {
     if (!alive[v]) continue;
     const o = remap[v];
     for (let c = 0; c < 3; c++) out.position[o * 3 + c] = pos[v * 3 + c];
+    if (out.color) for (let c = 0; c < 3; c++) out.color[o * 3 + c] = src.color[v * 3 + c];
     if (out.skinIndex) {
       for (let c = 0; c < 4; c++) {
         out.skinIndex[o * 4 + c] = src.skinIndex[v * 4 + c];

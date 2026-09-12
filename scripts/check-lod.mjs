@@ -19,10 +19,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { runGate, ROOT } from './gate-lib.mjs';
 import { weldMesh, simplifyMesh, surfaceDeviation } from '../src/lib/meshLod.mjs';
-import { parseGLB, readAccessor } from '../src/lib/gltf.mjs';
+import { parseGLB } from '../src/lib/gltf.mjs';
 import { bakeClip } from '../src/lib/poseBake.mjs';
 import { attachAnimation } from '../src/lib/gltfWrite.mjs';
 import { PACK_MEASURED, planCrowdMeasured, frameMsAt } from '../src/lib/crowdBudget.mjs';
+import { skinnedMeshOf } from './read-mesh.mjs';
 
 // ── 아는 모양 ────────────────────────────────────────────────────
 
@@ -88,40 +89,6 @@ function withSkin(pos, idx) {
     if (len > 1e-12) for (let k = 0; k < 3; k++) nor[v * 3 + k] /= len;
   }
   return { position: Float32Array.from(pos), normal: nor, skinIndex: si, skinWeight: sw, index: Uint32Array.from(idx) };
-}
-
-/** GLB 의 스킨 메시 조각들을 하나로 — web 의 geometryOf 와 같은 규칙 (알파 조각은 뺀다). */
-function skinnedMeshOf(doc) {
-  const j = doc.json;
-  const parts = [];
-  for (const mesh of j.meshes || []) {
-    for (const p of mesh.primitives || []) {
-      if (p.attributes.JOINTS_0 === undefined) continue;
-      const mat = j.materials?.[p.material];
-      const cutout = !!mat && (mat.alphaMode === 'BLEND' || mat.alphaMode === 'MASK');
-      parts.push({ p, cutout });
-    }
-  }
-  const use = parts.some((x) => !x.cutout) ? parts.filter((x) => !x.cutout) : parts;
-  const pos = [], nor = [], si = [], sw = [], idx = [];
-  let base = 0;
-  for (const { p } of use) {
-    const P = readAccessor(doc, p.attributes.POSITION);
-    const N = p.attributes.NORMAL !== undefined ? readAccessor(doc, p.attributes.NORMAL) : null;
-    const J = readAccessor(doc, p.attributes.JOINTS_0);
-    const W = readAccessor(doc, p.attributes.WEIGHTS_0);
-    const I = readAccessor(doc, p.indices);
-    const count = P.length / 3;
-    for (let i = 0; i < count * 3; i++) { pos.push(P[i]); nor.push(N ? N[i] : 0); }
-    for (let i = 0; i < count * 4; i++) { si.push(J[i]); sw.push(W[i]); }
-    for (let i = 0; i < I.length; i++) idx.push(I[i] + base);
-    base += count;
-  }
-  return {
-    position: Float32Array.from(pos), normal: Float32Array.from(nor),
-    skinIndex: Uint16Array.from(si), skinWeight: Float32Array.from(sw),
-    index: Uint32Array.from(idx),
-  };
 }
 
 /** 구운 한 프레임의 뼈 행렬로 살에 자세를 입힌다 — 셰이더가 하는 셈과 같다. */
@@ -426,13 +393,21 @@ runGate('check-lod', (g) => {
     // 결함으로 세면 게이트가 늘 빨간 채로 있게 된다. 뒤집힘은 주름이 없는
     // 모양(구·평면)에서 묻는다 — 거기서는 답이 하나뿐이다.
 
-    // 키·폭·깊이 — 사람 모양이 남았는가. check-player 가 살을 재는 것과 같은 규약.
+    // 크기가 남았는가 — 실루엣이 오그라들면 멀리서 작아 보인다.
+    //
+    // **축에 사람 이름(키·폭)을 안 붙인다.** 이 몸의 바인드 공간은 Z 가
+    // 위다 (POSITION 의 max 가 [0.61, 0.16, 1.50]). 축 하나를 "키" 라고
+    // 부르면 팩마다 틀리고, 틀린 이름으로 통과하는 검사가 된다.
     const a = boxOf(body.position), b = boxOf(lod.position);
-    for (const [i, what] of [[0, '폭'], [1, '키'], [2, '깊이']]) {
+    const longest = a.size.indexOf(Math.max(...a.size));
+    for (const i of [0, 1, 2]) {
       n++;
       const drop = (a.size[i] - b.size[i]) / a.size[i];
-      if (drop > 0.01) g.fail(`body/extent-${what}`, `${what}가 ${(drop * 100).toFixed(1)}% 줄었다 (${a.size[i].toFixed(3)} → ${b.size[i].toFixed(3)})`);
+      if (drop > 0.01) {
+        g.fail(`body/extent-${i}`, `${'xyz'[i]} 쪽 크기가 ${(drop * 100).toFixed(1)}% 줄었다 (${a.size[i].toFixed(3)} → ${b.size[i].toFixed(3)})`);
+      }
     }
+    console.log(`  [줄이기] 크기: 가장 긴 축 ${'xyz'[longest]} ${a.size[longest].toFixed(3)} → ${b.size[longest].toFixed(3)}`);
 
     // **무게 있는 뼈가 사라지지 않았는가.** 어떤 뼈에 매인 점이 모두 접히면
     // 그 뼈는 살을 못 움직인다 — 팔이 통째로 안 따라오는 식이다.

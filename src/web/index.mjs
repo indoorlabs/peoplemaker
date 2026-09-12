@@ -16,6 +16,7 @@ import { validateCatalog } from '../lib/motionPack.mjs';
 import { parseGLB } from '../lib/gltf.mjs';
 import { bakeClip, bakeAtlas } from '../lib/poseBake.mjs';
 import { simplifyMesh } from '../lib/meshLod.mjs';
+import { colorsFromUV } from '../lib/vertexColor.mjs';
 
 export { createClipPlayer } from './clipPlayer.mjs';
 export { createInstancedCrowd } from './instancedCrowd.mjs';
@@ -165,10 +166,16 @@ export function bakeFromPack(pack, clipIds) {
  * 접는다 (lib/meshLod.mjs). 뼈와 가중치는 그대로라 **같은 아틀라스를 그대로
  * 쓴다** — 굽는 쪽은 아무것도 안 바뀐다.
  *
- * @param opts 클립 id (예전 모양) 또는 { clipId, lod, lodStats }
+ * **색도 구워 준다** — `{ color: true }` 면 팩의 baseColorTexture 를 UV 로
+ * 찍어 정점마다 색 하나를 둔다 (lib/vertexColor.mjs). 안 주면 먼 사람들이
+ * 다 같은 회색이다. 텍스처가 없는 팩은 baseColorFactor 를 쓴다.
+ *
+ * 색은 **줄이기 전에** 찍는다 — 줄인 뒤에는 UV 가 솔기에서 이미 뭉개져 있다.
+ *
+ * @param opts 클립 id (예전 모양) 또는 { clipId, lod, color, lodStats }
  */
 export function geometryOf(pack, opts) {
-  const { clipId, lod, lodStats } = typeof opts === 'string' || opts == null ? { clipId: opts } : opts;
+  const { clipId, lod, color, lodStats } = typeof opts === 'string' || opts == null ? { clipId: opts } : opts;
   // 나뉜 팩은 몸이 따로 있다. 예전 팩은 받아 둔 클립 아무것이나 — 동작을
   // 필요한 것만 받으므로 첫 클립이 없을 수 있다.
   const gltf = clipId ? pack.gltfOf(clipId)
@@ -179,14 +186,93 @@ export function geometryOf(pack, opts) {
     if (!o.isSkinnedMesh) return;
     const mat = Array.isArray(o.material) ? o.material[0] : o.material;
     const cutout = !!mat && (mat.transparent || mat.alphaTest > 0);
-    parts.push({ geom: o.geometry, cutout });
+    parts.push({ geom: o.geometry, cutout, material: mat });
   });
   if (!parts.length) throw new Error('스킨 메시가 없다');
-  const solid = parts.filter((p) => !p.cutout).map((p) => p.geom);
-  const use = solid.length ? solid : parts.map((p) => p.geom);
-  const merged = use.length === 1 ? use[0] : mergeSkinned(use);
+  const solid = parts.filter((p) => !p.cutout);
+  const use = solid.length ? solid : parts;
+  const geoms = use.map((p) => p.geom);
+  const colors = color ? use.map((p) => bakedColorsFor(p, color)) : null;
+  // 색을 구우면 조각이 하나여도 새 기하를 만든다 — 팩의 기하는 가까운 사람이
+  // 쓰고 있는 것이라, 거기에 속성을 붙이면 남의 것을 건드리는 셈이다.
+  const merged = geoms.length === 1 && !colors ? geoms[0] : mergeSkinned(geoms, colors);
   if (!(lod > 0) || lod >= 1) return merged;
   return simplifiedGeometry(merged, lod, lodStats);
+}
+
+/** 푼 화소를 그림마다 한 번만 — 1024×1024 하나가 4MB 다. */
+const pixelCache = new WeakMap();
+
+/**
+ * 조각 하나의 정점 색 — baseColorTexture 를 UV 로 찍는다.
+ *
+ * 텍스처가 없거나 UV 가 없으면 **baseColorFactor** 로 채운다 (합성 기준 팩이
+ * 그렇다). 둘 다 없으면 흰색이다 — 그럴듯한 살색을 지어내지 않는다.
+ *
+ * `color` 에 `{ width, height, data }` 를 직접 줄 수도 있다. 브라우저 밖
+ * (게이트)에서는 그림을 풀 길이 없어서 낸 문이다.
+ */
+function bakedColorsFor(part, color) {
+  const geom = part.geom;
+  const count = geom.getAttribute('position').count;
+  const mat = part.material;
+  // three 는 baseColorFactor 를 작업 색공간(선형)으로 갖고 있다. 우리 셰이더는
+  // 색 관리를 안 거치고 그대로 화면에 쓰므로 **sRGB 로 되돌려** 받는다 —
+  // 안 그러면 먼 사람만 어둡다.
+  let factor = [1, 1, 1];
+  if (mat && mat.color) {
+    factor = [mat.color.r, mat.color.g, mat.color.b];
+    if (typeof mat.color.getRGB === 'function') {
+      try {
+        const t = { r: 1, g: 1, b: 1 };
+        mat.color.getRGB(t, 'srgb');
+        factor = [t.r, t.g, t.b];
+      } catch { /* 색공간을 모르는 판이면 있는 값 그대로 */ }
+    }
+  }
+
+  const given = color && typeof color === 'object' ? color : null;
+  const uvAttr = geom.getAttribute('uv');
+  const image = given || (uvAttr ? imagePixels(mat && mat.map ? mat.map.image : null) : null);
+  if (!image || !uvAttr) return colorsFromUV(null, null, factor, { count });
+
+  const uv = new Float32Array(uvAttr.count * 2);
+  for (let i = 0; i < uvAttr.count; i++) {
+    uv[i * 2] = uvAttr.getX(i);
+    uv[i * 2 + 1] = uvAttr.getY(i);
+  }
+  return colorsFromUV(uv, image, factor);
+}
+
+/**
+ * 그림을 화소로 — 여기가 이 저장소에서 **DOM 을 쓰는 유일한 자리**다.
+ *
+ * three 가 이미 푼 그림(ImageBitmap)을 캔버스에 그려 되읽는다. 캔버스가 없는
+ * 판(Node)에서는 null 을 내고 부르는 쪽이 factor 로 물러선다 — 조용히 회색을
+ * 칠하지 않는다.
+ */
+function imagePixels(image) {
+  if (!image) return null;
+  const got = pixelCache.get(image);
+  if (got !== undefined) return got;
+  let out = null;
+  try {
+    const w = image.width, h = image.height;
+    let canvas = null;
+    if (typeof OffscreenCanvas !== 'undefined') canvas = new OffscreenCanvas(w, h);
+    else if (typeof document !== 'undefined') {
+      canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+    }
+    if (canvas) {
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(image, 0, 0);
+      out = ctx.getImageData(0, 0, w, h);
+    }
+  } catch { out = null; }
+  pixelCache.set(image, out);
+  return out;
 }
 
 /**
@@ -210,6 +296,7 @@ function simplifiedGeometry(geom, ratio, stats) {
   const small = simplifyMesh({
     position: read('position', 3),
     normal: read('normal', 3),
+    color: read('color', 3),
     skinIndex: read('skinIndex', 4),
     skinWeight: read('skinWeight', 4),
     index,
@@ -220,6 +307,7 @@ function simplifiedGeometry(geom, ratio, stats) {
   const Attr = plainAttributeClass([geom]);
   out.setAttribute('position', new Attr(small.position, 3));
   out.setAttribute('normal', new Attr(small.normal, 3));
+  if (small.color) out.setAttribute('color', new Attr(small.color, 3));
   out.setAttribute('skinIndex', new Attr(small.skinIndex, 4));
   out.setAttribute('skinWeight', new Attr(small.skinWeight, 4));
   out.setIndex(new Attr(small.index, 1));
@@ -252,8 +340,12 @@ function plainAttributeClass(geoms) {
   throw new Error('끼워 넣지 않은 속성이 하나도 없어 합칠 틀을 못 찾았다');
 }
 
-/** 스킨 기하 여럿을 하나로 — 인스턴싱 셰이더가 읽는 속성만 잇는다. */
-function mergeSkinned(geoms) {
+/**
+ * 스킨 기하 여럿을 하나로 — 인스턴싱 셰이더가 읽는 속성만 잇는다.
+ *
+ * @param colors 조각마다 정점 색 (Float32Array) — 없으면 색을 안 담는다
+ */
+function mergeSkinned(geoms, colors = null) {
   const first = geoms[0];
   const names = ['position', 'normal', 'skinIndex', 'skinWeight']
     .filter((k) => geoms.every((g) => g.getAttribute(k)));
@@ -276,6 +368,13 @@ function mergeSkinned(geoms) {
       }
     }
     out.setAttribute(k, new Attr(arr, size));
+  }
+  if (colors) {
+    // 색은 three 의 속성이 아니라 우리가 만든 배열이라 따로 잇는다.
+    const arr = new Float32Array(total * 3);
+    let at = 0;
+    for (const c of colors) { arr.set(c, at); at += c.length; }
+    out.setAttribute('color', new Attr(arr, 3));
   }
   const index = [];
   let base = 0;

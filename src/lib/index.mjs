@@ -19,3 +19,4 @@ export * from './fixtureRig.mjs';
 export * from './gltfWrite.mjs';
 export * from './retarget.mjs';
 export * from './meshLod.mjs';
+export * from './vertexColor.mjs';

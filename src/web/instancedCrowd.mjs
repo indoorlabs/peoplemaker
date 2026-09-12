@@ -19,6 +19,10 @@ const VERT = /* glsl */`
   attribute vec4 skinIndex;
   attribute vec4 skinWeight;
   attribute float aRow;      // 이 사람이 지금 볼 아틀라스 줄 (소수)
+  #ifdef USE_BAKED_COLOR
+  attribute vec3 color;      // 텍스처를 구워 넣은 정점 색 (lib/vertexColor.mjs)
+  varying vec3 vColor;
+  #endif
   uniform sampler2D poseTex;
   uniform vec2 poseSize;     // (가로 텍셀, 세로 텍셀)
   varying vec3 vNormal;
@@ -54,6 +58,9 @@ const VERT = /* glsl */`
     }
     vec4 skinned = skin * vec4(position, 1.0);
     vNormal = normalize(mat3(instanceMatrix) * mat3(skin) * normal);
+    #ifdef USE_BAKED_COLOR
+    vColor = color;
+    #endif
     gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * skinned;
   }
 `;
@@ -61,12 +68,22 @@ const VERT = /* glsl */`
 const FRAG = /* glsl */`
   precision mediump float;
   varying vec3 vNormal;
+  #ifdef USE_BAKED_COLOR
+  varying vec3 vColor;
+  #endif
   uniform vec3 uColor;
   void main() {
     // 반구광 하나. 재료를 흉내 내지 않는다 — 이 단계의 사람은 멀리 있고,
     // 여기서 재는 것은 **비용**이지 그림이 아니다.
     float d = clamp(dot(normalize(vNormal), normalize(vec3(0.4, 1.0, 0.3))), 0.0, 1.0);
-    gl_FragColor = vec4(uColor * (0.35 + 0.65 * d), 1.0);
+    #ifdef USE_BAKED_COLOR
+    // 구워 온 색이 있으면 그것으로 칠한다. uColor 는 그 위에 곱하는 물이라,
+    // 안 준 팩에서만 색 노릇을 한다 (기본 흰색).
+    vec3 base = vColor * uColor;
+    #else
+    vec3 base = uColor;
+    #endif
+    gl_FragColor = vec4(base * (0.35 + 0.65 * d), 1.0);
   }
 `;
 
@@ -78,7 +95,7 @@ const FRAG = /* glsl */`
  * @param atlas     lib/poseBake.mjs 의 bakeAtlas 결과
  * @param count     사람 수
  */
-export function createInstancedCrowd({ THREE, geometry, atlas, count, color = 0xb8bec6 }) {
+export function createInstancedCrowd({ THREE, geometry, atlas, count, color }) {
   if (!THREE?.InstancedMesh) throw new Error('THREE 를 주입해야 한다');
   if (!atlas?.data) throw new Error('구운 아틀라스가 필요하다');
   if (!geometry.getAttribute('skinIndex') || !geometry.getAttribute('skinWeight')) {
@@ -94,13 +111,18 @@ export function createInstancedCrowd({ THREE, geometry, atlas, count, color = 0x
   tex.generateMipmaps = false;
   tex.needsUpdate = true;
 
+  // **색을 구워 온 살인가.** 정점 색이 있으면 그것으로 칠하고, 없으면 예전처럼
+  // 한 색으로 칠한다 (기본 회색). 셰이더를 둘로 두지 않고 #define 으로 가른다 —
+  // 재료가 둘이 되면 배치가 갈라지고, 드로우콜을 하나로 줄인 뜻이 없어진다.
+  const baked = !!geometry.getAttribute('color');
   const material = new THREE.ShaderMaterial({
+    defines: baked ? { USE_BAKED_COLOR: '' } : {},
     vertexShader: VERT,
     fragmentShader: FRAG,
     uniforms: {
       poseTex: { value: tex },
       poseSize: { value: new THREE.Vector2(width, atlas.height) },
-      uColor: { value: new THREE.Color(color) },
+      uColor: { value: new THREE.Color(color ?? (baked ? 0xffffff : 0xb8bec6)) },
     },
   });
 
