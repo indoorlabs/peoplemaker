@@ -29,14 +29,19 @@ function makeWriter(json, base) {
     if (r) { chunks.push(new Uint8Array(r)); offset += r; }
   };
   return {
-    put(arr, type, extra) {
+    /**
+     * @param componentType glTF 의 componentType — 기본은 float(5126).
+     *        뼈 번호(5123)와 인덱스(5123·5125)는 정수라 따로 준다. 실수로
+     *        쓰면 three 가 읽다가 뼈를 엉뚱하게 집는다.
+     */
+    put(arr, type, extra, componentType = 5126) {
       pad();
       const bytes = u8(arr);
       chunks.push(bytes);
       json.bufferViews.push({ buffer: 0, byteOffset: offset, byteLength: bytes.byteLength });
       offset += bytes.byteLength;
       json.accessors.push({
-        bufferView: json.bufferViews.length - 1, componentType: 5126,
+        bufferView: json.bufferViews.length - 1, componentType,
         count: arr.length / COMPONENTS[type], type, ...(extra || {}),
       });
       return json.accessors.length - 1;
@@ -247,6 +252,80 @@ export function attachAnimation(bodyDoc, motionDoc, animIndex = 0) {
 }
 
 /** 문서를 GLB 바이트로. */
+/**
+ * **먼 사람용 몸** — 줄인 살 + 구운 색, 텍스처 없음.
+ *
+ * 지금까지는 소비처가 몸 4.2MB(그중 3.7MB 가 텍스처)를 받아, 브라우저에서
+ * 130ms 를 들여 매번 줄이고 색을 찍었다. 먼 사람만 세우는 화면(도시 스케일)은
+ * 그 텍스처를 한 번도 안 쓴다.
+ *
+ * 그래서 **구울 때 한 번** 만들어 팩에 넣는다. 받는 쪽은 이것만 받으면 된다.
+ *
+ * 뼈대·skin·역바인드는 몸의 것을 그대로 쓴다 — 그래야 같은 동작 파일과 같은
+ * 구운 아틀라스가 그대로 맞는다. 재료는 텍스처 없는 흰색 하나이고, 색은
+ * 정점에 들어 있다 (COLOR_0).
+ *
+ * @param doc  몸 문서 (parseGLB 결과)
+ * @param mesh 줄인 살 — { position, normal, color, skinIndex, skinWeight, index }
+ */
+export function farBody(doc, mesh) {
+  const src = doc.json;
+  const skinIdx = (src.nodes || []).findIndex((n) => n.skin != null && n.mesh != null);
+  if (skinIdx < 0) throw new Error('스킨 메시를 단 노드가 없다');
+  const srcSkin = src.skins[src.nodes[skinIdx].skin];
+  if (srcSkin.inverseBindMatrices == null) throw new Error('역바인드 행렬이 없다 — 살이 뒤틀린다');
+  const ibm = readAccessor(doc, srcSkin.inverseBindMatrices);
+
+  const nodes = clone(src.nodes).map((n, i) => {
+    const out = { ...n };
+    // 살을 단 노드는 하나만 남긴다 — 나머지 조각(속눈썹·머리카락)은 이미
+    // 줄이는 쪽에서 뺐다.
+    if (i === skinIdx) { out.mesh = 0; out.skin = 0; } else { delete out.mesh; delete out.skin; }
+    return out;
+  });
+
+  const n = mesh.position.length / 3;
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < mesh.position.length; i += 3) {
+    for (let c = 0; c < 3; c++) {
+      if (mesh.position[i + c] < min[c]) min[c] = mesh.position[i + c];
+      if (mesh.position[i + c] > max[c]) max[c] = mesh.position[i + c];
+    }
+  }
+
+  const json = {
+    asset: { version: '2.0', generator: 'peoplemaker/farBody' },
+    scene: src.scene ?? 0,
+    scenes: clone(src.scenes || [{ nodes: [0] }]),
+    nodes,
+    materials: [{
+      name: 'far',
+      // 색은 정점에 있다. baseColorFactor 는 흰색이라 그대로 곱해진다.
+      pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: 0, roughnessFactor: 0.9 },
+    }],
+  };
+  const w = makeWriter(json, new Uint8Array(0));
+  const short = n <= 65535;
+  const attributes = {
+    POSITION: w.put(mesh.position, 'VEC3', { min, max }),
+    NORMAL: w.put(mesh.normal, 'VEC3'),
+    JOINTS_0: w.put(Uint16Array.from(mesh.skinIndex), 'VEC4', {}, 5123),
+    WEIGHTS_0: w.put(mesh.skinWeight, 'VEC4'),
+  };
+  if (mesh.color) attributes.COLOR_0 = w.put(mesh.color, 'VEC3');
+  const indices = short
+    ? w.put(Uint16Array.from(mesh.index), 'SCALAR', {}, 5123)
+    : w.put(Uint32Array.from(mesh.index), 'SCALAR', {}, 5125);
+  json.meshes = [{ name: 'far', primitives: [{ attributes, indices, material: 0 }] }];
+  json.skins = [{
+    joints: srcSkin.joints.slice(),
+    ...(srcSkin.skeleton != null ? { skeleton: srcSkin.skeleton } : {}),
+    inverseBindMatrices: w.put(Float32Array.from(ibm), 'MAT4'),
+  }];
+  return w.finish();
+}
+
 export function encodeGLB({ json, bin }) {
   const enc = new TextEncoder();
   let js = enc.encode(JSON.stringify(json));

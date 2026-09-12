@@ -35,6 +35,8 @@ const mode = q.get('mode') || 'skinned';
 const lod = Number(q.get('lod') || 0);
 // 먼 단계에 팩의 텍스처를 정점 색으로 구워 넣을 것인가 (?color=1).
 const bakeColor = q.get('color') === '1';
+// 팩이 구워 둔 **먼 사람용 몸**을 받는다 (?far=1) — 텍스처를 안 받는다.
+const useFar = q.get('far') === '1';
 // 팩 여럿을 섞어 세운다 (?packs=rocketbox-f01,rocketbox-m01). 드로우콜은 팩 수다.
 const packIds = (q.get('packs') || '').split(',').map((t) => t.trim()).filter(Boolean);
 const hud = document.getElementById('hud');
@@ -62,8 +64,15 @@ if (boneOverride) {
   for (const clip of catalog.clips) gltfs.set(clip.id, gltf);
 } else {
   // 앱과 같은 문(loadPack)으로 받는다 — 나뉜 팩(몸 + 동작)도 그대로 읽힌다.
-  pack = await loadPack({ url: `/packs/${packId}`, GLTFLoader });
-  for (const clip of catalog.clips) gltfs.set(clip.id, pack.gltfOf(clip.id));
+  // 먼 단계만 세울 거면 팩이 구워 둔 **먼 몸**을 받는다 (텍스처를 안 받는다).
+  // 가까운 사람(skinned)은 텍스처가 필요하므로 몸째 받는다.
+  pack = await loadPack({
+    url: `/packs/${packId}`, GLTFLoader,
+    body: useFar && mode === 'instanced' ? 'far' : 'full',
+    // 먼 단계는 걷기·서기만 굽는다 — 22개를 다 받을 까닭이 없다.
+    ...(mode === 'instanced' ? { clips: ['walk-forward', 'idle'] } : {}),
+  });
+  for (const clip of catalog.clips) { const g = pack.gltfOf(clip.id); if (g) gltfs.set(clip.id, g); }
 }
 
 const player = createClipPlayer({ THREE, SkeletonUtils, catalog, gltfOf: (id) => gltfs.get(id) });
@@ -109,7 +118,7 @@ if (mode === 'instanced') {
     const kinds = [];
     let prepMs = 0;
     for (const id of packIds) {
-      const pk = await loadPack({ url: `/packs/${id}`, GLTFLoader, clips: ['walk-forward', 'idle'] });
+      const pk = await loadPack({ url: `/packs/${id}`, GLTFLoader, clips: ['walk-forward', 'idle'], body: useFar ? 'far' : 'full' });
       // 받는 값(네트워크)은 빼고 **굽고 줄이는 값**만 잰다.
       const t0 = performance.now();
       const atlasK = bakeFromPack(pk, ['walk-forward', 'idle']);
@@ -178,6 +187,7 @@ window.__crowdStats = () => ({
   몸정점: verts,
   ...(lod ? { 살줄임: lod, 줄이기ms: lodStats.ms ?? null, 삼각형원본: lodStats.trianglesBefore ?? null } : {}),
   ...(bakeColor ? { 정점색: true } : {}),
+  ...(useFar ? { 먼몸: true } : {}),
   ...(mixed ? { 몸: packIds.join('+'), 몸마다: kindCounts } : {}),
   드로우콜: renderer.info.render.calls,
   삼각형: renderer.info.render.triangles,

@@ -55,6 +55,80 @@ runGate('check-surface', async (g) => {
   const extra = Object.keys(api).filter((k) => !PUBLIC.includes(k));
   if (extra.length) g.fail('export/extra', `문서에 없는 것을 내보낸다: ${extra.join(' · ')}`);
 
+  // ── 먼 사람용 몸을 문에서 받을 수 있는가 ──
+  //
+  // three 는 여기서 한 번 들여온다 (아래 굽는 자리에서도 쓴다).
+  const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+  const THREE = await import('three');
+  //
+  // 도시 스케일 소비처는 이것만 받는다 (여자 01: 4,238KB → 95KB). 문이
+  // 그것을 못 주면 그 절약은 말뿐이다.
+  {
+    const url = 'pack://ref-synthetic';
+    let bytes = 0;
+    const counting = async (u) => {
+      const r = await fileFetch(url)(u);
+      if (!r.ok) return r;
+      const ab = await r.arrayBuffer();
+      bytes += ab.byteLength;
+      return { ...r, arrayBuffer: async () => ab };
+    };
+    let farPack = null;
+    n++;
+    try {
+      farPack = await api.loadPack({ url, GLTFLoader, fetchImpl: counting, clips: ['walk-forward'], body: 'far' });
+    } catch (e) { g.fail('far/load', `먼 몸을 못 받는다 — ${e.message}`); }
+    if (farPack) {
+      n++;
+      if (!farPack.far) g.fail('far/flag', '먼 몸을 받았는데 그렇다고 안 한다');
+      n++;
+      const stats = {};
+      const geom = api.geometryOf(farPack, { lod: 0.25, color: true, lodStats: stats });
+      // **두 번 줄이지 않는다** — 이미 구워 둔 살이다.
+      if (!stats.prebaked) g.fail('far/prebaked', '이미 구운 살인데 또 줄이려 든다');
+      n++;
+      if (geom.getAttribute('position').count !== farPack.catalog.bodyFar.vertices) {
+        g.fail('far/verts', `정점이 ${geom.getAttribute('position').count} 다 — 카탈로그는 ${farPack.catalog.bodyFar.vertices}`);
+      }
+      n++;
+      if (!geom.getAttribute('color')) g.fail('far/color', '먼 몸에 정점 색이 없다');
+      n++;
+      // 구운 아틀라스가 **그대로 맞는가** — 뼈가 같으니 맞아야 한다.
+      try {
+        const atlas = api.bakeFromPack(farPack, ['walk-forward']);
+        const crowd = api.createInstancedCrowd({ THREE, geometry: geom, atlas, count: 3 });
+        crowd.place(0, { position: [0, 0, 0], clipId: 'walk-forward' });
+        crowd.update(0.1);
+      } catch (e) { g.fail('far/crowd', `먼 몸으로 군중을 못 세운다 — ${e.message}`); }
+      n++;
+      // 몸째 받는 것보다 **정말 적게 받는가**.
+      let fullBytes = 0;
+      const countFull = async (u) => {
+        const r = await fileFetch(url)(u);
+        if (!r.ok) return r;
+        const ab = await r.arrayBuffer();
+        fullBytes += ab.byteLength;
+        return { ...r, arrayBuffer: async () => ab };
+      };
+      await api.loadPack({ url, GLTFLoader, fetchImpl: countFull, clips: ['walk-forward'] });
+      if (!(bytes < fullBytes)) g.fail('far/bytes', `먼 몸이 ${bytes}B · 몸째가 ${fullBytes}B — 안 줄었다`);
+      else console.log(`  [문] 먼 몸으로 받으면 ${(bytes / 1024).toFixed(0)}KB · 몸째면 ${(fullBytes / 1024).toFixed(0)}KB (기준 팩은 텍스처가 없어 차이가 작다)`);
+    }
+    n++;
+    // 먼 몸이 없는 팩에 달라고 하면 **말하고 멈춘다**.
+    const noFar = async (u) => {
+      const r = await fileFetch(url)(u);
+      if (!r.ok || !u.endsWith('catalog.json')) return r;
+      const cat = await r.json();
+      delete cat.bodyFar;
+      return { ...r, json: async () => cat };
+    };
+    let threw = false;
+    try { await api.loadPack({ url, GLTFLoader, fetchImpl: noFar, clips: ['walk-forward'], body: 'far' }); }
+    catch { threw = true; }
+    if (!threw) g.fail('far/absent', '먼 몸이 없는 팩인데 조용히 몸째를 준다 — 받는 쪽은 95KB 를 기대한다');
+  }
+
   // ── 2. README 가 문과 같은가 ──
   {
     const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
@@ -128,8 +202,6 @@ runGate('check-surface', async (g) => {
   //
   // 이름만 있고 안 되는 문이 가장 나쁘다 — 소비처가 붙이고 나서야 안다.
   {
-    const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
-    const THREE = await import('three');
     const base = 'pack://ref-synthetic';
     let pack = null;
     try {

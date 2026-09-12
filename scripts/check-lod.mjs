@@ -24,6 +24,7 @@ import { bakeClip } from '../src/lib/poseBake.mjs';
 import { attachAnimation } from '../src/lib/gltfWrite.mjs';
 import { PACK_MEASURED, planCrowdMeasured, frameMsAt } from '../src/lib/crowdBudget.mjs';
 import { skinnedMeshOf, skinPoints } from './read-mesh.mjs';
+import { bakeFarBody } from './build-far.mjs';
 
 // ── 아는 모양 ────────────────────────────────────────────────────
 
@@ -433,6 +434,34 @@ runGate('check-lod', (g) => {
       console.log(`  [줄이기] Rocketbox 몸: 삼각형 ${lod.stats.trianglesBefore}→${lod.stats.trianglesAfter} · 정점 ${lod.stats.verticesBefore}→${lod.stats.verticesAfter}`);
       console.log(`  [줄이기] 벗어남 쉴 때 최대 ${(dev.maxM * 1000).toFixed(1)}mm·평균 ${(dev.meanM * 1000).toFixed(2)}mm · 걸을 때 최대 ${(pdev.maxM * 1000).toFixed(1)}mm`);
     }
+  }
+
+  // ── 5-2. 팩에 구워 둔 먼 몸이 **지금 줄이는 것과 같은가** ──
+  //
+  // 줄이는 셈을 고치고 다시 안 구우면, 팩이 옛 살을 들고 있게 된다. 그
+  // 어긋남은 아무 데서도 안 보인다 — 여기서 본다 (카탈로그의 '낡음' 검사와
+  // 같은 규약).
+  {
+    const dir = path.join(ROOT, 'packs');
+    const packs = fs.existsSync(dir)
+      ? fs.readdirSync(dir).filter((d) => fs.existsSync(path.join(dir, d, 'catalog.json')))
+      : [];
+    let checked = 0;
+    for (const p of packs) {
+      const cat = JSON.parse(fs.readFileSync(path.join(dir, p, 'catalog.json'), 'utf8'));
+      if (!cat.bodyFar?.file || !cat.body) continue;
+      const farPath = path.join(dir, p, cat.bodyFar.file);
+      if (!fs.existsSync(farPath)) continue;
+      n++;
+      checked++;
+      const { facts } = bakeFarBody(fs.readFileSync(path.join(dir, p, cat.body)), cat.bodyFar.ratio);
+      if (facts.vertices !== cat.bodyFar.vertices || facts.triangles !== cat.bodyFar.triangles) {
+        g.fail(`far/${p}/stale`,
+          `구운 먼 몸은 정점 ${cat.bodyFar.vertices}·삼각형 ${cat.bodyFar.triangles} 인데`
+          + ` 지금 줄이면 ${facts.vertices}·${facts.triangles} 다 — build-far 를 다시 돌릴 것`);
+      }
+    }
+    console.log(`  [줄이기] 팩에 구워 둔 먼 몸 ${checked}개가 지금 줄이는 것과 같다`);
   }
 
   // ── 6. 잰 표가 값 노릇을 하는가 ──

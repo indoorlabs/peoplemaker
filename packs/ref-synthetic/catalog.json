@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "skeleton": "mixamo",
   "body": "body.glb",
+  "bodyFar": {
+    "file": "body-far.glb",
+    "ratio": 0.25,
+    "vertices": 38,
+    "triangles": 32,
+    "from": {
+      "vertices": 264,
+      "triangles": 132
+    }
+  },
   "forwardRad": 3.1416,
   "builtBy": "peoplemaker/build-pack",
   "clips": [

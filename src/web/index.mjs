@@ -50,10 +50,15 @@ export { validateCatalog, LICENSES, packRedistributable, commercialClips } from 
  * @param url          팩 폴더 주소 (끝에 / 없이)
  * @param GLTFLoader   three/addons/loaders/GLTFLoader.js 의 클래스
  * @param fetchImpl    기본은 전역 fetch
+ * **먼 사람만 세울 거라면 `body: 'far'`** — 팩이 구워 둔 줄인 몸(텍스처 없음,
+ * 색은 정점에)을 대신 받는다. Rocketbox 여자 01 에서 4,238KB 대신 95KB 다.
+ * 가까운 사람에게는 안 쓴다 (살이 4분의 1이고 텍스처가 없다).
+ *
  * @param clips        처음에 받을 클립 id 배열, 또는 (catalog) => 배열. 안 주면 전부
- * @returns { catalog, body, gltfOf, has, load, bufferOf, docOf }
+ * @param body         'full'(기본) 또는 'far'
+ * @returns { catalog, body, far, gltfOf, has, load, bufferOf, docOf }
  */
-export async function loadPack({ url, GLTFLoader, fetchImpl = globalThis.fetch, clips: wanted }) {
+export async function loadPack({ url, GLTFLoader, fetchImpl = globalThis.fetch, clips: wanted, body: which = 'full' }) {
   if (!url) throw new Error('팩 주소가 필요하다');
   if (!GLTFLoader) throw new Error('GLTFLoader 를 주입해야 한다');
 
@@ -76,8 +81,16 @@ export async function loadPack({ url, GLTFLoader, fetchImpl = globalThis.fetch, 
   };
 
   // 나뉜 팩이면 몸을 먼저 — 모든 동작이 이 몸 하나를 복제해 쓴다 (텍스처도 한 벌).
+  //
+  // 먼 사람용 몸을 달라고 했는데 팩에 없으면 **말하고 멈춘다.** 조용히 큰
+  // 몸을 주면 받는 쪽은 95KB 를 기대하고 4MB 를 받는다.
+  const far = which === 'far';
+  if (far && !catalog.bodyFar?.file) {
+    throw new Error(`${url}: 먼 사람용 몸(bodyFar)이 없는 팩이다 — 다시 구워야 한다`);
+  }
   const split = typeof catalog.body === 'string';
-  const bodyBuf = split ? await get(catalog.body) : null;
+  const bodyFile = far ? catalog.bodyFar.file : catalog.body;
+  const bodyBuf = split ? await get(bodyFile) : null;
   const body = split ? await parse(bodyBuf) : null;
   let bodyDoc = null;
 
@@ -107,6 +120,8 @@ export async function loadPack({ url, GLTFLoader, fetchImpl = globalThis.fetch, 
     catalog,
     /** 나뉜 팩의 몸 (three 가 읽은 것) — 예전 팩이면 null */
     body,
+    /** 먼 사람용 몸을 받았는가 — 그렇다면 줄이기·색 굽기가 이미 끝나 있다. */
+    far,
     gltfOf: (id) => gltfs.get(id),
     has: (id) => gltfs.has(id),
     load,
@@ -180,6 +195,9 @@ export function bakeFromPack(pack, clipIds) {
  */
 export function geometryOf(pack, opts) {
   const { clipId, lod, color, lodStats } = typeof opts === 'string' || opts == null ? { clipId: opts } : opts;
+  // 먼 사람용 몸은 **이미 줄여서 색까지 구워 둔 것**이다. 여기서 또 줄이면
+  // 삼각형이 4분의 1의 4분의 1이 되고, 색은 찍을 텍스처가 없다.
+  const prebaked = !!pack.far;
   // 나뉜 팩은 몸이 따로 있다. 예전 팩은 받아 둔 클립 아무것이나 — 동작을
   // 필요한 것만 받으므로 첫 클립이 없을 수 있다.
   const gltf = clipId ? pack.gltfOf(clipId)
@@ -196,10 +214,14 @@ export function geometryOf(pack, opts) {
   const solid = parts.filter((p) => !p.cutout);
   const use = solid.length ? solid : parts;
   const geoms = use.map((p) => p.geom);
-  const colors = color ? use.map((p) => bakedColorsFor(p, color)) : null;
+  const colors = color && !prebaked ? use.map((p) => bakedColorsFor(p, color)) : null;
   // 색을 구우면 조각이 하나여도 새 기하를 만든다 — 팩의 기하는 가까운 사람이
   // 쓰고 있는 것이라, 거기에 속성을 붙이면 남의 것을 건드리는 셈이다.
   const merged = geoms.length === 1 && !colors ? geoms[0] : mergeSkinned(geoms, colors);
+  if (prebaked) {
+    if (lodStats) Object.assign(lodStats, { prebaked: true, ...(pack.catalog.bodyFar || {}) });
+    return merged;
+  }
   if (!(lod > 0) || lod >= 1) return merged;
   return simplifiedGeometry(merged, lod, lodStats);
 }

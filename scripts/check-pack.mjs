@@ -18,7 +18,7 @@ import {
   validateCatalog, validateSplitFiles, packRedistributable, commercialClips,
   SKELETONS, ROOT_MOTIONS, LICENSES,
 } from '../src/lib/motionPack.mjs';
-import { parseGLB, sampleAnimation, parentMap, nodeWorldMatrix, animationDurationS } from '../src/lib/gltf.mjs';
+import { parseGLB, readAccessor, sampleAnimation, parentMap, nodeWorldMatrix, animationDurationS } from '../src/lib/gltf.mjs';
 import { buildGLB, FIXTURES } from '../src/lib/fixtureRig.mjs';
 import { bakeClip } from '../src/lib/poseBake.mjs';
 import { bodyOnly, motionOnly, extractAnimation, attachAnimation, encodeGLB } from '../src/lib/gltfWrite.mjs';
@@ -176,6 +176,61 @@ runGate('check-pack', (g) => {
         split++;
       }
     }
+    // ── 먼 사람용 몸 ──
+    //
+    // 이것은 **같은 사람의 줄인 살**이어야 한다. 뼈 차례가 다르면 구운
+    // 아틀라스가 안 맞고(팔이 다리처럼 움직인다), 텍스처가 남아 있으면
+    // 받는 쪽이 기대한 95KB 가 아니다.
+    for (const p of packs) {
+      const dir = path.join(ROOT, 'packs', p);
+      const cat = JSON.parse(fs.readFileSync(path.join(dir, 'catalog.json'), 'utf8'));
+      const far = cat.bodyFar;
+      if (!far?.file) continue;
+      const farPath = path.join(dir, far.file);
+      n++;
+      if (!fs.existsSync(farPath)) { g.fail(`far/${p}/file`, `${far.file} 이 없다`); continue; }
+      const fd = parseGLB(fs.readFileSync(farPath));
+      n++;
+      if ((fd.json.images || []).length || (fd.json.textures || []).length) {
+        g.fail(`far/${p}/textures`, '먼 몸에 텍스처가 들어 있다 — 그것을 뺀 것이 이 파일의 요점이다');
+      }
+      n++;
+      const bodyDoc = parseGLB(fs.readFileSync(path.join(dir, cat.body)));
+      const j0 = bodyDoc.json.skins?.[0]?.joints || [];
+      const j1 = fd.json.skins?.[0]?.joints || [];
+      if (j0.join() !== j1.join()) {
+        g.fail(`far/${p}/joints`, `뼈 차례가 몸과 다르다 (${j1.length} vs ${j0.length}) — 구운 아틀라스가 안 맞는다`);
+      }
+      n++;
+      const pos = fd.json.accessors[fd.json.meshes[0].primitives[0].attributes.POSITION];
+      if (pos.count !== far.vertices) {
+        g.fail(`far/${p}/vertices`, `카탈로그는 정점 ${far.vertices} 인데 파일은 ${pos.count} 이다`);
+      }
+      n++;
+      const idx = fd.json.accessors[fd.json.meshes[0].primitives[0].indices];
+      if (idx.count / 3 !== far.triangles) {
+        g.fail(`far/${p}/triangles`, `카탈로그는 삼각형 ${far.triangles} 인데 파일은 ${idx.count / 3} 이다`);
+      }
+      n++;
+      if (fd.json.meshes[0].primitives[0].attributes.COLOR_0 == null) {
+        g.fail(`far/${p}/color`, '먼 몸에 정점 색이 없다 — 텍스처도 없으면 회색 덩어리가 된다');
+      }
+      n++;
+      // **점을 지어내지 않았는가** — 줄인 살의 점은 원래 몸에 있던 점이다.
+      const full = readAccessor(bodyDoc, bodyDoc.json.meshes[0].primitives[0].attributes.POSITION);
+      const key = (a, i) => `${Math.round(a[i * 3] * 1e4)},${Math.round(a[i * 3 + 1] * 1e4)},${Math.round(a[i * 3 + 2] * 1e4)}`;
+      const have = new Set();
+      for (let i = 0; i < full.length / 3; i++) have.add(key(full, i));
+      const farPos = readAccessor(fd, fd.json.meshes[0].primitives[0].attributes.POSITION);
+      let invented = 0;
+      for (let i = 0; i < farPos.length / 3; i++) if (!have.has(key(farPos, i))) invented++;
+      // 몸은 조각이 여럿이라 첫 조각에 없는 점이 있을 수 있다 — 절반을 넘으면
+      // 그것은 다른 살이다.
+      if (invented > farPos.length / 3 / 2) {
+        g.fail(`far/${p}/invented`, `먼 몸의 점 ${invented}/${farPos.length / 3} 개가 원래 몸에 없다`);
+      }
+    }
+
     console.log(`  [팩] 검사한 팩 ${packs.length}개(나뉜 팩 ${split}) · 계약 위반을 ${breaks.length}가지 방식으로 확인했다`);
   }
 

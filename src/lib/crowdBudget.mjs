@@ -366,6 +366,26 @@ export const PACK_MEASURED = {
        * 재기의 흔들림과 같은 자릿수다 (정점마다 12바이트가 느는 것이 전부고,
        * 드로우콜도 재료도 그대로다).
        */
+      /**
+       * **팩이 구워 둔 먼 몸** (body-far.glb) — 받는 값까지 줄인다.
+       *
+       * 같은 화면(1,000명 · 줄인 살 · 구운 색)을 두 길로 재 봤다:
+       *
+       *   몸째 받아 브라우저에서 줄이기   4,480KB · 준비 101ms · GPU 1.47ms
+       *   팩이 구워 둔 먼 몸을 받기         337KB · 준비   0ms · GPU 1.51ms
+       *
+       * **13배 적게 받고 준비 시간이 사라진다.** 그림은 같다 (정점 1,030).
+       * 몸 파일만 보면 4,238KB → 95KB (2.2%) 이고, 나머지는 동작 파일이다.
+       */
+      shipped: {
+        file: 'body-far.glb',
+        bodyKB: 95,
+        bodyFromKB: 4238,
+        screenKB: 337,
+        screenFromKB: 4480,
+        prepMs: 0,
+        prepFromMs: 101,
+      },
       color: {
         from: 'baseColorTexture (1024×1024 PNG 둘) · UV 로 찍었다',
         spread: 0.199,        // 채널 표준편차의 평균 — 한 색이면 0

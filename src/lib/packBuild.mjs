@@ -464,13 +464,16 @@ export function deriveClip(doc, decl, { skeleton = 'mixamo' } = {}) {
  * 순서를 고정한다 — 팩을 다시 구울 때마다 순서가 바뀌면 diff 가 통째로
  * 바뀌어서 무엇이 달라졌는지 안 보인다.
  */
-export function buildCatalog({ packId, version, skeleton, clips, body }) {
+export function buildCatalog({ packId, version, skeleton, clips, body, bodyFar }) {
   return {
     packId,
     version,
     skeleton,
     // 몸이 따로인 팩 — 클립은 뼈 움직임만 든다 (lib/gltfWrite.mjs)
     ...(body ? { body } : {}),
+    // **먼 사람용 몸** — 줄인 살 + 구운 색, 텍스처 없음. 도시 스케일 화면은
+    // 이것만 받으면 된다 (4.2MB → 95KB). 무엇을 얼마로 줄였는지가 함께 남는다.
+    ...(bodyFar ? { bodyFar } : {}),
     forwardRad: packForwardRad(clips),
     builtBy: 'peoplemaker/build-pack',
     clips: [...clips].sort((a, b) => (a.id < b.id ? -1 : 1)),

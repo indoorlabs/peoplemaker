@@ -106,6 +106,26 @@ export function validateCatalog(catalog, { clipFiles = null, packFiles = null } 
   }
 
   // 몸이 따로인 팩. 이름만 적고 파일이 없으면 받는 쪽이 살 없는 동작만 쥔다.
+  // 먼 사람용 몸 — 있으면 무엇을 얼마로 줄였는지가 함께 있어야 한다.
+  // 그 수가 없으면 소비처는 "이것이 진짜 그 사람인가" 를 알 길이 없다.
+  if (catalog.bodyFar !== undefined) {
+    const f = catalog.bodyFar;
+    if (!f || typeof f !== 'object') fail('catalog/bodyFar', '먼 몸이 값이 아니다');
+    else {
+      if (typeof f.file !== 'string' || !/^[\w.-]+\.glb$/.test(f.file)) {
+        fail('catalog/bodyFar/file', `먼 몸 파일 이름이 '${f.file}' 다`);
+      } else if (packFiles && !packFiles.includes(f.file)) {
+        fail('catalog/bodyFar/missing', `${f.file} 가 없다`);
+      }
+      if (!(f.ratio > 0 && f.ratio <= 1)) fail('catalog/bodyFar/ratio', `줄인 비율이 ${f.ratio} 다`);
+      if (!(f.vertices > 0) || !(f.triangles > 0)) {
+        fail('catalog/bodyFar/size', `정점 ${f.vertices} · 삼각형 ${f.triangles} 다`);
+      } else if (f.from && !(f.vertices < f.from.vertices)) {
+        fail('catalog/bodyFar/smaller', `줄였다면서 정점이 ${f.from.vertices} → ${f.vertices} 다`);
+      }
+    }
+  }
+
   if (catalog.body !== undefined) {
     if (typeof catalog.body !== 'string' || !/^[\w.-]+\.glb$/.test(catalog.body)) {
       fail('catalog/body', `몸 파일 이름이 '${catalog.body}' 다 — 팩 폴더 안의 .glb 여야 한다`);
