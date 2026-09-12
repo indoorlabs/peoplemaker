@@ -16,6 +16,7 @@ import {
   deriveClip, TRAVEL_MIN_MPS, PLANT_MAX_Y_M, MEASURED_FIELDS,
   packForwardRad, angleDiff, FORWARD_AGREE_RAD,
   plantEvents, PLANT_MIN_DWELL_S, SEATED_HIP_RATIO_MAX, SEAT_FEET_FORWARD_MIN,
+  reachEvents, REACH_PEAK_FRACTION, applyReach,
 } from '../src/lib/packBuild.mjs';
 import { FIXTURES, CROUCH, buildGLB } from '../src/lib/fixtureRig.mjs';
 import { readAccessor, parentMap, sampleAnimation, animationDurationS } from '../src/lib/gltf.mjs';
@@ -232,11 +233,22 @@ runGate('check-build', (g) => {
           }
         }
 
-        const fresh = deriveClip(clipDoc, decl, { skeleton: src.skeleton }).clip;
+        // 굽는 쪽과 **같은 두 번째 판**을 돈다 — 손이 닿는 자리는 팩의 앞을
+        // 알고 나서야 잴 수 있다.
+        const fresh = applyReach(
+          deriveClip(clipDoc, decl, { skeleton: src.skeleton }).clip,
+          clipDoc, decl, { skeleton: src.skeleton, forwardRad: cat.forwardRad },
+        );
 
         // **적힌 것과 잰 것이 맞는가.** 사람이 "앉기" 라고 적은 클립에 앉은
         // 값이 없으면, 그 클립은 앉아 있지 않은 것이다 — 어린이에게 어른
         // 의자 동작을 옮겨 붙이다 사람이 공중에 앉은 적이 있다.
+        n++;
+        // 문을 쓰는 클립이라고 적었으면 손이 닿는 자리가 있어야 한다.
+        const baked0 = (cat.clips || []).find((c) => c.id === decl.id);
+        if ((decl.tags || []).includes('reach') && !baked0?.reach) {
+          g.fail(`reach/${p}/${decl.id}`, '손을 뻗는 동작이라고 적혀 있는데 닿는 자리가 없다');
+        }
         n++;
         if ((decl.tags || []).includes('seated') && !fresh.seat) {
           g.fail(`seated/${p}/${decl.id}`,
@@ -284,6 +296,54 @@ runGate('check-build', (g) => {
     n++;
     if (worst !== 0) g.fail('cache/sample', `기억한 값이 ${worst} 만큼 다르다 — 재는 값이 조용히 달라진다`);
     console.log(`  [재기] 푼 것을 기억해도 값이 같다 (어긋남 ${worst})`);
+  }
+
+  // ── 손이 닿는 구간을 **재는가** ──
+  //
+  // 발의 디딤과 같은 규약으로, 합성 곡선을 넣어 본다. 손은 땅처럼 고정된
+  // 높이가 없어서 그 클립 **자신의 최고치**에 견주는데, 그 셈이 맞는지를
+  // 아는 곡선으로 확인한다.
+  {
+    const hz = 30;
+    const curve = (fn, durationS) => {
+      const out = [];
+      for (let i = 0; i < Math.round(durationS * hz); i++) out.push(fn(i / hz));
+      return out;
+    };
+    // 1초에 뻗어 2초까지 머물다 돌아온다 (3초 클립)
+    const reach1 = curve((t) => (t < 1 ? t * 0.4 : t < 2 ? 0.4 : Math.max(0, 0.4 - (t - 2) * 0.4)), 3);
+    n++;
+    const ev = reachEvents(reach1, 3);
+    if (ev.length !== 1) g.fail('reach/one', `한 번 뻗었는데 ${ev.length}번으로 센다`);
+    else {
+      n++;
+      if (Math.abs(ev[0].atS - 0.9) > 0.15) g.fail('reach/at', `1초쯤에 닿아야 하는데 ${ev[0].atS}s 다`);
+      n++;
+      if (Math.abs(ev[0].releaseS - 2.1) > 0.15) g.fail('reach/release', `2초쯤에 떼야 하는데 ${ev[0].releaseS}s 다`);
+      n++;
+      if (Math.abs(ev[0].peakM - 0.4) > 1e-6) g.fail('reach/peak', `가장 멀리 간 곳이 ${ev[0].peakM} 다`);
+    }
+    n++;
+    // 두 번 뻗으면 두 번으로 센다 (노크처럼).
+    const twice = curve((t) => {
+      const u = t % 1.5;
+      return u < 0.4 ? 0.3 : 0.05;
+    }, 3);
+    if (reachEvents(twice, 3).length !== 2) {
+      g.fail('reach/twice', `두 번 뻗었는데 ${reachEvents(twice, 3).length}번으로 센다`);
+    }
+    n++;
+    // 가만히 있는 손 — 최고치에 늘 붙어 있어도 "닿는 사건" 은 한 번이다.
+    const still = curve(() => 0.1, 3);
+    if (reachEvents(still, 3).length !== 1) g.fail('reach/still', '가만히 있는 손을 여러 번 닿았다고 한다');
+    n++;
+    // 스쳐 지나가는 것은 안 센다 (머무는 시간이 모자라다).
+    const blip = curve((t) => (Math.abs(t - 1.5) < 0.02 ? 0.4 : 0.05), 3);
+    if (reachEvents(blip, 3).length) g.fail('reach/blip', '스친 손을 닿았다고 한다');
+    n++;
+    // 뻗은 적이 없으면 없다고 한다.
+    if (reachEvents(curve(() => -0.1, 2), 2).length) g.fail('reach/none', '앞으로 안 나간 손을 닿았다고 한다');
+    console.log(`  [재기] 손: 최고치의 ${REACH_PEAK_FRACTION} 위에 ${(ev[0]?.releaseS - ev[0]?.atS).toFixed(2)}s 머문 것을 닿은 것으로 센다`);
   }
 
   // ── 앉은 높이를 **재는가** ──

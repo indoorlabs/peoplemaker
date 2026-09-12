@@ -203,6 +203,15 @@ export function planActivity(catalog, activityId) {
     if (!seat) missing.push({ need: 'seat', why: '앉는 클립에 잰 값(seat)이 없다' });
   }
 
+  // 손잡이를 둘 자리 — 문을 쓰는 활동이면 손이 닿는 높이를 함께 넘긴다.
+  // 어른 1.07m · 어린이 0.87m 로 나왔다. 공간 쪽이 그 높이의 문을 고른다.
+  let door = null;
+  if (needs.has('door')) {
+    const doorClip = [...clips].map((id) => byClip.get(id)).find((c) => c?.reach);
+    door = doorClip ? { clipId: doorClip.id, ...doorClip.reach } : null;
+    if (!door) missing.push({ need: 'door', why: '문 클립에 손이 닿는 자리(reach)가 없다' });
+  }
+
   return {
     ok: missing.length === 0,
     activity: activityId,
@@ -210,6 +219,7 @@ export function planActivity(catalog, activityId) {
     clips: [...clips],
     needs: [...needs],
     seat,
+    door,
     missing,
   };
 }

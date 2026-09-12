@@ -187,6 +187,21 @@ export function validateCatalog(catalog, { clipFiles = null, packFiles = null } 
       }
     }
 
+    // 손이 닿는 자리 — 있으면 말이 되어야 한다. 이 값으로 공간 쪽이 손잡이를
+    // 놓는다. 높이가 0 이거나 닿기 전에 떼면 그 자리는 문이 아니다.
+    if (c.reach) {
+      const tag = `clip/${c.id}/reach`;
+      if (!CONTACT_PARTS.includes(c.reach.part)) fail(`${tag}/part`, `닿는 부위가 '${c.reach.part}' 다`);
+      if (!(c.reach.heightM > 0)) fail(`${tag}/height`, `손 높이가 ${c.reach.heightM} 다`);
+      if (!(c.reach.forwardM > 0)) fail(`${tag}/forward`, `앞으로 ${c.reach.forwardM} 나갔다고 한다`);
+      if (!(c.reach.releaseS > c.reach.atS)) {
+        fail(`${tag}/order`, `${c.reach.atS}s 에 닿아 ${c.reach.releaseS}s 에 뗀다 — 떼는 것이 먼저다`);
+      }
+      if (c.durationS > 0 && c.reach.releaseS > c.durationS + 1e-6) {
+        fail(`${tag}/range`, `떼는 시각 ${c.reach.releaseS}s 가 길이 ${c.durationS}s 를 넘는다`);
+      }
+    }
+
     // 파일이 실제로 있는가. 목록을 받은 경우에만 본다 — 순수 층은 파일을
     // 읽지 않는다.
     if (clipFiles && !clipFiles.includes(`${c.id}.glb`)) {

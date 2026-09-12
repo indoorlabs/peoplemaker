@@ -138,6 +138,26 @@ export const SEAT_DWELL_MIN = 0.2;
  */
 export const SEAT_FEET_FORWARD_MIN = 0.25;
 
+/**
+ * 규약마다 **손 뼈** — 무언가에 닿는 순간을 재는 기준.
+ */
+export const HAND_NODES = {
+  mixamo: { 'hand-l': /(^|:)LeftHand$/, 'hand-r': /(^|:)RightHand$/ },
+  vrm: { 'hand-l': /^leftHand$/, 'hand-r': /^rightHand$/ },
+  biped: { 'hand-l': /^Bip\d\d L Hand$/, 'hand-r': /^Bip\d\d R Hand$/ },
+};
+
+/**
+ * 뻗은 손이 **제 최고치의 이만큼** 위에 있으면 닿아 있는 것으로 본다.
+ *
+ * 클립마다 팔 길이도 하는 일도 다르므로, 고정된 거리로는 못 가른다. 그
+ * 클립 **자신의 최고치**에 견준다 — 손이 가장 멀리 간 자리가 닿은 자리다.
+ */
+export const REACH_PEAK_FRACTION = 0.9;
+
+/** 그 자리에 이만큼은 머물러야 닿은 것으로 센다 (s). */
+export const REACH_MIN_DWELL_S = 0.1;
+
 /** 규약마다 뿌리 뼈 — 이동을 재는 기준. */
 export const ROOT_NODES = {
   mixamo: /(^|:)Hips$/,
@@ -152,8 +172,126 @@ const matchNode = (doc, re) => {
   return i < 0 ? null : i;
 };
 
+/**
+ * 뻗은 손이 **닿아 있는 구간**.
+ *
+ * 발의 디딤과 같은 규약이다 — "닿아 있는 상태" 가 아니라 **닿는 사건**을
+ * 찾는다. 다만 발은 땅이라는 고정된 높이가 있고 손은 없다. 그래서 그
+ * 클립 **자신의 최고치**에 견준다.
+ *
+ * 손이 앞으로 나간 정도(forward)를 받아, 최고치의 REACH_PEAK_FRACTION 를
+ * 넘어서 머무는 구간을 낸다.
+ *
+ * @returns [{ atS, releaseS, peakAtS, peakM }] — 없으면 빈 배열
+ */
+export function reachEvents(forward, durationS, { peakFraction = REACH_PEAK_FRACTION, minDwellS = REACH_MIN_DWELL_S } = {}) {
+  const n = forward.length;
+  if (n < 3 || !(durationS > 0)) return [];
+  const peak = Math.max(...forward);
+  if (!(peak > 0)) return [];
+  const line = peak * peakFraction;
+  const tOf = (i) => (durationS * i) / n;
+  const out = [];
+  let start = -1;
+  for (let i = 0; i < n; i++) {
+    const over = forward[i] >= line;
+    if (over && start < 0) start = i;
+    if ((!over || i === n - 1) && start >= 0) {
+      const end = over ? i : i - 1;
+      if (tOf(end + 1) - tOf(start) >= minDwellS) {
+        let pi = start;
+        for (let k = start; k <= end; k++) if (forward[k] > forward[pi]) pi = k;
+        out.push({
+          atS: +tOf(start).toFixed(3),
+          releaseS: +tOf(end + 1).toFixed(3),
+          peakAtS: +tOf(pi).toFixed(3),
+          peakM: +forward[pi].toFixed(3),
+        });
+      }
+      start = -1;
+    }
+  }
+  return out;
+}
+
 /** 사람이 적을 수 없는 값 — sources.json 에 있으면 그것은 두 벌이다. */
-export const MEASURED_FIELDS = ['durationS', 'rootMotion', 'speedMps', 'travelHeadingRad', 'contacts', 'seat'];
+export const MEASURED_FIELDS = ['durationS', 'rootMotion', 'speedMps', 'travelHeadingRad', 'contacts', 'seat', 'reach'];
+
+/**
+ * 손이 무언가에 닿는 순간과 **그때 손이 있는 자리**.
+ *
+ * 팩의 **앞**(forwardRad)을 알아야 잴 수 있어서 클립을 다 잰 뒤에 부른다
+ * (build-pack 의 두 번째 판). 앞은 이동 클립에서 재는 값이라, 그 전에는
+ * 어느 쪽이 앞인지 모른다.
+ *
+ * **무엇에 닿는지는 안 정한다.** 손이 앞으로 나간 것만으로는 문을 잡았는지
+ * 알 수 없다 — 재 보니 책상에 기대기(0.48m)와 손 흔들기(0.41m)가 문 열기
+ * (0.36m)보다 멀리 갔다. 그 동작이 무엇인지는 **사람이 적고**(tags 의
+ * 'reach'), 언제 어디까지 뻗는지는 **우리가 잰다**. 그 자리가 곧 손잡이를
+ * 둘 높이다 — 어른 1.07m · 어린이 0.87m 로 나왔다.
+ *
+ * @returns { part, atS, releaseS, forwardM, heightM } 또는 null
+ */
+export function deriveReach(doc, { skeleton = 'mixamo', forwardRad = 0, sampleHz = SAMPLE_HZ } = {}) {
+  const durationS = animationDurationS(doc, 0);
+  if (!(durationS > 0)) return null;
+  const parent = parentMap(doc);
+  const hipIdx = matchNode(doc, HIP_NODES[skeleton] || HIP_NODES.mixamo);
+  if (hipIdx == null) return null;
+  const dir = [Math.sin(forwardRad), 0, Math.cos(forwardRad)];
+  const steps = Math.max(4, Math.round(durationS * sampleHz));
+  const at = (t) => sampleAnimation(doc, 0, t);
+
+  let best = null;
+  for (const [part, re] of Object.entries(HAND_NODES[skeleton] || HAND_NODES.mixamo)) {
+    const idx = matchNode(doc, re);
+    if (idx == null) continue;
+    const forward = [];
+    const height = [];
+    for (let i = 0; i < steps; i++) {
+      const sampled = at((durationS * i) / steps);
+      const hip = nodeWorldPos(doc, hipIdx, sampled, parent);
+      const hand = nodeWorldPos(doc, idx, sampled, parent);
+      forward.push((hand[0] - hip[0]) * dir[0] + (hand[2] - hip[2]) * dir[2]);
+      height.push(hand[1]);
+    }
+    for (const ev of reachEvents(forward, durationS)) {
+      if (best && ev.peakM <= best.forwardM) continue;
+      const pi = Math.min(forward.length - 1, Math.round((ev.peakAtS / durationS) * steps));
+      best = {
+        part,
+        atS: ev.atS,
+        releaseS: ev.releaseS,
+        forwardM: ev.peakM,
+        heightM: +height[pi].toFixed(3),
+      };
+    }
+  }
+  return best;
+}
+
+/**
+ * 잰 클립에 **손이 닿는 자리**를 얹는다 (두 번째 판).
+ *
+ * 굽는 쪽(build-pack)과 게이트가 **같은 함수**를 불러야 한다. 처음에 굽는
+ * 쪽에만 두었더니, 게이트가 "지금 재는 값" 을 두 번째 판 없이 내서 구운
+ * 팩이 전부 낡았다고 나왔다 — 같은 일을 두 군데 적으면 늘 이렇게 갈린다.
+ *
+ * @param clip deriveClip 이 낸 클립 (그대로 고쳐서 돌려준다)
+ * @param decl sources.json 의 선언 — tags 에 'reach' 가 있을 때만 잰다
+ */
+export function applyReach(clip, doc, decl, { skeleton = 'mixamo', forwardRad } = {}) {
+  if (!(decl.tags || []).includes('reach')) return clip;
+  if (typeof forwardRad !== 'number') return clip;
+  const reach = deriveReach(doc, { skeleton, forwardRad });
+  if (!reach) return clip;
+  clip.reach = reach;
+  clip.contacts = [...clip.contacts,
+    { atS: reach.atS, part: reach.part, kind: 'touch' },
+    { atS: reach.releaseS, part: reach.part, kind: 'release' },
+  ].sort((a, b) => a.atS - b.atS);
+  return clip;
+}
 
 /**
  * 이동 클립들의 진행 방향이 이만큼 넘게 갈리면 팩의 앞을 못 정한다 (rad).

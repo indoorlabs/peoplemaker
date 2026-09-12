@@ -93,6 +93,9 @@ runGate('check-pack', (g) => {
     ['앉은 높이를 0 으로', (c) => { c.clips[1].seat = { hipHeightM: 0, hipRatio: 0.4, groundOffsetM: 0 }; }, 'clip/sit-down/seat/height'],
     ['앉았는데 쉬는 자세보다 높다', (c) => { c.clips[1].seat = { hipHeightM: 1.2, hipRatio: 1.3, groundOffsetM: 0 }; }, 'clip/sit-down/seat/ratio'],
     ['앉은 클립의 바닥을 뺀다', (c) => { c.clips[1].seat = { hipHeightM: 0.4, hipRatio: 0.42 }; }, 'clip/sit-down/seat/ground'],
+    ['손이 닿기 전에 뗀다', (c) => { c.clips[1].reach = { part: 'hand-r', atS: 2, releaseS: 1, forwardM: 0.3, heightM: 1.0 }; }, 'clip/sit-down/reach/order'],
+    ['손 높이를 0 으로', (c) => { c.clips[1].reach = { part: 'hand-r', atS: 1, releaseS: 2, forwardM: 0.3, heightM: 0 }; }, 'clip/sit-down/reach/height'],
+    ['닿는 부위를 아무 이름으로', (c) => { c.clips[1].reach = { part: 'elbow', atS: 1, releaseS: 2, forwardM: 0.3, heightM: 1 }; }, 'clip/sit-down/reach/part'],
   ];
   for (const [why, breakIt, wantId] of breaks) {
     n++;

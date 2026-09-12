@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseGLB } from '../src/lib/gltf.mjs';
-import { deriveClip, buildCatalog } from '../src/lib/packBuild.mjs';
+import { deriveClip, applyReach, buildCatalog } from '../src/lib/packBuild.mjs';
 import { validateCatalog, validateSplitFiles } from '../src/lib/motionPack.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -65,6 +65,28 @@ const catalog = buildCatalog({
   body: split ? 'body.glb' : undefined,
 });
 if (sources.note) catalog.note = sources.note;
+
+// ── 두 번째 판: 손이 닿는 순간 ──
+//
+// 팩의 **앞**을 알아야 손이 앞으로 나갔는지 알 수 있는데, 앞은 이동 클립을
+// 다 재고 나서야 나온다 (catalog.forwardRad). 그래서 여기서 한 번 더 돈다.
+//
+// **무엇에 닿는지는 안 정한다.** 손이 멀리 나간 것만으로는 문을 잡았는지
+// 모른다 — 그 동작이 무엇인지는 사람이 sources.json 에 적고(tags 의 'reach'),
+// 언제 어디까지 뻗는지만 잰다.
+if (typeof catalog.forwardRad === 'number') {
+  for (const decl of sources.clips) {
+    if (!(decl.tags || []).includes('reach')) continue;
+    const clip = catalog.clips.find((c) => c.id === decl.id);
+    const doc = docs.find((d) => d.id === decl.id)?.doc;
+    if (!clip || !doc) continue;
+    applyReach(clip, doc, decl, { skeleton: sources.skeleton, forwardRad: catalog.forwardRad });
+    const reach = clip.reach;
+    if (!reach) { console.log(`  ${decl.id.padEnd(14)} 손이 뻗는 자리를 못 찾았다`); continue; }
+    console.log(`  ${decl.id.padEnd(14)} 손 ${reach.part} 가 ${reach.atS}s 에 닿아 ${reach.releaseS}s 에 뗀다`
+      + ` · 앞으로 ${reach.forwardM}m · 높이 ${reach.heightM}m ← 손잡이를 둘 자리`);
+  }
+}
 
 // 굽자마자 계약으로 검사한다. 내보내기 전에 막는 것이 요점이다 —
 // 게이트는 나중에 돌지만, 여기서 막으면 잘못된 팩이 애초에 안 생긴다.
