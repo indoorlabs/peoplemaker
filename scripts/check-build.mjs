@@ -18,7 +18,7 @@ import {
   plantEvents, PLANT_MIN_DWELL_S, SEATED_HIP_RATIO_MAX, SEAT_FEET_FORWARD_MIN,
 } from '../src/lib/packBuild.mjs';
 import { FIXTURES, CROUCH, buildGLB } from '../src/lib/fixtureRig.mjs';
-import { readAccessor, parentMap } from '../src/lib/gltf.mjs';
+import { readAccessor, parentMap, sampleAnimation, animationDurationS } from '../src/lib/gltf.mjs';
 
 /**
  * 이 클립을 틀면 **뼈 길이가 그대로인가.**
@@ -256,6 +256,34 @@ runGate('check-build', (g) => {
         + (worst ? ` · 뼈 길이가 달라진 비율 최대 ${(worst.changed * 100).toFixed(0)}% (${worst.id})` : '')
         + (seated.length ? ` · 앉은 클립 ${seated.map((c) => `${c.id} ${c.seat.hipHeightM}m`).join('·')}` : ''));
     }
+  }
+
+  // ── 푼 것을 기억해도 값이 같은가 ──
+  //
+  // sampleAnimation 은 시각 하나를 뽑을 때마다 클립의 접근자를 통째로 풀고
+  // 있었다 (게이트 11분의 까닭). 이제 문서마다 한 번만 풀고 기억하는데,
+  // 기억이 값을 바꾸면 그것은 재는 값이 조용히 달라지는 일이다. 그래서
+  // **같은 문서에서 두 번**과 **새로 읽어 한 번**을 견준다.
+  {
+    const glb = buildGLB(FIXTURES.find((f) => f.id === 'walk-forward'));
+    const doc = parseGLB(glb);
+    const dur = animationDurationS(doc, 0);
+    let worst = 0;
+    for (const t of [0, dur * 0.37, dur * 0.61, dur]) {
+      const a = sampleAnimation(doc, 0, t);           // 처음 — 풀면서
+      const b = sampleAnimation(doc, 0, t);           // 두 번째 — 기억한 것으로
+      const c = sampleAnimation(parseGLB(glb), 0, t); // 새 문서 — 다시 풀어서
+      for (const [node, paths] of a) {
+        for (const [path, v] of Object.entries(paths)) {
+          for (const [i, x] of v.entries()) {
+            worst = Math.max(worst, Math.abs(x - b.get(node)[path][i]), Math.abs(x - c.get(node)[path][i]));
+          }
+        }
+      }
+    }
+    n++;
+    if (worst !== 0) g.fail('cache/sample', `기억한 값이 ${worst} 만큼 다르다 — 재는 값이 조용히 달라진다`);
+    console.log(`  [재기] 푼 것을 기억해도 값이 같다 (어긋남 ${worst})`);
   }
 
   // ── 앉은 높이를 **재는가** ──

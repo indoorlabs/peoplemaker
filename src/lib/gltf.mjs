@@ -59,8 +59,34 @@ export function parseGLB(buf) {
   return { json, bin };
 }
 
+/**
+ * 푼 접근자를 문서마다 기억한다.
+ *
+ * `sampleAnimation` 은 시각 하나를 뽑을 때마다 **모든 채널의 접근자를 통째로**
+ * 풀고 있었다. 35초짜리 클립 하나를 재는 데 그 짓을 수천 번 한다 — 게이트가
+ * 11분이 된 까닭이 이것이었다 (팩 아홉 · 클립 160여 개).
+ *
+ * 기억하는 것은 **푼 결과**뿐이고 값은 한 글자도 안 달라진다. 문서 객체가
+ * 살아 있는 동안만 잡고 있으므로(WeakMap) 새로 읽은 문서는 새로 푼다.
+ *
+ * **바이트를 고쳐 가며 다시 재는 코드는 문서를 새로 parseGLB 해야 한다** —
+ * 같은 문서 객체를 그대로 쓰면 고치기 전의 값이 돌아온다. 게이트가 클립을
+ * 일부러 늘려 보는 자리가 그렇다.
+ */
+const accessorCache = new WeakMap();
+
 /** 접근자 하나를 배열로. 값이 아니라 **파일에 적힌 것**을 그대로 돌려준다. */
-export function readAccessor({ json, bin }, index) {
+export function readAccessor(doc, index) {
+  let per = accessorCache.get(doc);
+  if (!per) { per = new Map(); accessorCache.set(doc, per); }
+  const got = per.get(index);
+  if (got) return got;
+  const out = decodeAccessor(doc, index);
+  per.set(index, out);
+  return out;
+}
+
+function decodeAccessor({ json, bin }, index) {
   const acc = json.accessors?.[index];
   if (!acc) throw new Error(`접근자 ${index} 가 없다`);
   const comp = COMPONENT[acc.componentType];
@@ -146,8 +172,15 @@ export function sampleAnimation(doc, animIndex, timeS) {
     const per = ch.target.path === 'rotation' ? 4 : 3;
     if (!t.length) continue;
 
-    let i = 0;
-    while (i < t.length - 1 && t[i + 1] < timeS) i++;
+    // 키를 **이분법으로** 찾는다. 앞에서부터 훑던 것과 같은 자리를 고른다 —
+    // t[i+1] >= timeS 인 첫 i, 그런 i 가 없으면 마지막 마디.
+    let lo = 0;
+    let hi = t.length - 2;
+    let i = hi < 0 ? 0 : hi;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (t[mid + 1] >= timeS) { i = mid; hi = mid - 1; } else lo = mid + 1;
+    }
     const t0 = t[i];
     const t1 = t[Math.min(i + 1, t.length - 1)];
     const f = t1 > t0 ? Math.min(1, Math.max(0, (timeS - t0) / (t1 - t0))) : 0;
