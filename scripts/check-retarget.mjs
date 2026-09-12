@@ -201,13 +201,24 @@ runGate('check-retarget', async (g) => {
     const hs = S.canon.get('hips'); const ht = T.canon.get('hips');
     const ds = pos(a1(hs)).map((v, k) => v - pos(a0(hs))[k]);
     const dt = pos(b1(ht)).map((v, k) => v - pos(b0(ht))[k]);
-    const k = res.report.hipScale;
+    // **쓰는 값은 뼈 길이 비다** (report.scale). 엉덩이 높이 비로 재던 때,
+    // 쉬는 자세가 앉아 있는 파일에서 1.51배가 나와 사람이 떠올랐다.
+    const k = res.report.scale;
     const want = yawVec(yaw, ds).map((v) => v * k);
     const err = Math.hypot(...want.map((v, i) => v - dt[i]));
     if (!(Math.hypot(...ds) > 0.5)) g.setupFail('원본 걷기가 거의 안 움직인다 — 이동을 볼 수 없다');
     if (err > 0.002) g.fail('cross/travel', `엉덩이가 ${Math.hypot(...dt).toFixed(3)}m 갔다 — 원본 ${Math.hypot(...ds).toFixed(3)}m × 비 ${k} = ${Math.hypot(...want).toFixed(3)}m 여야 (오차 ${(err * 1000).toFixed(1)}mm)`);
     n++;
-    if (Math.abs(k - 1.1 / 0.95) > 0.01) g.fail('cross/hip-scale', `엉덩이 높이 비가 ${k} 다 (${(1.1 / 0.95).toFixed(4)} 여야)`);
+    if (Math.abs(res.report.hipScale - 1.1 / 0.95) > 0.01) {
+      g.fail('cross/hip-scale', `엉덩이 높이 비가 ${res.report.hipScale} 다 (${(1.1 / 0.95).toFixed(4)} 여야)`);
+    }
+    n++;
+    // 선 자세인 두 리그에서는 **뼈 길이 비와 엉덩이 높이 비가 엇비슷해야**
+    // 한다. 아주 다르면 둘 중 하나를 잘못 재고 있는 것이다. (앉은 자세인
+    // 파일에서는 갈라지는 것이 맞고, 그때 쓰는 것이 뼈 길이 쪽이다.)
+    if (!(k > 0) || Math.abs(k - res.report.hipScale) > 0.1) {
+      g.fail('cross/scale-agree', `뼈 길이 비 ${k} 와 엉덩이 높이 비 ${res.report.hipScale} 가 너무 다르다`);
+    }
 
     // 엉덩이 **자리** — 이동량만 보면 늘 같은 만큼 어긋난 것은 안 보인다.
     n++;
@@ -215,11 +226,56 @@ runGate('check-retarget', async (g) => {
       let worstP = 0;
       for (const t of probe) {
         const a = worldAt(walk, t); const b = worldAt(out, t);
+        // 가로는 쉬는 자세에서의 변위로, **세로는 바닥에서** — 그래야 쉬는
+        // 자세가 곧 그 동작인 클립(앉기)도 제자리에 앉는다.
         const d = pos(a(hs)).map((v, i) => v - pos(S.restWorld[hs])[i]);
-        const w = yawVec(yaw, d).map((v, i) => pos(T.restWorld[ht])[i] + v * k);
+        const yv = yawVec(yaw, d);
+        const w = [
+          pos(T.restWorld[ht])[0] + yv[0] * k,
+          pos(a(hs))[1] * k,
+          pos(T.restWorld[ht])[2] + yv[2] * k,
+        ];
         worstP = Math.max(worstP, Math.hypot(...w.map((v, i) => v - pos(b(ht))[i])));
       }
       if (worstP > 0.002) g.fail('cross/hips-place', `엉덩이 자리가 ${(worstP * 1000).toFixed(1)}mm 어긋난다 — 싣는 노드에서 엉덩이까지의 거리를 안 셌다`);
+    }
+
+    // ── 쉬는 자세가 **이미 앉아 있는** 원본 ──
+    //
+    // Rocketbox 의 의자 동작이 그렇다: 파일의 쉬는 자세부터 앉아 있어서
+    // 엉덩이가 제자리의 66% 에 있다. 그 높이를 크기로 읽으면 1.51배가 되고,
+    // 그 비로 옮기면 앉은 사람이 **선 키로 떠오른다** (재 보니 엉덩이 92cm ·
+    // 발끝 32cm). 세로를 바닥에서 재고 크기를 뼈 길이로 재면 제자리에 앉는다.
+    {
+      const seated = parseGLB(buildGLB(FIXTURES.find((f) => f.kind === 'sit')));
+      const hipsIdx = seated.json.nodes.findIndex((x) => /Hips$/.test(x.name || ''));
+      const dur2 = animationDurationS(seated, 0);
+      const endPos = pos(worldAt(seated, dur2)(hipsIdx));
+      // 쉬는 자세를 **앉은 자세로** 바꿔 놓는다 — 원본 파일이 그런 모양이다.
+      seated.json.nodes[hipsIdx].translation = [endPos[0], endPos[1], endPos[2]];
+
+      const r2 = retargetClip(seated, syntheticBiped(), { targetSkeleton: 'biped' });
+      const out2 = parseGLB(encodeGLB(withAnimation(syntheticBiped(), r2, 'sit')));
+      const T2 = describeBody(out2);
+      const ht2 = T2.canon.get('hips');
+      const gotY = pos(worldAt(out2, dur2)(ht2))[1];
+      const wantY = endPos[1] * r2.report.scale;
+      n++;
+      if (Math.abs(gotY - wantY) > 0.02) {
+        g.fail('seated/place',
+          `쉬는 자세가 앉아 있는 원본을 옮겼더니 엉덩이가 ${(gotY * 100).toFixed(0)}cm 다 — `
+          + `${(endPos[1] * 100).toFixed(0)}cm × ${r2.report.scale} = ${(wantY * 100).toFixed(0)}cm 여야 한다`);
+      }
+      n++;
+      // 대상의 **선 엉덩이 높이**로 돌아가 있으면 그것이 바로 그 버그다.
+      const standY = pos(T2.restWorld[ht2])[1];
+      if (Math.abs(gotY - standY) < 0.05) {
+        g.fail('seated/floating', `앉은 동작인데 엉덩이가 선 자세(${(standY * 100).toFixed(0)}cm)에 있다 — 사람이 공중에 앉는다`);
+      }
+      // 엉덩이 비(2.75)와 크기 비(1.20)가 한참 다른 원본이라는 것을 같이
+      // 적는다 — 둘이 같아지면 이 검사는 뜻을 잃는다. 무엇을 잡는 검사인지가
+      // 이 수에 있다.
+      console.log(`  [옮김] 쉬는 자세가 앉아 있는 원본: 엉덩이 비 ${r2.report.hipScale} · 크기 비 ${r2.report.scale} → ${(gotY * 100).toFixed(0)}cm 에 앉았다 (선 자세는 ${(standY * 100).toFixed(0)}cm)`);
     }
 
     // 이동은 싣는 노드(Bip01)에 실려야 한다 — build-pack 이 루트 모션을 거기서 잰다.

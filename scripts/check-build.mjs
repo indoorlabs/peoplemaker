@@ -15,10 +15,10 @@ import { parseGLB } from '../src/lib/gltf.mjs';
 import {
   deriveClip, TRAVEL_MIN_MPS, PLANT_MAX_Y_M, MEASURED_FIELDS,
   packForwardRad, angleDiff, FORWARD_AGREE_RAD,
-  plantEvents, PLANT_MIN_DWELL_S,
+  plantEvents, PLANT_MIN_DWELL_S, SEATED_HIP_RATIO_MAX,
 } from '../src/lib/packBuild.mjs';
 import { FIXTURES, buildGLB } from '../src/lib/fixtureRig.mjs';
-import { readAccessor } from '../src/lib/gltf.mjs';
+import { readAccessor, parentMap } from '../src/lib/gltf.mjs';
 
 /**
  * 이 클립을 틀면 **뼈 길이가 그대로인가.**
@@ -50,9 +50,14 @@ function boneLengthReport(doc) {
   const bones = new Set(anim.channels.map((ch) => ch.target?.node).filter((i) => i != null));
   if (bones.size < 4) return null;
 
+  // **뿌리는 안 센다.** 몸 전체의 이동이 실리는 뼈라 길이가 달라지는 것이
+  // 당연하고, 뼈가 적은 리그에서는 그 하나가 20% 가 된다 (기준 팩이 뼈 5개라
+  // 문턱에 딱 걸렸다). 부모가 뼈가 아닌 노드를 뿌리로 본다.
+  const parent = parentMap(doc);
   const ratios = [];
   for (const ch of anim.channels) {
     if (ch.target?.path !== 'translation') continue;
+    if (!bones.has(parent.get(ch.target.node))) continue;
     const rest = nodes[ch.target.node]?.translation;
     const restLen = rest ? Math.hypot(rest[0], rest[1], rest[2]) : 0;
     // 원점에 있는 뼈(뿌리)는 길이가 0 이라 비율을 못 낸다 — 그런 뼈는 건너뛴다.
@@ -228,6 +233,15 @@ runGate('check-build', (g) => {
         }
 
         const fresh = deriveClip(clipDoc, decl, { skeleton: src.skeleton }).clip;
+
+        // **적힌 것과 잰 것이 맞는가.** 사람이 "앉기" 라고 적은 클립에 앉은
+        // 값이 없으면, 그 클립은 앉아 있지 않은 것이다 — 어린이에게 어른
+        // 의자 동작을 옮겨 붙이다 사람이 공중에 앉은 적이 있다.
+        n++;
+        if ((decl.tags || []).includes('seated') && !fresh.seat) {
+          g.fail(`seated/${p}/${decl.id}`,
+            '앉기라고 적혀 있는데 엉덩이가 안 내려간다 — 옮겨 붙이기가 자세를 못 살린 것이다');
+        }
         const baked = (cat.clips || []).find((c) => c.id === decl.id);
         if (!baked) { g.fail(`stale/${p}/${decl.id}`, '카탈로그에 없다 — 다시 구울 것'); continue; }
         for (const f of MEASURED_FIELDS) {
@@ -237,9 +251,43 @@ runGate('check-build', (g) => {
           }
         }
       }
+      const seated = (cat.clips || []).filter((c) => c.seat);
       console.log(`  [팩] ${p}: 클립 ${(cat.clips || []).length}개가 지금 코드와 같은 값인지 확인했다`
-        + (worst ? ` · 뼈 길이가 달라진 비율 최대 ${(worst.changed * 100).toFixed(0)}% (${worst.id})` : ''));
+        + (worst ? ` · 뼈 길이가 달라진 비율 최대 ${(worst.changed * 100).toFixed(0)}% (${worst.id})` : '')
+        + (seated.length ? ` · 앉은 클립 ${seated.map((c) => `${c.id} ${c.seat.hipHeightM}m`).join('·')}` : ''));
     }
+  }
+
+  // ── 앉은 높이를 **재는가** ──
+  //
+  // "앉았다고 적혀 있는가" 로는 모자란다 — 상수를 박아도 통과한다. 픽스처의
+  // 앉는 깊이를 흔들어 놓고, 잰 값이 **따라오는지**를 본다. 엉덩이는 쉬는
+  // 자세에서 0.90m 이므로, 0.5 만큼 내려가면 0.40m 에 앉는 것이다.
+  {
+    const sitSpec = FIXTURES.find((f) => f.kind === 'sit');
+    for (const drop of [0.5, 0.35, 0.6]) {
+      n++;
+      const clip = roundTrip({ ...sitSpec, id: `sit${drop}`, seatDropM: drop });
+      const want = 0.90 - drop;
+      if (!clip.seat) { g.fail(`seat/${drop}/none`, `${want.toFixed(2)}m 에 앉는 클립인데 앉은 값이 없다`); continue; }
+      n++;
+      if (Math.abs(clip.seat.hipHeightM - want) > 0.02) {
+        g.fail(`seat/${drop}`, `${want.toFixed(2)}m 에 앉혔는데 ${clip.seat.hipHeightM}m 로 잰다`);
+      }
+    }
+    n++;
+    // 선 클립·걷는 클립에는 앉은 값이 없어야 한다 — 걸을 때도 엉덩이는 내려간다.
+    for (const id of ['idle', 'walk-forward']) {
+      const spec = FIXTURES.find((f) => f.id === id);
+      const clip = roundTrip(spec);
+      if (clip.seat) g.fail(`seat/standing/${id}`, `서 있는 클립에 앉은 값이 붙었다 (${clip.seat.hipHeightM}m)`);
+    }
+    n++;
+    // 살짝 내려앉은 것은 앉은 것이 아니다 — 문턱이 있는지 본다.
+    const shallow = roundTrip({ ...sitSpec, id: 'shallow', seatDropM: 0.1 });
+    if (shallow.seat) g.fail('seat/shallow', `10cm 만 내려갔는데 앉았다고 한다 (문턱 ${SEATED_HIP_RATIO_MAX})`);
+    const deep = roundTrip({ ...sitSpec, id: 'deep', seatDropM: 0.5 });
+    console.log(`  [재기] 앉은 높이: 0.5m 내려가면 ${deep.seat?.hipHeightM}m · 0.1m 내려가면 ${shallow.seat ? shallow.seat.hipHeightM + 'm' : '앉은 것으로 안 센다'}`);
   }
 
   // ── 뼈 길이 검사가 **진짜로 잡는가** ──

@@ -90,6 +90,9 @@ runGate('check-pack', (g) => {
     ['이동 클립인데 방향을 뺀다', (c) => { delete c.clips[0].travelHeadingRad; }, 'clip/walk-forward/travelHeading'],
     ['제자리 클립에 방향을 준다', (c) => { c.clips[1].travelHeadingRad = 0; }, 'clip/sit-down/travelHeading-inplace'],
     ['팩의 앞을 뺀다', (c) => { delete c.forwardRad; }, 'catalog/forwardRad'],
+    ['앉은 높이를 0 으로', (c) => { c.clips[1].seat = { hipHeightM: 0, hipRatio: 0.4, groundOffsetM: 0 }; }, 'clip/sit-down/seat/height'],
+    ['앉았는데 쉬는 자세보다 높다', (c) => { c.clips[1].seat = { hipHeightM: 1.2, hipRatio: 1.3, groundOffsetM: 0 }; }, 'clip/sit-down/seat/ratio'],
+    ['앉은 클립의 바닥을 뺀다', (c) => { c.clips[1].seat = { hipHeightM: 0.4, hipRatio: 0.42 }; }, 'clip/sit-down/seat/ground'],
   ];
   for (const [why, breakIt, wantId] of breaks) {
     n++;

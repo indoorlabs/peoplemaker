@@ -149,9 +149,12 @@ function keyframes(spec) {
       for (const k of Object.keys(legs)) legs[k].push([0, 0, 0, 1]);
     } else {
       // 앉기 — 엉덩이가 내려가고 넓적다리가 접힌다. 0.75 지점에서 앉는다.
+      //
+      // **얼마나 내려가는지를 흔들 수 있어야 한다** — 앉은 높이를 재는
+      // 게이트가 "0.40 이 나오는가" 만 물으면 상수를 박아도 통과한다.
       const s = Math.min(1, u / 0.75);
       const ease = s * s * (3 - 2 * s);
-      hips.translation.push([0, 0.90 - 0.5 * ease, 0.1 * ease]);
+      hips.translation.push([0, 0.90 - (spec.seatDropM ?? 0.5) * ease, 0.1 * ease]);
       hips.rotation.push(quatX(0.15 * ease));
       legs['mixamorig:LeftUpLeg'].push(quatX(-1.4 * ease));
       legs['mixamorig:RightUpLeg'].push(quatX(-1.4 * ease));

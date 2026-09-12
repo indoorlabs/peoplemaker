@@ -28,7 +28,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { bodyOnly, motionOnly, extractAnimation, encodeGLB } from '../src/lib/gltfWrite.mjs';
-import { retargetClip, animationOf } from '../src/lib/retarget.mjs';
+import { retargetClip, animationOf, restBoneScale } from '../src/lib/retarget.mjs';
 import { NodeIO } from '@gltf-transform/core';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -64,6 +64,14 @@ const EXTRAS = [
   { id: 'wave', anim: 'wave_01', ko: '손 흔들기', en: 'Wave', tags: ['wave', 'social'] },
   { id: 'look-around', anim: 'idle_look_around_01', ko: '둘러보기', en: 'Look around', tags: ['idle'] },
   { id: 'photo', anim: 'take_picture', ko: '사진 찍기', en: 'Take a picture', tags: ['photo'] },
+  // **앉기.** 계약이 처음부터 "접촉 이벤트는 앉기·문 열기를 공간에 맞출 때
+  // 쓴다" 고 적어 두었는데, 정작 앉은 클립이 없었다. 의자에 앉은 사람은
+  // 건물 재실자의 절반이다.
+  // **앉기는 옮겨 붙인다** (접붙이면 안 된다). 이 파일은 쉬는 자세부터 앉아
+  // 있어서, 트랙이 안 건드리는 뼈가 몸의 **선 자세**로 남는다 — 엉덩이는
+  // 앉았는데 발끝이 12cm 땅속으로 들어갔다. 옮겨 붙이면 짝지은 뼈 전부의
+  // 세계 회전을 다시 쓰므로 발끝이 1cm 에 선다.
+  { id: 'sit', anim: 'sit_chair_idle_neutral_01', ko: '앉아 있기', en: 'Sitting', tags: ['sit', 'seated'], retarget: true },
   { id: 'phone-call', anim: 'cell_phone_talk_01', ko: '전화 통화', en: 'Phone call', tags: ['phone', 'talk'], only: 'm' },
 ];
 
@@ -338,16 +346,21 @@ fs.mkdirSync(path.join(dir, 'clips'), { recursive: true });
  * 어른 크기로 늘어난다 — 재 보니 키 1.433m 가 1.740m 가 됐다 (+21.4%).
  * 화면에서는 그냥 걷는 사람이라 아무도 못 알아챈다.
  *
- * 엉덩이 높이 비로 가른다. 이 자산에서 잰 값:
+ * **뼈 길이 비**로 가른다 (쉬는 자세의 부모-자식 거리, 가운데 값):
  *
- *   어른   0.997 ~ 1.007   (동작 리그가 곧 그 몸이다)
- *   어린이 0.788 · 0.826
+ *   어른   1.000        (동작 리그가 곧 그 몸이다)
+ *   어린이 0.79 언저리
+ *
+ * 처음에는 엉덩이 높이 비로 갈랐는데, 의자에 앉은 동작에서 어긋났다 —
+ * 그 파일은 **쉬는 자세부터 앉아 있어서** 엉덩이가 66% 에 있고, 그것을
+ * 크기로 읽으면 1.51배가 된다. 그 비로 옮겨 붙이니 사람이 공중에 앉았다
+ * (발끝 32cm). 뼈 길이는 자세로 안 변한다.
  *
  * 2% 를 넘으면 **옮겨 붙인다**(retarget) — 뼈 길이는 대상 몸의 것을 지키고,
  * 몸 전체의 이동만 엉덩이 높이 비로 줄인다. 남자아이 걸음이 1.018m/s 에서
- * 0.804m/s 가 됐고, 키는 0.1% 만 달라졌다.
+ * 0.80m/s 가 됐고, 키는 0.1% 만 달라졌다.
  */
-const RETARGET_HIP_TOLERANCE = 0.02;
+const RETARGET_SIZE_TOLERANCE = 0.02;
 
 let bodyDoc = null;
 const retargeted = new Map();
@@ -362,21 +375,24 @@ for (const [id, clipGlb] of [['walk-forward', walkGlb], ['idle', idleGlb], ...ex
     console.log(`  body.glb: 텍스처 ${r.textured} · ${Math.round(b.byteLength / 1024)} KB`);
   }
 
-  // 접붙인 것을 쓸지, 옮겨 붙일지 — 몸 크기가 정한다.
-  const moved = retargetClip(parseGLB(fs.readFileSync(clipGlb)), bodyDoc, { targetSkeleton: 'biped' });
-  const hip = moved.report.hipScale;
-  const takeover = Math.abs(hip - 1) > RETARGET_HIP_TOLERANCE;
-  if (takeover) retargeted.set(id, hip);
+  // 접붙인 것을 쓸지, 옮겨 붙일지 — **뼈 길이**가 정한다.
+  const srcDoc = parseGLB(fs.readFileSync(clipGlb));
+  const size = restBoneScale(srcDoc, bodyDoc, { sourceSkeleton: 'biped', targetSkeleton: 'biped' });
+  // 크기가 다르거나, 그 동작이 **쉬는 자세부터 다른** 파일이면 옮겨 붙인다.
+  const always = EXTRAS.find((x) => x.id === id)?.retarget === true;
+  const takeover = always || (size.median != null && Math.abs(size.median - 1) > RETARGET_SIZE_TOLERANCE);
+  const moved = takeover ? retargetClip(srcDoc, bodyDoc, { targetSkeleton: 'biped' }) : null;
+  if (takeover) retargeted.set(id, moved.report.scale);
   const anim = takeover ? animationOf(bodyDoc, moved, id) : extractAnimation(doc);
 
   const { doc: motion, missing } = motionOnly(bodyDoc, anim);
   if (missing.length) throw new Error(`${id}: 몸에 없는 뼈 ${missing.slice(0, 4).join(', ')}`);
   const m = encodeGLB(motion);
   fs.writeFileSync(path.join(dir, 'clips', `${id}.glb`), m);
-  console.log(`  ${id}.glb: ${takeover ? `옮겨 붙임 (엉덩이 비 ${hip} · 짝 ${moved.report.pairs})` : `트랙 ${r.kept} · 건너뜀 ${r.skipped}`} · 동작만 ${Math.round(m.byteLength / 1024)} KB (몸째였으면 ${r.kb} KB)`);
+  console.log(`  ${id}.glb: ${takeover ? `옮겨 붙임${always ? '(쉬는 자세가 다르다)' : ''} (뼈 길이 비 ${size.median.toFixed(3)} · 짝 ${moved.report.pairs})` : `트랙 ${r.kept} · 건너뜀 ${r.skipped}`} · 동작만 ${Math.round(m.byteLength / 1024)} KB (몸째였으면 ${r.kb} KB)`);
 }
 if (retargeted.size) {
-  console.log(`  ${retargeted.size}개를 옮겨 붙였다 — 동작 리그가 이 몸보다 ${((1 / [...retargeted.values()][0] - 1) * 100).toFixed(0)}% 크다`);
+  console.log(`  ${retargeted.size}개를 옮겨 붙였다 — 동작 리그와 이 몸의 뼈 길이가 다르다`);
 }
 
 // ── 5. 사람이 적는 것만 적고, 나머지는 잰다 ──
@@ -389,7 +405,7 @@ const source = (anim, id) => ({
   // 옮겨 붙인 클립은 그 사실이 남아야 한다 — 라이선스는 안 바뀌지만,
   // 어느 몸의 동작을 어떤 비로 줄였는지는 나중에 아무도 못 알아낸다.
   ...(retargeted.has(id)
-    ? { retargetedBy: `peoplemaker/retarget (biped → biped, 엉덩이 높이 비 ${retargeted.get(id)})` }
+    ? { retargetedBy: `peoplemaker/retarget (biped → biped, 크기 비 ${retargeted.get(id)})` }
     : {}),
 });
 const sources = {

@@ -168,6 +168,20 @@ export function validateCatalog(catalog, { clipFiles = null, packFiles = null } 
       }
     }
 
+    // 앉은 값 — 있으면 말이 되어야 한다. 앉으면 엉덩이가 **쉬는 자세보다
+    // 낮다**. 1 을 넘는 값이 들어오면 재는 쪽이 뒤집힌 것이고, 그대로 두면
+    // 공간 쪽이 천장에 의자를 놓는다.
+    if (c.seat) {
+      const tag = `clip/${c.id}/seat`;
+      if (!(c.seat.hipHeightM > 0)) fail(`${tag}/height`, `앉은 엉덩이 높이가 ${c.seat.hipHeightM} 다`);
+      if (!(c.seat.hipRatio > 0 && c.seat.hipRatio < 1)) {
+        fail(`${tag}/ratio`, `앉은 높이가 쉬는 자세의 ${c.seat.hipRatio} 배다 — 앉으면 낮아져야 한다`);
+      }
+      if (typeof c.seat.groundOffsetM !== 'number') {
+        fail(`${tag}/ground`, '이 클립의 바닥(groundOffsetM)이 없다 — 놓는 쪽이 발을 어디에 둘지 모른다');
+      }
+    }
+
     // 파일이 실제로 있는가. 목록을 받은 경우에만 본다 — 순수 층은 파일을
     // 읽지 않는다.
     if (clipFiles && !clipFiles.includes(`${c.id}.glb`)) {

@@ -54,7 +54,9 @@ for (const decl of sources.clips || []) {
   const c = out.clip;
   console.log(
     `  ${c.id.padEnd(14)} ${c.durationS.toFixed(2)}s  ${c.rootMotion.padEnd(8)}`
-    + `${c.speedMps ? `${c.speedMps} m/s` : '        '}  접촉 ${c.contacts.length}회  · ${out.notes.join(' · ')}`,
+    + `${c.speedMps ? `${c.speedMps} m/s` : '        '}  접촉 ${c.contacts.length}회  `
+    + `${c.seat ? `· 앉음 엉덩이 ${c.seat.hipHeightM}m (쉬는 자세의 ${c.seat.hipRatio})·바닥 ${c.seat.groundOffsetM}m ` : ''}`
+    + `· ${out.notes.join(' · ')}`,
   );
 }
 

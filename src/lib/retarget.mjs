@@ -202,6 +202,86 @@ export function facingRad(body) {
   return Math.atan2(fwd[0], fwd[2]);
 }
 
+/**
+ * 두 리그의 **크기 비** — 쉬는 자세의 뼈 길이로 잰다.
+ *
+ * 엉덩이 높이로 재면 안 된다. 동작 파일마다 쉬는 자세가 다르기 때문이다 —
+ * 의자에 앉은 동작은 **쉬는 자세부터 앉아 있어서** 엉덩이가 제자리의 66%
+ * 에 있다. 그것을 크기로 읽으면 "이 몸은 1.5배 크다" 가 되고, 그 비로 옮겨
+ * 붙이면 사람이 **선 키로 떠오른다** (엉덩이 92cm · 발끝 32cm — 실제로
+ * 그렇게 나왔다).
+ *
+ * **규약 지도로 짝짓는다.** 이름을 그대로 견주던 때에는 규약이 다른 두 리그
+ * (mixamo ↔ biped)에서 우연히 겹치는 이름(Spine·Neck·Head)만 잡혀 비가
+ * 0.48 로 나왔다 — 다리도 팔도 안 본 값이다. 공통 뼈 사슬의 **마디 길이**를
+ * 견주고 가운데 값을 쓴다.
+ *
+ * @returns { median, matched } — 짝지은 마디가 없으면 median 은 null
+ */
+export function restBoneScale(source, target, { sourceSkeleton, targetSkeleton } = {}) {
+  let S; let T;
+  try {
+    S = describeBody(source, sourceSkeleton);
+    T = describeBody(target, targetSkeleton);
+  } catch {
+    return { median: null, matched: 0 };
+  }
+  const segLen = (B, a, b) => {
+    const ia = B.canon.get(a); const ib = B.canon.get(b);
+    if (ia == null || ib == null) return null;
+    const pa = posOf(B.restWorld[ia]); const pb = posOf(B.restWorld[ib]);
+    const d = Math.hypot(pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]);
+    return d > 1e-3 ? d : null;
+  };
+  const ratios = [];
+  for (const [a, b] of CANON) {
+    if (!b) continue;
+    const ls = segLen(S, a, b);
+    const lt = segLen(T, a, b);
+    if (ls && lt) ratios.push(lt / ls);
+  }
+  if (!ratios.length) return { median: null, matched: 0 };
+  ratios.sort((x, y) => x - y);
+  return { median: ratios[Math.floor(ratios.length / 2)], matched: ratios.length };
+}
+
+/**
+ * 두 리그의 **쉬는 자세**가 얼마나 다른가 (rad, 가운데 값).
+ *
+ * 접붙이기(graft)는 클립의 트랙을 그대로 옮겨 심는 것이라, **트랙이 안
+ * 건드리는 뼈**는 몸의 쉬는 자세로 남는다. 두 파일의 쉬는 자세가 같으면
+ * 그래도 되지만, 의자 동작처럼 **쉬는 자세부터 앉아 있는** 파일에서는
+ * 안 건드린 뼈만 선 자세로 남아 섞인다 — 엉덩이는 앉았는데 발이 12cm
+ * 아래로 내려간 사람이 나왔다.
+ *
+ * 그래서 이 값이 크면 옮겨 붙인다. 옮기기는 짝지은 뼈 **전부**의 세계
+ * 회전을 다시 쓰므로 쉬는 자세가 달라도 된다.
+ */
+export function restPoseDiffRad(source, target, { sourceSkeleton, targetSkeleton } = {}) {
+  const rig = (doc, sk) => {
+    const names = (doc.json.nodes || []).map((n) => n.name || '');
+    const bare = BARE[sk || detectSkeleton(names)] || ((n) => n);
+    const out = new Map();
+    for (const [i, node] of (doc.json.nodes || []).entries()) {
+      out.set(bare(names[i]), node.rotation || [0, 0, 0, 1]);
+    }
+    return out;
+  };
+  const S = rig(source, sourceSkeleton);
+  const T = rig(target, targetSkeleton);
+  const angles = [];
+  for (const [name, q] of T) {
+    const s = S.get(name);
+    if (!s) continue;
+    // 두 사원수 사이 각 — 부호는 같은 회전이므로 절댓값으로 본다.
+    const dot = Math.abs(q[0] * s[0] + q[1] * s[1] + q[2] * s[2] + q[3] * s[3]);
+    angles.push(2 * Math.acos(Math.min(1, dot)));
+  }
+  if (!angles.length) return { median: null, matched: 0 };
+  angles.sort((a, b) => a - b);
+  return { median: angles[Math.floor(angles.length / 2)], max: angles[angles.length - 1], matched: angles.length };
+}
+
 // ── 옮기기 ───────────────────────────────────────────────────────
 
 /**
@@ -245,7 +325,11 @@ export function retargetClip(source, target, { fps = 30, animIndex = 0, sourceSk
   const GC = qconj(G);
   const hipsS = posOf(S.restWorld[S.canon.get('hips')]);
   const hipsT = posOf(T.restWorld[T.canon.get('hips')]);
-  const k = hipsS[1] > 1e-6 ? hipsT[1] / hipsS[1] : 1;
+  // **크기는 뼈 길이로 잰다.** 엉덩이 높이로 재던 때, 의자 동작에서 1.51배가
+  // 나왔다 — 그 파일은 쉬는 자세부터 앉아 있어서 엉덩이가 낮다. 그 비로
+  // 세로를 늘리니 앉은 사람이 **선 키로** 떠올랐다 (엉덩이 92cm · 발끝 32cm).
+  const hipRatio = hipsS[1] > 1e-6 ? hipsT[1] / hipsS[1] : 1;
+  const k = restBoneScale(source, target, { sourceSkeleton: S.sk, targetSkeleton: T.sk }).median ?? hipRatio;
 
   // 겨누는 곳 — 대상 노드 → [대상 겨눔, 원본 겨눔]
   const canonOfT = new Map([...T.canon].map(([key, i]) => [i, key]));
@@ -308,7 +392,14 @@ export function retargetClip(source, target, { fps = 30, animIndex = 0, sourceSk
     const worldS = (si) => nodeWorldMatrix(source, si, sampled, S.parent);
     // 원본 엉덩이 → 대상 엉덩이 자리
     const hs = posOf(worldS(S.canon.get('hips')));
-    const PH = add(hipsT, scale(qrot(G, sub(hs, hipsS)), k));
+    // 가로는 **쉬는 자세에서 얼마나 움직였는지**로, 세로는 **바닥에서**.
+    //
+    // 둘 다 변위로 옮기던 때에 의자 동작이 깨졌다. 그 클립은 쉬는 자세부터
+    // 앉아 있어서 엉덩이 변위가 0 인데, 변위 0 을 "대상의 쉬는 자세" 로
+    // 옮기면 **선 자세**가 된다 — 앉은 사람이 공중에 뜬 채로 발만 접힌다
+    // (재 보니 엉덩이 92cm · 발끝 32cm 였다).
+    const d = qrot(G, sub(hs, hipsS));
+    const PH = [hipsT[0] + k * d[0], k * hs[1], hipsT[2] + k * d[2]];
     // 짝지은 뼈의 대상 세계 회전
     const want = new Map();
     for (const [ti, si] of pair) {
@@ -350,7 +441,9 @@ export function retargetClip(source, target, { fps = 30, animIndex = 0, sourceSk
     pairs: pair,
     report: {
       sourceSkeleton: S.sk, targetSkeleton: T.sk, mode: same ? 'same-names' : 'canonical',
-      pairs: pair.size, hipScale: +k.toFixed(4), facingDeg: +((yaw * 180) / Math.PI).toFixed(1),
+      // scale 이 실제로 쓴 값(뼈 길이 비)이고, hipScale 은 견줘 보라고 같이 둔다.
+      pairs: pair.size, scale: +k.toFixed(4), hipScale: +hipRatio.toFixed(4),
+      facingDeg: +((yaw * 180) / Math.PI).toFixed(1),
       durationS, frames: n,
     },
   };

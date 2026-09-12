@@ -106,6 +106,24 @@ export const FOOT_NODES = {
   biped: { 'foot-l': /^Bip\d\d L Toe0$/, 'foot-r': /^Bip\d\d R Toe0$/ },
 };
 
+/**
+ * 규약마다 **엉덩이 뼈** — 앉은 높이를 재는 기준.
+ *
+ * 뿌리(ROOT_NODES)와 다르다. Biped 는 몸 전체가 Bip01 에 매달려 있고 이동이
+ * 거기 실리는데, 앉은 높이는 **골반**의 높이다.
+ */
+export const HIP_NODES = {
+  mixamo: /(^|:)Hips$/,
+  vrm: /^hips$/,
+  biped: /^Bip\d\d Pelvis$/,
+};
+
+/** 엉덩이가 쉬는 자세의 이 비율 아래로 내려가 머물면 앉은 것이다. */
+export const SEATED_HIP_RATIO_MAX = 0.8;
+
+/** 앉았다고 하려면 그 높이에 이만큼(클립의 비율)은 머물러야 한다. */
+export const SEAT_DWELL_MIN = 0.2;
+
 /** 규약마다 뿌리 뼈 — 이동을 재는 기준. */
 export const ROOT_NODES = {
   mixamo: /(^|:)Hips$/,
@@ -121,7 +139,7 @@ const matchNode = (doc, re) => {
 };
 
 /** 사람이 적을 수 없는 값 — sources.json 에 있으면 그것은 두 벌이다. */
-export const MEASURED_FIELDS = ['durationS', 'rootMotion', 'speedMps', 'travelHeadingRad', 'contacts'];
+export const MEASURED_FIELDS = ['durationS', 'rootMotion', 'speedMps', 'travelHeadingRad', 'contacts', 'seat'];
 
 /**
  * 이동 클립들의 진행 방향이 이만큼 넘게 갈리면 팩의 앞을 못 정한다 (rad).
@@ -223,7 +241,48 @@ export function deriveClip(doc, decl, { skeleton = 'mixamo' } = {}) {
   contacts.sort((a, b) => a.atS - b.atS);
   clip.contacts = contacts;
 
-  clip.measuredBy = `peoplemaker/packBuild ${SAMPLE_HZ}Hz · travel≥${TRAVEL_MIN_MPS}m/s · plant≤${PLANT_MAX_Y_M}m for ≥${PLANT_MIN_DWELL_S}s`;
+  // ── 앉기 ──
+  //
+  // 계약은 처음부터 "접촉 이벤트는 앉기·문 열기를 공간에 맞출 때 쓴다" 고
+  // 적어 두었는데, 정작 **앉은 높이**를 재지 않았다. 앉은 사람을 공간에
+  // 놓으려면 그 사람이 **어느 높이의 자리**를 필요로 하는지 알아야 한다.
+  //
+  // 엉덩이가 쉬는 자세보다 한참 내려와 **머물면** 앉은 것으로 본다. 내려간
+  // 순간만 보면 쪼그리는 동작도 앉기가 된다.
+  //
+  // 함께 적는 `groundOffsetM` 은 그 클립에서 발이 가장 낮게 간 높이다.
+  // Rocketbox 의 의자 동작은 발끝이 -0.12m 까지 내려간다 — 그 클립의 바닥이
+  // 우리 y=0 이 아니라는 뜻이고, 놓는 쪽이 그만큼 올려야 한다. 안 적어 두면
+  // 발이 바닥에 박힌 사람이 된다.
+  const hipIdx = matchNode(doc, HIP_NODES[skeleton] || HIP_NODES.mixamo);
+  if (hipIdx != null) {
+    const restY = nodeWorldPos(doc, hipIdx, new Map(), parent)[1];
+    const hipYs = [];
+    for (let i = 0; i < steps; i++) hipYs.push(nodeWorldPos(doc, hipIdx, at((durationS * i) / steps), parent)[1]);
+    const sorted = [...hipYs].sort((a, b) => a - b);
+    const low = sorted[Math.floor(sorted.length * 0.1)];
+    const dwell = hipYs.filter((y) => Math.abs(y - low) <= 0.02).length / hipYs.length;
+    const ratio = restY > 0.2 ? low / restY : null;
+    if (ratio != null && ratio < SEATED_HIP_RATIO_MAX && dwell >= SEAT_DWELL_MIN) {
+      // 발이 가장 낮게 간 곳 — 위에서 발 뼈를 이미 찾았다.
+      let ground = 0;
+      for (const [, re] of Object.entries(footMap)) {
+        const fi = matchNode(doc, re);
+        if (fi == null) continue;
+        for (let i = 0; i < steps; i++) {
+          ground = Math.min(ground, nodeWorldPos(doc, fi, at((durationS * i) / steps), parent)[1]);
+        }
+      }
+      clip.seat = {
+        hipHeightM: +low.toFixed(3),
+        hipRatio: +ratio.toFixed(3),
+        groundOffsetM: +ground.toFixed(3),
+        dwell: +dwell.toFixed(2),
+      };
+    }
+  }
+
+  clip.measuredBy = `peoplemaker/packBuild ${SAMPLE_HZ}Hz · travel≥${TRAVEL_MIN_MPS}m/s · plant≤${PLANT_MAX_Y_M}m for ≥${PLANT_MIN_DWELL_S}s · seat<${SEATED_HIP_RATIO_MAX}×rest`;
   return { clip, notes };
 }
 
