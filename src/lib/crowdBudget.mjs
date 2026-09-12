@@ -384,6 +384,36 @@ export const PACK_MEASURED = {
       // (삼각형 806 · 정점 425)에서 2.462ms 였다. 벗어남은 최대 44.9mm ·
       // 평균 5.25mm 로 커진다. 단계를 하나 더 둘 자리가 여기다.
       tenth: { ratio: 0.1, verts: 425, triangles: 806, people: 5000, frameMs: 2.462 },
+      /**
+       * **몸을 섞었을 때** — 팩마다 군중 하나 (web/mixedCrowd.mjs).
+       *
+       * 한 팩이 한 사람이라, 먼 군중이 같은 사람 수천 명이었다. 몸이 둘이면
+       * InstancedMesh 도 둘이다 — 인스턴스들은 같은 기하를 나눠 쓰는 것이
+       * 드로우콜을 줄인 방법 자체라, 한 군중에 몸 둘을 넣을 길이 없다.
+       *
+       *   사람    몸 하나   몸 둘   드로우콜
+       *    200     0.95     1.00    2 → 3
+       *   1000     1.37     1.52    2 → 3
+       *   5000     5.57     5.23    2 → 3
+       *
+       * **예산 안 사람 수가 안 줄었다** (3,623 → 3,670). 값은 삼각형을 따라
+       * 가고, 여자 01 의 줄인 살(2,016)보다 남자 01 이 가벼워서(1,748) 5,000명
+       * 에서는 섞은 쪽이 오히려 쌌다. 드로우콜 하나가 느는 것이 대가다.
+       *
+       * 몸 둘을 한 기하에 이어 붙이는 길은 안 간다 — 그러면 **모든 사람이
+       * 모든 몸의 정점 값을 치른다** (5,000명 × 몸 둘 = 정점 두 배).
+       */
+      mixed: {
+        kinds: ['rocketbox-f01', 'rocketbox-m01'],
+        date: '2026-09-12',
+        points: [
+          { people: 200, drawCalls: 3, frameMs: 1.002 },
+          { people: 1000, drawCalls: 3, frameMs: 1.520 },
+          { people: 5000, drawCalls: 3, frameMs: 5.234 },
+        ],
+        // 몸마다 한 번씩 굽고 줄인다 — 받는 값(네트워크)은 뺀 값이다.
+        buildMs: 500,
+      },
     },
   },
 };
@@ -437,14 +467,22 @@ export function frameMsAt(points, people) {
  * 둘 다 쓸 수 있다고 하면 줄인 쪽을 쓴다 — 같은 예산에 사람이 네 배다.
  * 줄이는 쪽을 안 쓰는 화면(가까이서 보는 소수)은 tiers 에서 빼면 된다.
  *
+ * **몸을 몇 가지 섞는가**(`kinds`)도 값이다. 팩마다 군중이 하나씩 생기므로
+ * 드로우콜이 팩 수만큼이고, 그 값을 따로 잰 표가 있으면 그것으로 센다.
+ *
  * @param tiers 쓸 수 있는 단계 — ['full'] · ['full', 'instanced'] · ['full', 'instancedLod']
+ * @param opts  { kinds } 섞을 몸 가짓수 (기본 1)
  */
-export function planCrowdMeasured(want, budgetMs, table, tiers = ['full']) {
+export function planCrowdMeasured(want, budgetMs, table, tiers = ['full'], { kinds = 1 } = {}) {
   const full = table?.points || [];
   const farTier = tiers.includes('instancedLod') && table?.instancedLod ? 'instancedLod'
     : tiers.includes('instanced') && table?.instanced ? 'instanced'
       : null;
-  const inst = farTier ? table[farTier].points || null : null;
+  const far = farTier ? table[farTier] : null;
+  // 섞어 잰 표가 있으면 그것으로 — 없으면 한 몸으로 잰 표를 쓰고, 그 사실이
+  // 결과에 남는다 (mixedMeasured).
+  const mixedPoints = kinds > 1 ? far?.mixed?.points || null : null;
+  const inst = far ? mixedPoints || far.points || null : null;
   const fullAt = (k) => frameMsAt(full, k);
   const instAt = (k) => frameMsAt(inst, k);
   const out = (nFull, nInst) => {
@@ -459,6 +497,10 @@ export function planCrowdMeasured(want, budgetMs, table, tiers = ['full']) {
       dropped: Math.max(0, want - nFull - nInst),
       extrapolated: a.extrapolated || b.extrapolated,
       measuredBy: table?.body?.pack || null,
+      kinds,
+      // 섞어 세우는데 섞어 잰 표가 없으면 그 말을 한다 — 없는 값을 있는 척하지 않는다.
+      mixedMeasured: kinds > 1 ? !!mixedPoints : null,
+      drawCalls: nInst ? (mixedPoints ? kinds : 1) : 0,
     };
   };
 

@@ -8,6 +8,7 @@
 //   loadPack       팩을 받아 **계약으로 검사한 뒤** 쓸 수 있게 준다
 //   createClipPlayer  가까운 사람 — 사람마다 스킨 메시
 //   createInstancedCrowd  먼 사람 — 구운 자세, 드로우콜 하나
+//   createMixedCrowd      먼 사람 여러 몸 — 드로우콜은 팩 수
 //
 // three 는 **주입받는다**. 소비처가 이미 three 를 쓰고 있고, 이 저장소가 제
 // 판을 끌어오면 한 페이지에 두 벌이 뜬다.
@@ -20,6 +21,7 @@ import { colorsFromUV } from '../lib/vertexColor.mjs';
 
 export { createClipPlayer } from './clipPlayer.mjs';
 export { createInstancedCrowd } from './instancedCrowd.mjs';
+export { createMixedCrowd } from './mixedCrowd.mjs';
 export { pickWalkClip, contactsAt, durationAt, strideS, TIME_SCALE_MAX } from '../lib/packRuntime.mjs';
 import { attachAnimation } from '../lib/gltfWrite.mjs';
 

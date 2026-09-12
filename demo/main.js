@@ -19,12 +19,12 @@ import { buildGLB, FIXTURES } from '../src/lib/fixtureRig.mjs';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { bakeClip, bakeAtlas } from '../src/lib/poseBake.mjs';
 import { createInstancedCrowd } from '../src/web/instancedCrowd.mjs';
-import { bakeFromPack, geometryOf, loadPack } from '../src/web/index.mjs';
+import { bakeFromPack, geometryOf, loadPack, createMixedCrowd } from '../src/web/index.mjs';
 
 const q = new URLSearchParams(location.search);
 const want = Number(q.get('people') || 200);
 const tier = q.get('tier') || 'full';
-const packId = q.get('pack') || 'ref-synthetic';
+const packId = q.get('pack') || (q.get('packs') || '').split(',')[0].trim() || 'ref-synthetic';
 // 뼈 수를 흔들려면 팩의 클립이 아니라 **여기서 만든** 리그를 써야 한다.
 // 진짜 Mixamo 리그가 65개라, 11개짜리로 잰 값을 그대로 믿으면 안 된다.
 const boneOverride = Number(q.get('bones') || 0);
@@ -35,6 +35,8 @@ const mode = q.get('mode') || 'skinned';
 const lod = Number(q.get('lod') || 0);
 // 먼 단계에 팩의 텍스처를 정점 색으로 구워 넣을 것인가 (?color=1).
 const bakeColor = q.get('color') === '1';
+// 팩 여럿을 섞어 세운다 (?packs=rocketbox-f01,rocketbox-m01). 드로우콜은 팩 수다.
+const packIds = (q.get('packs') || '').split(',').map((t) => t.trim()).filter(Boolean);
 const hud = document.getElementById('hud');
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -72,6 +74,8 @@ const side = Math.ceil(Math.sqrt(want));
 const spot = (i) => [(i % side) * 1.6 - side * 0.8, 0, Math.floor(i / side) * 1.6 - side * 0.8];
 let verts = 0;
 let crowd = null;
+let mixed = null;
+let kindCounts = null;
 const lodStats = {};
 
 if (mode === 'instanced') {
@@ -100,14 +104,40 @@ if (mode === 'instanced') {
     lodStats.ms = +(performance.now() - t0).toFixed(1);
   }
   verts = geom.attributes.position.count;
-  crowd = createInstancedCrowd({ THREE, geometry: geom, atlas, count: want });
-  for (let i = 0; i < want; i++) {
-    crowd.place(i, {
-      position: spot(i), headingRad: Math.PI,
-      clipId: 'walk-forward', timeOffsetS: Math.random() * atlas.clips[0].durationS,
-    });
+  if (packIds.length > 1) {
+    // **몸 여럿** — 팩마다 받아서 굽고, 사람을 고르게 나눈다.
+    const kinds = [];
+    let prepMs = 0;
+    for (const id of packIds) {
+      const pk = await loadPack({ url: `/packs/${id}`, GLTFLoader, clips: ['walk-forward', 'idle'] });
+      // 받는 값(네트워크)은 빼고 **굽고 줄이는 값**만 잰다.
+      const t0 = performance.now();
+      const atlasK = bakeFromPack(pk, ['walk-forward', 'idle']);
+      const geomK = geometryOf(pk, { lod, color: bakeColor });
+      prepMs += performance.now() - t0;
+      kinds.push({ id, atlas: atlasK, geometry: geomK });
+    }
+    lodStats.ms = +prepMs.toFixed(1);
+    verts = kinds.reduce((m, k) => Math.max(m, k.geometry.attributes.position.count), 0);
+    mixed = createMixedCrowd({ THREE, kinds, count: want });
+    for (let i = 0; i < want; i++) {
+      mixed.place(i, {
+        position: spot(i), headingRad: Math.PI,
+        clipId: 'walk-forward', timeOffsetS: Math.random() * kinds[0].atlas.clips[0].durationS,
+      });
+    }
+    for (const m of mixed.meshes) scene.add(m);
+    kindCounts = mixed.counts;
+  } else {
+    crowd = createInstancedCrowd({ THREE, geometry: geom, atlas, count: want });
+    for (let i = 0; i < want; i++) {
+      crowd.place(i, {
+        position: spot(i), headingRad: Math.PI,
+        clipId: 'walk-forward', timeOffsetS: Math.random() * atlas.clips[0].durationS,
+      });
+    }
+    scene.add(crowd.mesh);
   }
-  scene.add(crowd.mesh);
 } else {
   for (let i = 0; i < want; i++) {
     const p = player.spawn({ clipId: 'walk-forward', position: spot(i), headingRad: Math.PI });
@@ -121,7 +151,7 @@ camera.position.set(side * 0.9, side * 0.75 + 6, side * 1.4);
 camera.lookAt(0, 1, 0);
 
 let bones = 0;
-if (crowd) {
+if (crowd || mixed) {
   const g0 = gltfs.get('walk-forward');
   g0.scene.traverse((o) => { if (o.isBone) bones++; });
 } else {
@@ -129,7 +159,7 @@ if (crowd) {
 }
 
 const clock = new THREE.Clock();
-const advance = (dt) => (crowd ? crowd.update(dt) : player.update(dt));
+const advance = (dt) => (mixed ? mixed.update(dt) : crowd ? crowd.update(dt) : player.update(dt));
 function tick() {
   requestAnimationFrame(tick);
   advance(clock.getDelta());
@@ -140,14 +170,15 @@ tick();
 // ── 재는 길 ──────────────────────────────────────────────────────
 
 window.__crowdStats = () => ({
-  사람: crowd ? want : player.people.length,
+  사람: crowd || mixed ? want : player.people.length,
   방식: mode,
   단계: tier,
   뼈: bones,
-  총뼈: bones * (crowd ? want : player.people.length),
+  총뼈: bones * (crowd || mixed ? want : player.people.length),
   몸정점: verts,
   ...(lod ? { 살줄임: lod, 줄이기ms: lodStats.ms ?? null, 삼각형원본: lodStats.trianglesBefore ?? null } : {}),
   ...(bakeColor ? { 정점색: true } : {}),
+  ...(mixed ? { 몸: packIds.join('+'), 몸마다: kindCounts } : {}),
   드로우콜: renderer.info.render.calls,
   삼각형: renderer.info.render.triangles,
   프로그램: renderer.info.programs?.length ?? null,

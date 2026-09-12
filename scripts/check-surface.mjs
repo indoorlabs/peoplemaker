@@ -18,7 +18,7 @@ import * as api from '../src/web/index.mjs';
 /** 문에 있어야 하는 것 — README 의 "spacemaker 에서 쓰는 법" 과 같아야 한다. */
 const PUBLIC = [
   'loadPack', 'bakeFromPack', 'geometryOf', 'measuredFor', 'planCrowdMeasured',
-  'createClipPlayer', 'createInstancedCrowd',
+  'createClipPlayer', 'createInstancedCrowd', 'createMixedCrowd',
   'pickWalkClip', 'contactsAt', 'durationAt', 'strideS', 'TIME_SCALE_MAX',
   'planCrowd', 'affordable', 'frameCostMs', 'TIERS',
   'dimensionMm', 'pendingDimensions', 'DIMENSIONS',

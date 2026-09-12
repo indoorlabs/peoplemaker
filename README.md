@@ -76,7 +76,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import {
   loadPack, bakeFromPack, geometryOf,
-  createClipPlayer, createInstancedCrowd, planCrowd,
+  createClipPlayer, createInstancedCrowd, createMixedCrowd, planCrowd,
   measuredFor, planCrowdMeasured,
 } from 'peoplemaker';
 
@@ -93,9 +93,10 @@ const pack = await loadPack({
 // 2. 몇 명을 어느 단계로 세울지 — 예산이 정한다 (한 프레임 4ms 기준)
 //    진짜 몸으로 잰 표가 있는 팩(Rocketbox)은 그 표로 센다. 뼈 수로 세는
 //    planCrowd 는 그 몸을 13~15배 싸게 본다 (lib/crowdBudget.mjs 의 PACK_MEASURED).
+//    몸을 몇 가지 섞는지도 값이다 — 팩마다 군중이 하나씩 생긴다 (kinds).
 const table = measuredFor(pack.catalog.packId);
 const plan = table
-  ? planCrowdMeasured(want, 4, table, ['full', 'instancedLod'])
+  ? planCrowdMeasured(want, 4, table, ['full', 'instancedLod'], { kinds: packs.length })
   : planCrowd(want, 4, ['full', 'instanced']);
 
 // 3. 가까운 사람 — 사람마다 스킨 메시
@@ -116,6 +117,16 @@ const atlas = bakeFromPack(pack);
 const geom = geometryOf(pack, { lod: 0.25, color: true });
 const crowd = createInstancedCrowd({ THREE, geometry: geom, atlas, count: n });
 crowd.place(i, { position: [x, 0, z], headingRad: h, clipId: 'walk-forward' });
+
+// 4-2. 몸이 여럿이면 — 팩마다 군중 하나, 사람 번호는 이어진다
+//      (한 팩이 한 사람이라, 안 섞으면 먼 군중이 같은 사람 수천 명이다)
+const mixed = createMixedCrowd({
+  THREE, count: n,
+  kinds: packs.map((p) => ({ id: p.catalog.packId, atlas: bakeFromPack(p), geometry: geometryOf(p, { lod: 0.25, color: true }) })),
+  // 누구를 어느 몸으로 할지는 **쓰는 쪽이 정한다**. 안 주면 고르게 섞는다.
+});
+for (const m of mixed.meshes) scene.add(m);
+mixed.place(i, { position: [x, 0, z], headingRad: h, clipId: 'walk-forward' });
 
 // 5. 프레임마다
 player.update(dt);
@@ -180,6 +191,39 @@ Rocketbox 여자 01 · 먼 단계 · 같은 기계 (2026-09-12)
 아래로 가는가**, 줄여도 그 색이 원래 있던 색인가, 진짜 몸에서 색이 정말
 여럿인가(흩어짐 0.199 · 141가지 · 부위마다 다른가).
 
+### 사람마다 다른 사람 (팩 섞기)
+
+한 팩은 한 사람이다 (그 규약은 의도한 것이다 — 두 사람을 한 팩에 넣으면
+속도에 맞춰 클립을 고르다 걷는 도중에 사람이 바뀐다). 그래서 먼 군중이
+**같은 사람 수천 명**이었다.
+
+먼 단계는 InstancedMesh 하나이고, 인스턴스들이 **같은 기하를 나눠 쓰는 것**이
+드로우콜을 줄인 방법 자체다. 그러니 한 군중에 몸 둘을 넣을 길이 없다 —
+몸마다 군중을 둔다. `createMixedCrowd` 가 사람 번호를 (어느 몸, 몇 번째)로
+옮겨 주고, 쓰는 쪽은 몸이 몇이든 `place(i, …)` 하나로 본다.
+
+```
+같은 기계 · 줄인 살 · 구운 색 (2026-09-12)
+
+   사람    몸 하나   몸 둘   드로우콜
+    200     0.95     1.00    2 → 3
+  1,000     1.37     1.52    2 → 3
+  5,000     5.57     5.23    2 → 3
+
+  4ms 예산: 3,623명 → 3,671명
+```
+
+**예산 안 사람 수가 안 줄었다.** 값은 삼각형을 따라가고, 남자 01 의 줄인
+살(1,748)이 여자 01(2,016)보다 가벼워서 5,000명에서는 섞은 쪽이 오히려 쌌다.
+대가는 드로우콜 하나다.
+
+몸 둘을 한 기하에 이어 붙이고 안 쓰는 쪽을 찌그러뜨리는 길은 안 간다 —
+그러면 **모든 사람이 모든 몸의 정점 값을 치른다** (5,000명 × 몸 둘 = 정점
+두 배). 드로우콜 하나 아끼자고 삼각형을 두 배로 그리는 셈이다.
+
+게이트: `scripts/check-mix.mjs` — i 번을 놓으면 **그 몸의 그 칸**만 움직이는가,
+옮기기가 재생 시각을 안 건드리는가, 없는 클립·없는 사람을 말하고 막는가.
+
 ### 동작 옮기기 (retarget)
 
 동작 하나를 다른 몸으로 옮겨 그 팩의 클립으로 넣는다. 뼈 이름·국소 축·
@@ -214,21 +258,25 @@ node scripts/retarget.mjs packs/rocketbox-m01/clips/phone-call.glb rocketbox-f01
 클립 5개(합성 기준 팩) · Rocketbox 사람 둘(동작 9개씩) → 재서 카탈로그 →
 three.js 가 읽고 사람을 세운다
 드로우콜을 사람 수에서 둘로 줄이고, 그러고 나서 살을 4분의 1로 줄였다
-먼 사람이 제 색을 입는다 (텍스처를 정점 색으로 구워서)
+먼 사람이 제 색을 입고, 몸 여러 벌을 한 화면에 섞는다
 리그의 앞을 재서, 시킨 쪽으로 실제로 걷는다 (제자리 재생도 같이)
 동작을 다른 몸으로 옮긴다 (retarget)
-게이트 10개 · 검사 489 (살이 사람 모양인지·제 색인지까지 잰다)
+게이트 11개 · 검사 520 (살이 사람 모양인지·제 색인지·제 몸인지까지 잰다)
 
   Rocketbox 여자 01 · 한 프레임 4ms 예산 · Radeon 780M
     스킨드 (가까이)          28명    드로우콜 3/인 · 정점 5,438
     먼 단계                 823명    드로우콜 2   · 정점 4,883
     먼 단계 + 살 줄임      3,623명   드로우콜 2   · 정점 1,030
+    거기에 몸 둘을 섞어     3,671명   드로우콜 3
 
 데모: node scripts/serve-demo.mjs → http://localhost:5180/?people=200&bones=65
      ?pack=rocketbox-f01&mode=instanced&lod=0.25&color=1 — 줄인 살 · 구운 색
+     ?packs=rocketbox-f01,rocketbox-m01&mode=instanced&lod=0.25&color=1 — 몸 둘
      /demo/webgl.html · /demo/webgpu.html — 같은 코드를 두 렌더러로 (견주는 자리)
 ```
 
 아직 없는 것: 사이즈코리아 치수 5종, 사람이 만든 진짜 클립(Mixamo 는 계정이
-필요하다), 그리고 **사람마다 다른 사람** — 지금은 한 팩이 한 사람이라, 먼
-군중이 같은 사람 수천 명이다. **없다는 것을 게이트가 수로 말한다.**
+필요하다), 그리고 **사람이 둘뿐인 것** — 섞는 길은 났지만 팩이 여자 01 ·
+남자 01 둘이다. Rocketbox 에 115명이 있고 받아 오는 스크립트도 있으니
+(`import-rocketbox.mjs`), 남은 것은 코드가 아니라 저장 공간과 시간이다.
+**없다는 것을 게이트가 수로 말한다.**
