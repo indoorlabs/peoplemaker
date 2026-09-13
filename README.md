@@ -323,6 +323,72 @@ node scripts/import-rocketbox.mjs rocketbox-f03
 "한국 성인 95%가 지나가는 문인가"   → lib/anthropometry.mjs (통계의 95 백분위)
 ```
 
+### 배역 — 누구를 어느 팩에 세울 것인가 (`catalog.person`)
+
+"양로원 재실자 100명" 을 받으면 누구를 어느 팩으로 세우는가. 지금까지는 그
+물음에 답할 수가 없었다 — **팩이 제가 누구인지를 안 갖고 있었다.** `packId`
+문자열(`rocketbox-c01`)로 짐작할 수는 있었지만, 짐작은 이 저장소가 안 하기로
+한 것이다.
+
+```json
+"person": {
+  "source": "declared-by-import",
+  "ageBand": "child",      // child · youth · adult · older-adult
+  "sex": "male",           // male · female · unspecified
+  "mobility": "walk",      // walk · cane · walker · wheelchair
+  "attire": "casual"       // casual · business · uniform · care-worker
+}
+```
+
+**이것은 잰 값이 아니라 적은 값이다.** 살을 재서 "이 사람은 청소년이다" 를
+알아낼 방법이 없다 — 키 1.7m 인 열일곱 살과 스물일곱 살은 같은 살이다.
+그래서 출처를 `declared-*` 로 두어 `bodyDims` 의 `measured-from-pack` 과
+갈라 놓는다. 사람이 아닌 팩(검사용 합성 팩)에는 **안 적는다** — 1.55m 짜리
+픽스처를 '어른' 이라고 적으면 그 순간 지어낸 값이 하나 는다.
+
+```js
+import { planCast, castReport } from 'peoplemaker';
+
+const cast = planCast(profile, { packs: catalogs, count: 100 });
+cast.coverage     // **조건에 정확히 맞은** 비율
+cast.kindOf(i)    // 사람 번호 → packId (createMixedCrowd 의 kinds 와 붙는다)
+cast.missing      // [{ role, want, n, why }]
+```
+
+**없는 사람을 조용히 딴 사람으로 채우지 않는다.** 뛰는 클립이 없는 팩에
+대피를 안 주는 것과 같은 이유다 — 조용히 채우면 "노인 시설 피난 시간" 자리에
+청년들이 들어앉고, 멀리서 보면 그냥 사람들이라 아무도 못 알아챈다.
+
+```
+양로원 100명 · 팩 9개
+
+  resident   70명  ageBand=older-adult   ✗ 0개
+  wheelchair 12명  mobility=wheelchair   ✗ 0개
+  carer      18명  ageBand=adult         → 어른 6팩에 3명씩
+
+  100명 중 18명 · coverage 0.18
+```
+
+대신 채우려면 프로필이 **그렇게 적고 왜인지도 적어야 한다**. 그러면 그 수가
+`coverage` 와 따로 세어진다 — 학교 200명을 초등 몸으로 대신 채우면 200명이
+다 서지만 정확도는 10%(교직원)로 남는다.
+
+```
+팩 9개 — child 2 · youth 0 · adult 6 · older-adult 0 · 걷지 않는 몸 0 · 사람 아님 1
+```
+
+게이트: `scripts/check-cast.mjs` — 몫을 나눈 합이 시킨 수와 **정확히** 같은가,
+조건의 **오타**를 던지는가(`ageband` 는 조건이 없는 것과 같아져 아무나 다
+맞는다), 없는 역할을 조용히 채우는가, 대신 채운 것이 `coverage` 에 안
+섞이는가, 그리고 **적힌 사람과 잰 몸이 어긋나는가** — 어린이로 적힌 팩의
+키가 어른 중앙값(1.771m)보다 크면 막는다. 절대 키로 안 본다: "어린이는 1.5m
+아래" 는 모집단 통계이고 출처가 필요하다.
+
+여섯 군데를 일부러 깨서 확인했고, **그중 둘은 검사가 헛돌고 있었다** — 몫
+나누기는 모자라는 쪽만 봐서 반올림 구현이 그대로 통과했고, 조건 오타는
+`ALLOWED['ageband'].includes` 가 TypeError 로 던지는 바람에 검사가 아니라
+우연이 막고 있었다. 둘 다 고쳤다 (넘치는 경우 추가 · 던진 **이유**까지 확인).
+
 ### 상위 명령 — 회의하기 · 방으로 가기 · 대피하기
 
 "의자에 앉기" 같은 낱낱의 동작 위에 **활동**이 있다. 그런데 회의는 어디서
@@ -554,8 +620,9 @@ three.js 가 읽고 사람을 세운다
 먼 사람이 제 색을 입고, 몸 여러 벌을 한 화면에 섞는다
 리그의 앞을 재서, 시킨 쪽으로 실제로 걷는다 (제자리 재생도 같이)
 동작을 다른 몸으로 옮긴다 (retarget)
-게이트 13개 · 검사 1,661 (살이 사람 모양인지·제 색인지·제 몸인지까지 잰다)
+게이트 14개 · 검사 1,722 (살이 사람 모양인지·제 색인지·제 몸인지까지 잰다)
 상위 명령(회의·대피)을 동작 차례로 푼다 — 못 하는 팩에는 못 한다고 말한다
+배역 — 팩이 제가 누구인지 말하고, 없는 사람은 없다고 수로 말한다 (양로원 0.18)
 게이트 한 번에 61초 · 팩 하나를 다시 재는 데 7초 (11분 · 71초였다)
 
   Rocketbox 여자 01 · 한 프레임 4ms 예산 · Radeon 780M

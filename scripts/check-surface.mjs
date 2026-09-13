@@ -21,6 +21,7 @@ const PUBLIC = [
   'createClipPlayer', 'createInstancedCrowd', 'createMixedCrowd',
   'pickWalkClip', 'contactsAt', 'durationAt', 'strideS', 'TIME_SCALE_MAX',
   'ACTIVITIES', 'planActivity', 'startActivity', 'clipForRole',
+  'planCast', 'castReport',
   'planCrowd', 'affordable', 'frameCostMs', 'TIERS',
   'dimensionMm', 'pendingDimensions', 'DIMENSIONS',
   'validateCatalog', 'LICENSES', 'packRedistributable', 'commercialClips',

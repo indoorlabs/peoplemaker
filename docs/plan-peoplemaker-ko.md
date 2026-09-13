@@ -232,7 +232,8 @@ Quaternius · CMHT Oculus · Google Poly 를 모아 둔 곳)에 휠체어는 둘
 사람마다 다른 리그를 못 쓴다. 그래서 가까운 사람에게는 안 쓴다.
 | **P2** | 텍스트→동작 (HY-Motion 1.0) | "회의실에서 일어나 문으로 걸어간다" 가 팩 규약에 맞는 GLB 로 나온다 |
 | **P3** | 장면 결합 (IFC affordance → 클립 선택) | 가구를 옮기면 동작이 따라온다. 발·엉덩이 접촉 오차 5cm 이내 |
-| **O1~O6** | 공간 종류별 재실자 · 시나리오 (`plan-occupancy-ko.md`) | 배역 coverage·프로필·시나리오 preflight 를 수로 낸다. P4 의 전제 |
+| **O1** 됨 | 배역 · `catalog.person` (2026-09-13) | 양로원 coverage 0.18 · 게이트 14개 1,722검사 |
+| **O2~O6** | 공간 종류별 재실자 · 시나리오 (`plan-occupancy-ko.md`) | 일과·프로필·시나리오 preflight 를 수로 낸다. P4 의 전제 |
 | **P4** | 군중 (JuPedSim/RVO2) | 재실자 500명 피난 시간이 나온다 |
 | **P5** | 물리 (ProtoMotions/PHC) — 필요해지면 | 판단 유보 |
 

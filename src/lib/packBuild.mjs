@@ -542,7 +542,7 @@ export function deriveClip(doc, decl, { skeleton = 'mixamo' } = {}) {
  * 순서를 고정한다 — 팩을 다시 구울 때마다 순서가 바뀌면 diff 가 통째로
  * 바뀌어서 무엇이 달라졌는지 안 보인다.
  */
-export function buildCatalog({ packId, version, skeleton, clips, body, bodyFar, bodyDims }) {
+export function buildCatalog({ packId, version, skeleton, clips, body, bodyFar, bodyDims, person }) {
   return {
     packId,
     version,
@@ -554,6 +554,10 @@ export function buildCatalog({ packId, version, skeleton, clips, body, bodyFar, 
     ...(bodyFar ? { bodyFar } : {}),
     // **이 몸을 잰 치수** — 사이즈코리아 통계와 다른 값이다 (출처가 그렇게 적힌다).
     ...(bodyDims ? { bodyDims } : {}),
+    // **이 팩의 사람이 누구인가** — 잰 값이 아니라 sources.json 에 적힌 값이다
+    // (출처가 `declared-*`). 배역(lib/cast.mjs)이 이것으로 고른다. 사람이
+    // 아닌 팩(검사용 합성 팩)에는 없다.
+    ...(person ? { person } : {}),
     forwardRad: packForwardRad(clips),
     builtBy: 'peoplemaker/build-pack',
     clips: [...clips].sort((a, b) => (a.id < b.id ? -1 : 1)),

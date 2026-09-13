@@ -44,6 +44,84 @@ export const CONTACT_PARTS = ['foot-l', 'foot-r', 'hip', 'hand-l', 'hand-r', 'ba
 export const CONTACT_KINDS = ['plant', 'sit', 'touch', 'release'];
 
 /**
+ * 이 팩의 사람이 **누구인가** — 배역을 짜는 데 쓴다.
+ *
+ * ## 이것은 잰 값이 아니라 **적은 값**이다
+ *
+ * `bodyDims` 는 살을 재서 낸 것이라 출처가 `measured-from-pack` 이다. 이쪽은
+ * 사람이 적는다 — 살을 재서 "이 사람은 청소년이다" 를 알아낼 방법이 없기
+ * 때문이다 (키 1.7m 인 열일곱 살과 스물일곱 살은 같은 살이다). 손이 닿는
+ * 자리에서 **무엇에 닿는지는 사람이 적고 언제 어디까지 뻗는지는 우리가
+ * 잰다** 로 나눈 것과 같은 규약이고, 그래서 출처를 `declared-*` 로 둔다.
+ *
+ * ## 왜 계약에 있어야 하는가
+ *
+ * "양로원 재실자 100명" 을 받았을 때 누구를 어느 팩에 세울지 답하려면 팩이
+ * 제가 누구인지 말할 수 있어야 한다. 지금까지는 `packId` 문자열
+ * (`rocketbox-c01`)로 **짐작**할 수밖에 없었는데, 짐작은 이 저장소가 안
+ * 하기로 한 것이다.
+ *
+ * 사람이 아닌 팩(검사용 합성 팩)에는 **안 적는다.** 없으면 배역이 그 팩을
+ * 안 쓰고, 안 썼다고 말한다 — 1.55m 짜리 픽스처를 '어른' 이라고 적으면
+ * 그 순간 지어낸 값이 하나 는다.
+ */
+export const AGE_BANDS = {
+  child: '어린이 — 초등 또래',
+  youth: '청소년 — 중·고 또래',
+  adult: '어른',
+  'older-adult': '노인',
+};
+
+/** 성별. 모르면 적지 말고 unspecified — 몸으로 판정하지 않는다. */
+export const SEXES = ['male', 'female', 'unspecified'];
+
+/**
+ * 이동 방식.
+ *
+ * `walk` 가 아닌 몸은 **디딤(plant) 규칙이 그대로 안 맞는다** — 접촉이 발이
+ * 아니라 바퀴이거나 지팡이 끝이다. 그런 팩이 들어오면 재는 쪽을 손봐야
+ * 하고, 지금은 그런 팩이 0개다 (게이트가 그 0 을 센다).
+ */
+export const MOBILITIES = {
+  walk: '제 발로 걷는다',
+  cane: '지팡이',
+  walker: '보행보조기',
+  wheelchair: '휠체어',
+};
+
+/** 옷차림 — 배역이 "교복 입은 학생" 을 고를 수 있게. */
+export const ATTIRES = ['casual', 'business', 'uniform', 'care-worker'];
+
+/**
+ * 이 값을 **누가 적었는가**. 잰 값(`measured-from-pack`)과 절대 안 섞인다.
+ */
+export const PERSON_SOURCES = [
+  'declared-by-import',  // 수입 스크립트의 PRESETS 에 적혀 있었다
+  'declared-by-hand',    // 사람이 sources.json 에 직접 적었다
+];
+
+/**
+ * 적힌 사람 정보가 말이 되는가 — `[{ key, why }]` 로 낸다 (없으면 빈 배열).
+ *
+ * 어긋난 자리마다 **다른 key** 를 내는 것이 중요하다. 게이트가 한 군데씩
+ * 일부러 망가뜨려 보는데, 전부 같은 이름으로 실패하면 "무엇을 깨도 걸린다"
+ * 가 되어 정작 어느 검사가 살아 있는지 모르게 된다.
+ */
+export function personProblems(person) {
+  const out = [];
+  const bad = (key, why) => out.push({ key, why });
+  if (!person || typeof person !== 'object') return [{ key: 'shape', why: '사람 정보가 값이 아니다' }];
+  if (!PERSON_SOURCES.includes(person.source)) {
+    bad('source', `출처가 '${person.source}' 다 — 적은 값이므로 ${PERSON_SOURCES.join(' 또는 ')} 여야 한다 (잰 값과 안 섞는다)`);
+  }
+  if (!AGE_BANDS[person.ageBand]) bad('ageBand', `나이대가 '${person.ageBand}' 다 (${Object.keys(AGE_BANDS).join(' · ')})`);
+  if (!SEXES.includes(person.sex)) bad('sex', `성별이 '${person.sex}' 다 (${SEXES.join(' · ')})`);
+  if (!MOBILITIES[person.mobility]) bad('mobility', `이동 방식이 '${person.mobility}' 다 (${Object.keys(MOBILITIES).join(' · ')})`);
+  if (!ATTIRES.includes(person.attire)) bad('attire', `옷차림이 '${person.attire}' 다 (${ATTIRES.join(' · ')})`);
+  return out;
+}
+
+/**
  * 라이선스 — **클립마다** 적는다.
  *
  * 팩 전체에 한 줄로 뭉뚱그리면, 나중에 한 출처가 문제가 됐을 때 어느 클립을
@@ -134,6 +212,14 @@ export function validateCatalog(catalog, { clipFiles = null, packFiles = null } 
           fail(`${tag}/smaller`, `줄였다면서 정점이 ${f.from.vertices} → ${f.vertices} 다`);
         }
       }
+    }
+  }
+
+  // **이 팩의 사람이 누구인가** — 적는 값이다. 없어도 되지만(사람이 아닌
+  // 픽스처 팩), 있으면 아는 낱말이어야 한다. 배역이 이것으로 고른다.
+  if (catalog.person !== undefined) {
+    for (const { key, why } of personProblems(catalog.person)) {
+      fail(`catalog/person/${key}`, why);
     }
   }
 

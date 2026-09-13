@@ -63,6 +63,9 @@ for (const decl of sources.clips || []) {
 
 const catalog = buildCatalog({
   packId: sources.packId, version: sources.version, skeleton: sources.skeleton, clips,
+  // 사람이 적은 것 — 이 팩의 사람이 누구인가. 없으면 없는 대로 간다
+  // (검사용 합성 팩은 사람이 아니다).
+  person: sources.person,
   body: split ? 'body.glb' : undefined,
   // 먼 몸은 굽는 쪽(import-rocketbox)이 만들어 sources.json 에 적어 둔다.
   // 먼 몸은 굽는 쪽(build-far)이 만들어 sources.json 에 단계 목록으로 적어 둔다.

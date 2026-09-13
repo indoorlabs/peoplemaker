@@ -37,18 +37,22 @@ const RAW = 'https://raw.githubusercontent.com/microsoft/Microsoft-Rocketbox/mas
 const CACHE = path.join(ROOT, 'packs', '.cache', 'rocketbox');
 
 /** 이름을 붙여 둔 인물들 — 인자로 따로 줘도 된다. */
+// `person` 은 **잰 값이 아니라 적은 값이다.** 살을 재서 "이 사람은 어린이다"
+// 를 알아낼 방법이 없다 — 키 1.43m 는 열 살일 수도 작은 어른일 수도 있다.
+// Rocketbox 가 폴더로 나눠 둔 것(Adults/Children/Professions)을 그대로 옮겨
+// 적고, 출처를 `declared-by-import` 로 남긴다 (계약의 PERSON_SOURCES).
 const PRESETS = {
-  'rocketbox-f01': { avatar: 'Adults/Female_Adult_01', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '여자 01', en: 'woman 01', tags: ['female', 'adult'] },
-  'rocketbox-m01': { avatar: 'Adults/Male_Adult_01', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '남자 01', en: 'man 01', tags: ['male', 'adult'] },
-  'rocketbox-f02': { avatar: 'Adults/Female_Adult_02', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '여자 02', en: 'woman 02', tags: ['female', 'adult'] },
-  'rocketbox-m02': { avatar: 'Adults/Male_Adult_02', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '남자 02', en: 'man 02', tags: ['male', 'adult'] },
-  'rocketbox-business-f01': { avatar: 'Professions/Business_Female_01', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '정장 여자 01', en: 'business woman 01', tags: ['female', 'adult', 'business'] },
-  'rocketbox-business-m01': { avatar: 'Professions/Business_Male_01', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '정장 남자 01', en: 'business man 01', tags: ['male', 'adult', 'business'] },
+  'rocketbox-f01': { avatar: 'Adults/Female_Adult_01', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '여자 01', en: 'woman 01', person: { source: 'declared-by-import', ageBand: 'adult', sex: 'female', mobility: 'walk', attire: 'casual' }, tags: ['female', 'adult'] },
+  'rocketbox-m01': { avatar: 'Adults/Male_Adult_01', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '남자 01', en: 'man 01', person: { source: 'declared-by-import', ageBand: 'adult', sex: 'male', mobility: 'walk', attire: 'casual' }, tags: ['male', 'adult'] },
+  'rocketbox-f02': { avatar: 'Adults/Female_Adult_02', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '여자 02', en: 'woman 02', person: { source: 'declared-by-import', ageBand: 'adult', sex: 'female', mobility: 'walk', attire: 'casual' }, tags: ['female', 'adult'] },
+  'rocketbox-m02': { avatar: 'Adults/Male_Adult_02', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '남자 02', en: 'man 02', person: { source: 'declared-by-import', ageBand: 'adult', sex: 'male', mobility: 'walk', attire: 'casual' }, tags: ['male', 'adult'] },
+  'rocketbox-business-f01': { avatar: 'Professions/Business_Female_01', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '정장 여자 01', en: 'business woman 01', person: { source: 'declared-by-import', ageBand: 'adult', sex: 'female', mobility: 'walk', attire: 'business' }, tags: ['female', 'adult', 'business'] },
+  'rocketbox-business-m01': { avatar: 'Professions/Business_Male_01', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '정장 남자 01', en: 'business man 01', person: { source: 'declared-by-import', ageBand: 'adult', sex: 'male', mobility: 'walk', attire: 'business' }, tags: ['male', 'adult', 'business'] },
   // **어린이는 걸음 클립이 어른 것뿐이다.** Rocketbox 의 동작 326개가 전부
   // f_/m_ (어른)이라, 그대로 붙이면 키 차이만큼 발이 뜨거나 파묻힐 수 있다.
   // 받아서 **재 보고** 정한다 — 뜨면 scripts/retarget.mjs 로 옮겨 붙인다.
-  'rocketbox-c01': { avatar: 'Children/Male_Child_01', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '남자아이 01', en: 'boy 01', tags: ['male', 'child'] },
-  'rocketbox-c02': { avatar: 'Children/Female_Child_01', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '여자아이 01', en: 'girl 01', tags: ['female', 'child'] },
+  'rocketbox-c01': { avatar: 'Children/Male_Child_01', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '남자아이 01', en: 'boy 01', person: { source: 'declared-by-import', ageBand: 'child', sex: 'male', mobility: 'walk', attire: 'casual' }, tags: ['male', 'child'] },
+  'rocketbox-c02': { avatar: 'Children/Female_Child_01', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '여자아이 01', en: 'girl 01', person: { source: 'declared-by-import', ageBand: 'child', sex: 'female', mobility: 'walk', attire: 'casual' }, tags: ['female', 'child'] },
 };
 
 /**
@@ -452,6 +456,10 @@ const sources = {
   packId,
   version: '0.1.0',
   skeleton: 'biped',
+  // **이 팩의 사람이 누구인가** — PRESETS 에 적힌 것을 그대로 옮긴다.
+  // 안 적힌 인물을 인자로 받아 들여올 때는 없는 채로 나가고, 그러면 배역이
+  // 그 팩을 안 쓴다 (짐작해서 '어른' 을 넣지 않는다).
+  ...(preset.person ? { person: preset.person } : {}),
   // 먼 사람용 몸 — 무엇을 어떻게 줄였는지가 팩에 남아야 한다.
   ...(farFacts ? { bodyFar: farFacts } : {}),
   note: `Microsoft Rocketbox 의 ${avatarName} (MIT, Copyright (c) Microsoft Corporation). 몸과 동작이 원래 다른 파일이라 scripts/import-rocketbox.mjs 가 접붙였다 — 동작은 뼈 이름으로 맞췄고, 텍스처는 2048 TGA 를 1024 PNG 로 줄였다. 한 팩에 한 사람이다: 두 사람을 한 팩에 넣으면 속도에 맞춰 클립을 고르다 걷는 도중 사람이 바뀐다.`,
