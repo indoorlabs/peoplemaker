@@ -175,12 +175,16 @@ runGate('check-anthropometry', (g) => {
   // 수 있고, 그것이 결함은 아니다. 다만 **모르고 쓰면** 한국 학교 복도를
   // 서양 사람으로 검토하게 된다. 그래서 적어 두고, 바뀌면 말한다.
   const OUTSIDE = {
-    'rocketbox-business-f01': 'above',
-    'rocketbox-f01': 'above',
-    'rocketbox-f02': 'above',
-    'rocketbox-business-m01': 'inside',
-    'rocketbox-m01': 'inside',
-    'rocketbox-m02': 'inside',
+    'rocketbox-business-f01': 'above',      // 1.732m
+    'rocketbox-f01': 'above',               // 1.741m
+    'rocketbox-f02': 'above',               // 1.732m
+    'rocketbox-medical-f01': 'above',       // 1.737m
+    'rocketbox-security-f01': 'above',      // 1.737m
+    'rocketbox-business-m01': 'inside',     // 1.801m
+    'rocketbox-m01': 'inside',              // 1.810m
+    'rocketbox-m02': 'inside',              // 1.806m
+    'rocketbox-medical-m01': 'inside',      // 1.801m
+    'rocketbox-security-m01': 'inside',     // 1.824m
   };
   {
     const POP_OF = { male: 'kr-male-20-69', female: 'kr-female-20-69' };

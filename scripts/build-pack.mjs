@@ -12,6 +12,9 @@ import { fileURLToPath } from 'node:url';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { attachAnimation } from '../src/lib/gltfWrite.mjs';
 import { deriveClip, applyReach, buildCatalog, deriveBodyDims } from '../src/lib/packBuild.mjs';
+import { bakeClip } from '../src/lib/poseBake.mjs';
+import { skinnedMeshOf, skinPoints } from '../src/lib/bodyMesh.mjs';
+import { silhouetteGrid, thumbSvg, thumbBox } from '../src/lib/thumbnail.mjs';
 import { validateCatalog, validateSplitFiles } from '../src/lib/motionPack.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -61,6 +64,68 @@ for (const decl of sources.clips || []) {
   );
 }
 
+// 몸을 재는 것이 섬네일보다 먼저다 — 섬네일의 그릴 범위가 이 값에서 나온다.
+const bodyDims = split
+  ? deriveBodyDims(
+    parseGLB(fs.readFileSync(bodyFile)),
+    docs.filter((d) => ['idle', 'walk-forward'].includes(d.id))
+      .map((d) => ({ id: d.id, doc: attachAnimation(parseGLB(fs.readFileSync(bodyFile)), d.doc) })),
+    { skeleton: sources.skeleton },
+  )
+  : undefined;
+
+// ── 섬네일 ──
+//
+// 클립이 서른 개가 되면 이름만으로는 무슨 동작인지 모른다. 구운 자세에 살을
+// 붙여 점을 찍고, 그 점들이 차지한 칸을 SVG 로 낸다 — **그린 그림이 아니라
+// 잰 그림**이다 (lib/thumbnail.mjs).
+//
+// 그릴 범위는 **팩 하나에 하나**다. 클립마다 다시 잡으면 앉은 사람과 선
+// 사람이 같은 크기로 그려져 비교가 안 된다.
+const THUMB_FRAMES = 3;
+if (split && bodyDims?.heightM) {
+  const bodyDoc = parseGLB(fs.readFileSync(bodyFile));
+  const mesh = skinnedMeshOf(bodyDoc);
+  const box = thumbBox(bodyDims.heightM, { widthM: bodyDims.maxWidthM });
+  const dir2 = path.join(dir, 'thumbs');
+  fs.mkdirSync(dir2, { recursive: true });
+  let wrote = 0;
+  for (const { id, doc } of docs) {
+    let baked;
+    try { baked = bakeClip(attachAnimation(parseGLB(fs.readFileSync(bodyFile)), doc)); }
+    catch (e) { console.error(`  ✗ ${id}: 섬네일을 못 만들었다 — ${e.message}`); continue; }
+    const grids = [];
+    for (let k = 0; k < THUMB_FRAMES; k++) {
+      const f = Math.round(((baked.frames - 1) * k) / (THUMB_FRAMES - 1));
+      grids.push(silhouetteGrid(skinPoints(mesh, baked, f), { box }));
+    }
+    fs.writeFileSync(path.join(dir2, `${id}.svg`), thumbSvg(grids, { label: id }));
+    const clip = clips.find((c) => c.id === id);
+    if (clip) clip.thumb = `thumbs/${id}.svg`;
+    wrote++;
+  }
+  console.log(`  [섬네일] ${wrote}개 · 프레임 ${THUMB_FRAMES}장을 겹쳐 그린다 (thumbs/*.svg)`);
+}
+
+/**
+ * 팩 안의 파일 목록 — **thumbs/ 안까지 센다.**
+ *
+ * 처음에 맨 위만 읽었더니 계약이 `thumbs/walk.svg` 를 "팩에 없다" 고 했다 —
+ * 파일은 있는데 목록에 폴더 이름만 들어 있었던 것이다.
+ */
+function packFileList(d) {
+  const out = [];
+  for (const name of fs.readdirSync(d)) {
+    const full = path.join(d, name);
+    if (fs.statSync(full).isDirectory()) {
+      for (const inner of fs.readdirSync(full)) out.push(`${name}/${inner}`);
+    } else {
+      out.push(name);
+    }
+  }
+  return out;
+}
+
 const catalog = buildCatalog({
   packId: sources.packId, version: sources.version, skeleton: sources.skeleton, clips,
   // 사람이 적은 것 — 이 팩의 사람이 누구인가. 없으면 없는 대로 간다
@@ -73,14 +138,7 @@ const catalog = buildCatalog({
     ? sources.bodyFar.filter((l) => fs.existsSync(path.join(dir, l.file)))
     : undefined,
   // **이 몸을 잰 치수** — 공간 쪽이 복도 폭·창 높이를 검토할 때 쓰는 값이다.
-  bodyDims: split
-    ? deriveBodyDims(
-      parseGLB(fs.readFileSync(bodyFile)),
-      docs.filter((d) => ['idle', 'walk-forward'].includes(d.id))
-        .map((d) => ({ id: d.id, doc: attachAnimation(parseGLB(fs.readFileSync(bodyFile)), d.doc) })),
-      { skeleton: sources.skeleton },
-    )
-    : undefined,
+  bodyDims,
 });
 if (sources.note) catalog.note = sources.note;
 
@@ -110,7 +168,7 @@ if (typeof catalog.forwardRad === 'number') {
 // 게이트는 나중에 돌지만, 여기서 막으면 잘못된 팩이 애초에 안 생긴다.
 const files = fs.readdirSync(path.join(dir, 'clips')).filter((f) => f.endsWith('.glb'));
 const errs = [
-  ...validateCatalog(catalog, { clipFiles: files, packFiles: fs.readdirSync(dir) }),
+  ...validateCatalog(catalog, { clipFiles: files, packFiles: packFileList(dir) }),
   ...(split ? validateSplitFiles(parseGLB(fs.readFileSync(bodyFile)), docs) : []),
 ];
 if (errs.length) {

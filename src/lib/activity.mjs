@@ -60,6 +60,25 @@ export const ROLES = {
   // planActivity 가 없다고 말하고, 일과가 그것을 그대로 위로 올린다.
   // (Rocketbox 의 동작 326개 중에 있을 수 있다 — 찾으면 수입 쪽에 한 줄이다.)
   eat: ['eat'],
+
+  // ── 비상시 ────────────────────────────────────────────────
+  //
+  // **쓰러짐과 폭력은 아직 아무 팩에도 없다.** Rocketbox 의 동작 326개를 다
+  // 뒤졌는데 fall · collapse · faint · punch · fight 로 잡히는 것이 0개다.
+  // 화난 자세(angry)를 폭력으로, 주저앉기(crouch)를 쓰러짐으로 쓰지 않는다 —
+  // 그러면 그 팩으로 만든 시나리오가 조용히 거짓이 된다.
+  collapse: ['collapse'],
+  fight: ['fight'],
+
+  // 있는 것들.
+  cough: ['cough'],
+  nervous: ['nervous'],
+  angry: ['angry'],
+  doorListen: ['door-listen'],
+  crouchIn: ['crouch-in'],
+  crouchOut: ['crouch-out'],
+  walkInjured: ['walk-injured', 'walk-bruised'],
+  runInjured: ['run-injured'],
 };
 
 /**
@@ -199,6 +218,46 @@ export const ACTIVITIES = {
     },
   },
 
+  shelter: {
+    ko: '대피하지 못하고 버티기', en: 'Sheltering in place',
+    // 나갈 수 없을 때 사람이 하는 것 — 문 너머를 살피고, 연기에 기침하고,
+    // 낮은 곳으로 주저앉는다. 요양시설·병원처럼 **못 나가는 사람**이 있는
+    // 곳에서 대피만큼 자주 일어나는 일이다.
+    note: '문을 살피고 기침하고 주저앉는다. 나갈 수 없는 사람의 차례다.',
+    parts: {
+      sheltered: {
+        start: 'check-door',
+        states: {
+          'check-door': { role: 'doorListen', forS: 'clip', next: [['down', 2], ['wait', 1]], needs: 'door' },
+          down: { role: 'crouchIn', forS: 'clip', next: [['low', 1]] },
+          low: { role: 'crouch', forS: 'clip', next: [['low', 3], ['cough', 2], ['up', 1]] },
+          cough: { role: 'cough', forS: 'clip', next: [['low', 1]] },
+          up: { role: 'crouchOut', forS: 'clip', next: [['wait', 1]] },
+          wait: { role: 'nervous', forS: 'clip', next: [['check-door', 1], ['down', 1]] },
+        },
+      },
+    },
+  },
+
+  injuredEvacuate: {
+    ko: '다친 채 대피', en: 'Evacuating injured',
+    // 다친 사람은 **느리다.** 이 활동을 대피와 갈라 두는 까닭이 그것이다 —
+    // 같은 클립으로 세면 피난 시간이 짧게 나온다.
+    note: '다친 사람은 느리다 — 대피와 갈라 둔다. 뛰지 못하면 걷는다.',
+    parts: {
+      injured: {
+        start: 'alert',
+        states: {
+          alert: { role: 'lookAround', forS: 1.5, next: [['limp', 1]] },
+          limp: { role: 'walkInjured', forS: 'until-cue', next: [['rest', 1], ['at-door', 2]] },
+          rest: { role: 'nervous', forS: 'clip', next: [['limp', 1]] },
+          'at-door': { role: 'door', forS: 'clip', next: [['out', 1]], needs: 'door' },
+          out: { role: 'walkInjured', forS: 'until-cue', next: [] },
+        },
+      },
+    },
+  },
+
   goToRoom: {
     ko: '방으로 가기', en: 'Go to a room',
     // **길은 여기서 안 낸다.** 어디로 갈지·어느 문을 쓸지는 공간 쪽이 정하고,
@@ -292,7 +351,12 @@ export function planActivity(catalog, activityId) {
   if (needs.has('door')) {
     const doorClip = [...clips].map((id) => byClip.get(id)).find((c) => c?.reach);
     door = doorClip ? { clipId: doorClip.id, ...doorClip.reach } : null;
-    if (!door) missing.push({ need: 'door', why: '문 클립에 손이 닿는 자리(reach)가 없다' });
+    // **문이 있어야 하는 것과 손잡이를 잡는 것은 다르다.** 문에 귀를 대는
+    // 동작(door-listen)은 문을 달라고 하지만 손잡이 높이를 안 쓴다. 그런데도
+    // reach 를 요구했더니 버티기 활동이 통째로 막혔다 — 손을 뻗는다고 적힌
+    // 클립(tags 에 reach)이 하나라도 있을 때만 잰 값을 요구한다.
+    const reaches = [...clips].some((id) => (byClip.get(id)?.tags || []).includes('reach'));
+    if (!door && reaches) missing.push({ need: 'door', why: '손을 뻗는 클립인데 닿는 자리(reach)가 안 재어져 있다' });
   }
 
   return {

@@ -167,7 +167,14 @@ runGate('check-pack', (g) => {
       catch (e) { g.fail(`pack/${p}/parse`, e.message); continue; }
       const clipDir = path.join(dir, p, 'clips');
       const files = fs.existsSync(clipDir) ? fs.readdirSync(clipDir).filter((f) => f.endsWith('.glb')) : [];
-      const packFiles = fs.readdirSync(path.join(dir, p));
+      // **thumbs/ 안까지 센다.** 맨 위만 읽으면 계약이 thumbs/walk.svg 를
+      // "팩에 없다" 고 한다 — 파일은 있는데 목록에 폴더 이름만 들어 있다.
+      const packDir = path.join(dir, p);
+      const packFiles = fs.readdirSync(packDir).flatMap((name) => (
+        fs.statSync(path.join(packDir, name)).isDirectory()
+          ? fs.readdirSync(path.join(packDir, name)).map((inner) => `${name}/${inner}`)
+          : [name]
+      ));
       for (const e of validateCatalog(doc, { clipFiles: files, packFiles })) g.fail(`pack/${p}/${e.id}`, e.msg);
       // 나뉜 팩이면 파일 **내용**까지 — 동작 파일에 몸이 다시 들어가지 않았는가,
       // 동작이 몸에 없는 뼈를 움직이지 않는가.
@@ -219,16 +226,26 @@ runGate('check-pack', (g) => {
       }
       n++;
       // **점을 지어내지 않았는가** — 줄인 살의 점은 원래 몸에 있던 점이다.
-      const full = readAccessor(bodyDoc, bodyDoc.json.meshes[0].primitives[0].attributes.POSITION);
+      //
+      // 처음에 몸의 **첫 조각**하고만 견줬다. 몸이 조각 여럿이라 "절반 넘게
+      // 없으면 딴 살" 로 느슨하게 두었는데, 경비 여자 01 을 받으니 82%가
+      // 없다고 나왔다 — 그 몸은 첫 조각이 작은 부속이라 그렇다. 먼 몸은
+      // **조각을 다 합쳐** 만들므로, 견주는 쪽도 다 합쳐야 맞다. 그러고 나니
+      // 지어낸 점이 0개다. 느슨한 문턱도 없앤다 — 하나라도 새 점이면 구운
+      // 아틀라스가 안 맞는다.
       const key = (a, i) => `${Math.round(a[i * 3] * 1e4)},${Math.round(a[i * 3 + 1] * 1e4)},${Math.round(a[i * 3 + 2] * 1e4)}`;
       const have = new Set();
-      for (let i = 0; i < full.length / 3; i++) have.add(key(full, i));
+      for (const m of bodyDoc.json.meshes || []) {
+        for (const prim of m.primitives || []) {
+          if (prim.attributes?.POSITION == null) continue;
+          const full = readAccessor(bodyDoc, prim.attributes.POSITION);
+          for (let i = 0; i < full.length / 3; i++) have.add(key(full, i));
+        }
+      }
       const farPos = readAccessor(fd, fd.json.meshes[0].primitives[0].attributes.POSITION);
       let invented = 0;
       for (let i = 0; i < farPos.length / 3; i++) if (!have.has(key(farPos, i))) invented++;
-      // 몸은 조각이 여럿이라 첫 조각에 없는 점이 있을 수 있다 — 절반을 넘으면
-      // 그것은 다른 살이다.
-      if (invented > farPos.length / 3 / 2) {
+      if (invented > 0) {
         g.fail(`far/${p}/${far.ratio}/invented`, `먼 몸의 점 ${invented}/${farPos.length / 3} 개가 원래 몸에 없다`);
       }
       }

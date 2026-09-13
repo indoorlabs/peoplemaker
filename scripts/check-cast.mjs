@@ -212,21 +212,26 @@ runGate('check-cast', (g) => {
 
   // ── 6. 섞어 세우기와 이어지는가 ──
   {
-    const cast = planCast(OFFICE, { packs: cats, count: 60 });
+    // **어른 팩이 몇 개인지 박아 두지 않는다.** 사람을 더 받으면 그 수가
+    // 바뀌는데, 박아 두면 자산이 늘 때마다 게이트가 거짓으로 걸린다. 세어서
+    // 쓰고, 대신 **관계**를 본다 (다 쓰는가 · 고르게 나누는가 · 번갈아 붙는가).
+    const adults = cats.filter((c) => c.person?.ageBand === 'adult').length;
+    const want = adults * 10;
+    const cast = planCast(OFFICE, { packs: cats, count: want });
     n++;
-    if (cast.filled !== 60) g.fail('office/filled', `어른 팩이 6개인데 ${cast.filled}명만 찼다`);
+    if (cast.filled !== want) g.fail('office/filled', `어른 팩이 ${adults}개인데 ${cast.filled}명만 찼다 (${want}명을 시켰다)`);
     n++;
-    if (cast.assigned.length !== 6) g.fail('office/kinds', `팩을 ${cast.assigned.length}개 쓴다 (어른 6개를 다 써야)`);
+    if (cast.assigned.length !== adults) g.fail('office/kinds', `팩을 ${cast.assigned.length}개 쓴다 (어른 ${adults}개를 다 써야)`);
     n++;
     if (!cast.assigned.every((a) => a.n === 10)) g.fail('office/even', `고르게 안 나눈다: ${cast.assigned.map((a) => a.n).join()}`);
     n++;
     // **앞에서부터 잘라 써도 한 사람만 나오지 않는가.** 가까운 몇 명만 스킨드로
     // 세우는 화면이 그렇게 쓴다 — 몰아 주면 그 몇 명이 전부 같은 얼굴이다.
-    const firstSix = new Set([0, 1, 2, 3, 4, 5].map((i) => cast.kindOf(i)));
-    if (firstSix.size !== 6) g.fail('office/interleave', `앞 6명이 ${firstSix.size}가지 몸이다 — 팩을 번갈아 붙여야 한다`);
+    const firstN = new Set([...Array(adults).keys()].map((i) => cast.kindOf(i)));
+    if (firstN.size !== adults) g.fail('office/interleave', `앞 ${adults}명이 ${firstN.size}가지 몸이다 — 팩을 번갈아 붙여야 한다`);
     n++;
-    const again = planCast(OFFICE, { packs: cats, count: 60 });
-    const same = [...Array(60).keys()].every((i) => again.kindOf(i) === cast.kindOf(i));
+    const again = planCast(OFFICE, { packs: cats, count: want });
+    const same = [...Array(want).keys()].every((i) => again.kindOf(i) === cast.kindOf(i));
     if (!same) g.fail('office/stable', '같은 프로필을 두 번 짰는데 사람이 바뀐다 — 건물을 고친 효과를 못 잰다');
     console.log(`  [배역] 사무실 60명: ${cast.assigned.map((a) => `${a.packId.replace('rocketbox-', '')}×${a.n}`).join(' · ')}`);
   }

@@ -54,7 +54,8 @@
       "durationS": 4,
       "rootMotion": "in-place",
       "contacts": [],
-      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest"
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/idle.svg"
     },
     {
       "id": "sit-down",
@@ -80,7 +81,8 @@
         "groundOffsetM": -0.197,
         "dwell": 0.33
       },
-      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest"
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/sit-down.svg"
     },
     {
       "id": "walk-fast",
@@ -112,7 +114,8 @@
           "kind": "plant"
         }
       ],
-      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest"
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-fast.svg"
     },
     {
       "id": "walk-forward",
@@ -144,7 +147,8 @@
           "kind": "plant"
         }
       ],
-      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest"
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-forward.svg"
     },
     {
       "id": "walk-inplace",
@@ -174,7 +178,8 @@
           "kind": "plant"
         }
       ],
-      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest"
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-inplace.svg"
     }
   ],
   "note": "사람의 모션 캡처가 아니다. 함수가 만든 기준 클립이고, 파이프라인과 계약을 검사하려고 둔다."

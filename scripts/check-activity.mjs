@@ -42,6 +42,9 @@ const CAN = {
   goToRoom: true,
   evacuate: true,
   meal: 'eat',
+  // 비상시 — 있는 것으로 되는 것과, 자산이 없어 못 하는 것.
+  shelter: true,
+  injuredEvacuate: true,
 };
 
 runGate('check-activity', (g) => {

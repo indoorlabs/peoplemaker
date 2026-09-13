@@ -223,6 +223,20 @@ export function validateCatalog(catalog, { clipFiles = null, packFiles = null } 
     }
   }
 
+  // **섬네일** — 클립이 무슨 동작인지 보이는 그림 하나. 그린 그림이 아니라
+  // 구운 자세에 살을 붙여 **잰** 그림이다 (lib/thumbnail.mjs). 있으면 팩 안의
+  // 파일을 가리켜야 하고, 없는 파일을 가리키면 받는 쪽이 빈 칸을 본다.
+  for (const c of catalog.clips || []) {
+    if (c.thumb === undefined) continue;
+    if (typeof c.thumb !== 'string' || !c.thumb.startsWith('thumbs/') || !c.thumb.endsWith('.svg')) {
+      fail(`clip/${c.id}/thumb`, `섬네일이 '${c.thumb}' 다 — thumbs/<id>.svg 여야 한다`);
+    } else if (c.thumb !== `thumbs/${c.id}.svg`) {
+      fail(`clip/${c.id}/thumb/name`, `섬네일 이름이 '${c.thumb}' 인데 클립은 '${c.id}' 다 — 엉뚱한 그림을 보게 된다`);
+    } else if (packFiles && !packFiles.includes(c.thumb)) {
+      fail(`clip/${c.id}/thumb/file`, `${c.thumb} 가 팩에 없다`);
+    }
+  }
+
   // 이 몸을 잰 치수 — 있으면 말이 되어야 하고, **출처가 그렇게 적혀** 있어야
   // 한다. 사이즈코리아 통계와 섞이면 "한국 남자 평균" 자리에 이 몸 하나가
   // 들어앉는다.

@@ -53,6 +53,16 @@ const PRESETS = {
   // 받아서 **재 보고** 정한다 — 뜨면 scripts/retarget.mjs 로 옮겨 붙인다.
   'rocketbox-c01': { avatar: 'Children/Male_Child_01', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '남자아이 01', en: 'boy 01', person: { source: 'declared-by-import', ageBand: 'child', sex: 'male', mobility: 'walk', attire: 'casual' }, tags: ['male', 'child'] },
   'rocketbox-c02': { avatar: 'Children/Female_Child_01', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '여자아이 01', en: 'girl 01', person: { source: 'declared-by-import', ageBand: 'child', sex: 'female', mobility: 'walk', attire: 'casual' }, tags: ['female', 'child'] },
+  // **요양시설·병원에 필요한 사람들.** Rocketbox 는 MIT 라 라이선스가 안 는다
+  // (휠체어를 못 넣은 까닭이 CC-BY 였던 것과 다르다).
+  //
+  // **노인은 여기에도 없다.** Adults 40명·Professions 74명의 이름을 다 봤는데
+  // old · senior · elder 로 잡히는 것이 0개다. 그래서 요양시설의 입소자는
+  // 여전히 못 세운다 — 그 사실을 배역이 수로 말한다.
+  'rocketbox-medical-f01': { avatar: 'Professions/Medical_Female_01', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '의료진 여자 01', en: 'medical woman 01', person: { source: 'declared-by-import', ageBand: 'adult', sex: 'female', mobility: 'walk', attire: 'care-worker' }, tags: ['female', 'adult', 'medical'] },
+  'rocketbox-medical-m01': { avatar: 'Professions/Medical_Male_01', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '의료진 남자 01', en: 'medical man 01', person: { source: 'declared-by-import', ageBand: 'adult', sex: 'male', mobility: 'walk', attire: 'care-worker' }, tags: ['male', 'adult', 'medical'] },
+  'rocketbox-security-m01': { avatar: 'Professions/Security_Male_01', walk: 'm_walk_neutral_01', idle: 'm_idle_breathe_01', ko: '경비 남자 01', en: 'security man 01', person: { source: 'declared-by-import', ageBand: 'adult', sex: 'male', mobility: 'walk', attire: 'uniform' }, tags: ['male', 'adult', 'security'] },
+  'rocketbox-security-f01': { avatar: 'Professions/Security_Female_01', walk: 'f_walk_neutral_01', idle: 'f_idle_breathe_01', ko: '경비 여자 01', en: 'security woman 01', person: { source: 'declared-by-import', ageBand: 'adult', sex: 'female', mobility: 'walk', attire: 'uniform' }, tags: ['female', 'adult', 'security'] },
 };
 
 /**
@@ -99,6 +109,30 @@ const EXTRAS = [
   { id: 'walk-fast', anim: 'walk_fast_01', ko: '빨리 걷기', en: 'Walking fast', tags: ['walk', 'travel'], travel: true },
   { id: 'walk-slow', anim: 'walk_slow_01', ko: '천천히 걷기', en: 'Walking slowly', tags: ['walk', 'travel'], travel: true },
   { id: 'phone-call', anim: 'cell_phone_talk_01', ko: '전화 통화', en: 'Phone call', tags: ['phone', 'talk'], only: 'm' },
+
+  // ── 비상시 ────────────────────────────────────────────────
+  //
+  // **Rocketbox 에 쓰러짐도 폭력도 없다** (동작 326개를 다 뒤졌다 — fall ·
+  // collapse · faint · punch · fight 로 잡히는 것이 0개다). 있는 것은
+  // "다쳐서 절뚝이며 걷기 · 기침 · 화난 자세 · 주저앉기" 까지다. 없는 것을
+  // 비슷한 것으로 메우지 않는다 — 화난 자세를 폭력이라고 적으면 그 팩으로
+  // 만든 폭력 시나리오가 조용히 거짓이 된다.
+  //
+  // 성별이 한쪽만 있는 동작이 여럿이다. 남자 몸에는 scripts/retarget.mjs 로
+  // 옮겨 붙이면 되고, 옮기기 전까지는 **그 팩에 없는 것**이다.
+  { id: 'cough', anim: 'idle_cough_01', ko: '기침', en: 'Coughing', tags: ['distress'] },
+  { id: 'nervous', anim: 'idle_nervous_01', ko: '불안해하기', en: 'Nervous', tags: ['distress'] },
+  { id: 'angry', anim: 'idle_angry_01', ko: '화난 자세', en: 'Angry stance', tags: ['distress', 'conflict'] },
+  // 문 너머를 살핀다 — 화재 시 표준 행동이다 (문이 뜨거운지 본다).
+  { id: 'door-listen', anim: 'listen_door', ko: '문에 귀 대기', en: 'Listening at a door', tags: ['door', 'distress'] },
+  // **주저앉기는 전이 클립이다.** crouch(쪼그린 채 있기)는 이미 있는데,
+  // 서 있다가 주저앉는 **과정**이 없었다. 그것이 crouch_in 이다.
+  { id: 'crouch-in', anim: 'crouch_in', ko: '주저앉기', en: 'Crouching down', tags: ['crouch', 'transition'], only: 'f', retarget: true },
+  { id: 'crouch-out', anim: 'crouch_out', ko: '주저앉았다 일어서기', en: 'Standing up from a crouch', tags: ['crouch', 'transition'], only: 'f', retarget: true },
+  // 다쳐서 움직이는 사람 — 피난 시간이 크게 달라지는 자리다.
+  { id: 'walk-injured', anim: 'walk_injured', ko: '다쳐서 걷기', en: 'Walking injured', tags: ['walk', 'travel', 'distress'], travel: true, only: 'f' },
+  { id: 'run-injured', anim: 'run_injured', ko: '다쳐서 뛰기', en: 'Running injured', tags: ['run', 'travel', 'distress'], travel: true },
+  { id: 'walk-bruised', anim: 'walk_bruised', ko: '절뚝이며 걷기', en: 'Walking bruised', tags: ['walk', 'travel', 'distress'], travel: true },
 ];
 
 const [packId, argAvatar, argWalk, argIdle] = process.argv.slice(2);
