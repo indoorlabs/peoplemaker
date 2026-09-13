@@ -16,7 +16,7 @@ import path from 'node:path';
 import { runGate, ROOT } from './gate-lib.mjs';
 import { crossFadeS, CROSSFADE_MAX_S } from '../src/lib/packRuntime.mjs';
 import { createClipPlayer } from '../src/web/clipPlayer.mjs';
-import { pickWalkClip, contactsAt, durationAt, strideS, TIME_SCALE_MAX } from '../src/lib/packRuntime.mjs';
+import { pickWalkClip, walkClips, contactsAt, durationAt, strideS, TIME_SCALE_MAX } from '../src/lib/packRuntime.mjs';
 import { PLANT_MAX_Y_M, angleDiff } from '../src/lib/packBuild.mjs';
 
 const PACK = path.join(ROOT, 'packs', 'ref-synthetic');
@@ -416,6 +416,41 @@ runGate('check-player', async (g) => {
   }
 
   console.log(`  [재생] three ${THREE.REVISION} · 클립 ${gltfs.size}개를 읽고 사람 ${player.people.length}명을 세웠다`);
+  // ── 다친 걸음이 기본으로 뽑히지 않는가 ──
+  //
+  // 비상 동작을 받고 나서 소비처 시험에서 드러났다: "1.1m/s 로 걸어" 라고
+  // 했는데 walk-injured(1.145m/s)가 뽑혔다 — 속도로만 고르니 가장 가까웠다.
+  // 속도는 맞지만 **그림이 거짓**이다. 멀쩡한 재실자가 전부 절뚝인다.
+  {
+    const all = catalog.clips.filter((c) => c.rootMotion === 'travel');
+    n++;
+    // 기준 팩에는 다친 걸음이 없으므로 **있는 것처럼 꾸며서** 본다.
+    const hurt = { ...all[0], id: 'walk-hurt', tags: [...(all[0].tags || []), 'distress'] };
+    const cat2 = { ...catalog, clips: [...catalog.clips, hurt] };
+    const pickN = pickWalkClip(cat2, all[0].speedMps);
+    if (pickN?.clipId === 'walk-hurt') {
+      g.fail('walk/distress', '다친 걸음이 기본으로 뽑힌다 — 멀쩡한 사람이 절뚝인다');
+    }
+    n++;
+    // 달라고 하면 그것만 나와야 한다.
+    const pickH = pickWalkClip(cat2, all[0].speedMps, { distress: true });
+    if (pickH?.clipId !== 'walk-hurt') g.fail('walk/distress-ask', `다친 걸음을 달라 했는데 ${pickH?.clipId} 가 나온다`);
+    n++;
+    // 없는 팩에 달라고 하면 **없다고 해야 한다** (아무거나 주면 안 된다).
+    if (pickWalkClip(catalog, 1.1, { distress: true }) !== null) {
+      g.fail('walk/distress-none', '다친 걸음이 없는 팩인데 뭔가를 준다');
+    }
+    n++;
+    if (walkClips(cat2).some((c) => (c.tags || []).includes('distress'))) {
+      g.fail('walk/pool', '기본 걸음 목록에 다친 걸음이 섞여 있다');
+    }
+    n++;
+    if (walkClips(cat2, { distress: true }).length !== 1) {
+      g.fail('walk/pool-distress', `다친 걸음 목록이 ${walkClips(cat2, { distress: true }).length}개다`);
+    }
+    console.log(`  [재생] 걸음 고르기: 기본 ${walkClips(cat2).length}개 · 다친 걸음 ${walkClips(cat2, { distress: true }).length}개 (달라고 해야 나온다)`);
+  }
+
   // ── 섞어 넘기기 ──
   //
   // 활동이 클립을 갈아탈 때 툭 끊기던 것을 섞는다. **그런데 섞으면 발이

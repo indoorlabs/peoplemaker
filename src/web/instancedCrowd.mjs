@@ -199,5 +199,19 @@ export function createInstancedCrowd({ THREE, geometry, atlas, count, color }) {
     mesh.dispose();
   }
 
-  return { mesh, place, moveTo, setSpeed, update, rowOf, dispose, textureSize: textureSize({ bones: atlas.bones, frames: atlas.height }) };
+  return {
+    mesh,
+    place,
+    moveTo,
+    setSpeed,
+    update,
+    rowOf,
+    dispose,
+    // **드로우콜 수** — 섞어 세우기(createMixedCrowd)는 이 값을 내는데 여기는
+    // 안 냈다. 소비처 시험(scripts/smoke-consumer.mjs)이 `undefined` 를 찍어
+    // 드러났다. 이 층의 존재 이유가 드로우콜을 줄인 것이므로, 그 수를 쓰는
+    // 쪽이 물을 수 있어야 한다. 한 몸 = 메시 하나 = 드로우콜 하나다.
+    drawCalls: 1,
+    textureSize: textureSize({ bones: atlas.bones, frames: atlas.height }),
+  };
 }

@@ -30,7 +30,10 @@
     "check:surface": "node scripts/check-surface.mjs",
     "demo": "node scripts/serve-demo.mjs",
     "build:fixture": "node scripts/make-fixture-pack.mjs && node scripts/build-pack.mjs ref-synthetic",
-    "measure:crowd": "node --expose-gc scripts/measure-crowd.mjs"
+    "measure:crowd": "node --expose-gc scripts/measure-crowd.mjs",
+    "smoke": "node scripts/smoke-consumer.mjs",
+    "build:sheet": "node scripts/build-sheet.mjs",
+    "build:attributions": "node scripts/build-attributions.mjs"
   },
   "peerDependencies": {
     "three": ">=0.160.0"

@@ -20,11 +20,23 @@
 export const TIME_SCALE_MAX = 1.25;
 export const TIME_SCALE_MIN = 1 / TIME_SCALE_MAX;
 
-/** 걷는 클립 — 이동하고, 발 접촉이 있는 것. */
-export function walkClips(catalog) {
-  return (catalog?.clips || []).filter(
-    (c) => c.rootMotion === 'travel' && c.speedMps > 0 && (c.contacts || []).some((x) => x.kind === 'plant'),
-  );
+/**
+ * 걷는 클립 — 이동하고, 발 접촉이 있는 것.
+ *
+ * **다친 걸음은 기본에서 뺀다.** 비상 동작을 받고 나서 소비처 시험을 돌렸더니
+ * "1.1m/s 로 걸어" 라고 했는데 `walk-injured`(1.145m/s)가 뽑혔다 — 속도로만
+ * 고르니 가장 가까웠던 것이다. 속도는 맞지만 **그림이 거짓**이다: 멀쩡한
+ * 재실자가 전부 절뚝인다.
+ *
+ * 다친 걸음이 필요하면 **달라고 해야 한다** (`distress: true`). 없으면 빈
+ * 목록이고, 그러면 쓰는 쪽이 "이 팩에는 다친 걸음이 없다" 를 안다.
+ */
+export function walkClips(catalog, { distress = false } = {}) {
+  return (catalog?.clips || []).filter((c) => {
+    if (!(c.rootMotion === 'travel' && c.speedMps > 0)) return false;
+    if (!(c.contacts || []).some((x) => x.kind === 'plant')) return false;
+    return (c.tags || []).includes('distress') === distress;
+  });
 }
 
 /** 제자리 클립 — 경로를 쓰는 쪽이 직접 옮길 때 쓴다. */
@@ -42,8 +54,8 @@ export function inPlaceClips(catalog) {
  * **가장 가까운 것**을 돌려주되 `timeScale` 이 한계에 걸렸다고 알린다 —
  * null 을 주면 쓰는 쪽이 사람을 아예 안 세우게 되고, 그것은 더 나쁘다.
  */
-export function pickWalkClip(catalog, desiredMps) {
-  const clips = walkClips(catalog);
+export function pickWalkClip(catalog, desiredMps, { distress = false } = {}) {
+  const clips = walkClips(catalog, { distress });
   if (!clips.length || !(desiredMps > 0)) return null;
   // 필요한 재생 속도가 1 에 가장 가까운 클립. 로그 거리로 재야 0.5배와
   // 2배가 같은 만큼 멀다 — 선형으로 재면 느린 쪽만 골라진다.

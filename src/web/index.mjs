@@ -117,7 +117,29 @@ export async function loadPack({
   const split = typeof catalog.body === 'string';
   const bodyFile = far ? level.file : catalog.body;
   const bodyBuf = split ? await get(bodyFile) : null;
-  const body = split ? await parse(bodyBuf) : null;
+  let body = null;
+  if (split) {
+    try {
+      body = await parse(bodyBuf);
+    } catch (e) {
+      // **텍스처가 있는 몸은 브라우저가 있어야 읽힌다.** three 의 GLTFLoader 가
+      // 그림을 `self.createImageBitmap` 으로 푸는데, Node 에는 `self` 가 없다.
+      // 그냥 두면 "self is not defined" 만 나와서 쓰는 쪽이 원인을 못 찾는다 —
+      // 소비처 시험(scripts/smoke-consumer.mjs)을 쓰다 밟았고, 게이트는 텍스처
+      // 없는 기준 팩만 열어 봐서 여태 몰랐다.
+      //
+      // 먼 몸(body: 'far')에는 텍스처가 없으므로 Node 에서도 열린다.
+      if (/(^|[^a-z])self([^a-z]|$)|createImageBitmap|ImageBitmap|document is not/.test(String(e?.message))) {
+        throw new Error(
+          `${url}/${bodyFile}: 텍스처가 있는 몸은 브라우저에서만 읽힌다 `
+          + `(three 의 GLTFLoader 가 self.createImageBitmap 을 쓴다). `
+          + `브라우저 밖이면 body: 'far' 로 받을 것 — 먼 몸에는 텍스처가 없다. `
+          + `원래 오류: ${e.message}`,
+        );
+      }
+      throw e;
+    }
+  }
   let bodyDoc = null;
 
   const known = new Set(catalog.clips.map((c) => c.id));
