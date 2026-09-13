@@ -21,3 +21,6 @@ packs/.cache/
 # Rocketbox 팩 — scripts/import-rocketbox.mjs 로 다시 만든다. 클립 GLB 는 원래 무시되므로
 # 설명 파일만 올리면 CI 가 클립이 없다고 실패한다.
 packs/rocketbox-*/
+
+# 내보낸 팩 — scripts/build-dist.mjs 가 만든다. 올리는 것은 사람이 정한다.
+dist/
