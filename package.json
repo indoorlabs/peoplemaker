@@ -35,7 +35,8 @@
     "build:sheet": "node scripts/build-sheet.mjs",
     "build:attributions": "node scripts/build-attributions.mjs",
     "build:dist": "node scripts/build-dist.mjs",
-    "fetch:packs": "node scripts/fetch-packs.mjs"
+    "fetch:packs": "node scripts/fetch-packs.mjs",
+    "compact:clips": "node scripts/compact-clips.mjs"
   },
   "peerDependencies": {
     "three": ">=0.160.0"

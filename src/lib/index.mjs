@@ -30,3 +30,4 @@ export * from './scenario.mjs';
 export * from './thumbnail.mjs';
 export * from './attribution.mjs';
 export * from './dist.mjs';
+export * from './clipPack.mjs';
