@@ -22,9 +22,18 @@ export const SOURCES = {
     org: '국가기술표준원',
     years: '2020~2023',
     url: 'https://sizekorea.kr',
-    // 평균 키는 보도자료로 확인됐다. 세부 항목의 백분위는 포털에서 받아야
-    // 한다 — 그것이 P0 의 남은 일이다.
-    note: '세부 백분위는 포털 내려받기 필요',
+    // **어떻게 받았는지를 적어 둔다.** 값만 있고 받은 길이 없으면 다음
+    // 사람이 다시 물을 수가 없다 — 포털이 열려 있을 때 받아 둔 값이라
+    // 더 그렇다 (이 기계에서 오래 안 열렸다).
+    api: {
+      method: 'POST',
+      url: 'https://sizekorea.kr/human-meas-search/human-data-search/meas-item',
+      form: 'measItemCds(항목 코드) · measDegree=8 · gender=M|F · agePeriod=20-69',
+      fetched: '2026-09-13',
+    },
+    // **20~69세만 잰 조사다.** 7~12·13~18세를 물으면 0명이 나온다
+    // (2026-09-13 확인). 어린이 치수는 여기 없다.
+    ages: '20~69세',
   },
 };
 
@@ -39,44 +48,134 @@ export const SOURCES = {
  * pending 인 항목은 valueMm 없이 `pending: '무엇이 필요한가'` 만 갖는다.
  */
 export const DIMENSIONS = {
-  // ── 확인된 것 ──────────────────────────────────────────────
+  // ── 받은 것 (2026-09-13, 포털에서) ─────────────────────────
+  //
+  // 값은 **포털이 준 그대로**다 — 반올림하지 않았다. 평균·5·50·95 백분위를
+  // 함께 두는 까닭은 쓰임이 다르기 때문이다: 통행 폭은 95, 손이 닿는 높이는
+  // 5 를 쓴다. 평균 하나만 두면 쓰는 쪽이 반쪽에게 모자란 문을 낸다.
+  //
+  // 표본 수(n)도 값의 일부다. 4,295명과 40명은 같은 95 백분위가 아니다.
+
   stature: {
     ko: '키', en: 'Stature',
+    // 포털의 측정 항목 — 이 코드로 다시 물으면 같은 수가 나온다.
+    item: { ko: '키', cd: 'S-STa-H-[FL01-HD01]-DM' },
+    usedBy: ['문 높이', '천장 높이'],
     values: [
-      // 제8차 조사 평균. 성인 전체 평균이며 연령대별이 아니다 —
-      // percentile 을 50 이 아니라 'mean' 으로 적는 이유가 그것이다.
-      { valueMm: 1725, population: 'kr-male-adult', percentile: 'mean', source: 'sizekorea8' },
-      { valueMm: 1596, population: 'kr-female-adult', percentile: 'mean', source: 'sizekorea8' },
+      { valueMm: 1731.91, population: 'kr-male-20-69', percentile: 'mean', n: 4295, source: 'sizekorea8' },
+      { valueMm: 1628, population: 'kr-male-20-69', percentile: 5, n: 4295, source: 'sizekorea8' },
+      { valueMm: 1733, population: 'kr-male-20-69', percentile: 50, n: 4295, source: 'sizekorea8' },
+      { valueMm: 1832.14, population: 'kr-male-20-69', percentile: 95, n: 4295, source: 'sizekorea8' },
+      { valueMm: 1603.67, population: 'kr-female-20-69', percentile: 'mean', n: 5285, source: 'sizekorea8' },
+      { valueMm: 1516, population: 'kr-female-20-69', percentile: 5, n: 5285, source: 'sizekorea8' },
+      { valueMm: 1602.1, population: 'kr-female-20-69', percentile: 50, n: 5285, source: 'sizekorea8' },
+      { valueMm: 1697, population: 'kr-female-20-69', percentile: 95, n: 5285, source: 'sizekorea8' },
+    ],
+  },
+
+  eyeHeight: {
+    ko: '눈높이', en: 'Eye height',
+    // 포털의 측정 항목 — 이 코드로 다시 물으면 같은 수가 나온다.
+    item: { ko: '눈높이', cd: 'S-STa-H-[FL01-EY04]-DM' },
+    usedBy: ['시야 검토', '창 높이', '사이니지 높이'],
+    values: [
+      { valueMm: 1606.2, population: 'kr-male-20-69', percentile: 'mean', n: 4295, source: 'sizekorea8' },
+      { valueMm: 1507.24, population: 'kr-male-20-69', percentile: 5, n: 4295, source: 'sizekorea8' },
+      { valueMm: 1606.4, population: 'kr-male-20-69', percentile: 50, n: 4295, source: 'sizekorea8' },
+      { valueMm: 1702.74, population: 'kr-male-20-69', percentile: 95, n: 4295, source: 'sizekorea8' },
+      { valueMm: 1483.98, population: 'kr-female-20-69', percentile: 'mean', n: 5285, source: 'sizekorea8' },
+      { valueMm: 1400.03, population: 'kr-female-20-69', percentile: 5, n: 5285, source: 'sizekorea8' },
+      { valueMm: 1483.1, population: 'kr-female-20-69', percentile: 50, n: 5285, source: 'sizekorea8' },
+      { valueMm: 1572, population: 'kr-female-20-69', percentile: 95, n: 5285, source: 'sizekorea8' },
+    ],
+  },
+
+  shoulderBreadth: {
+    ko: '어깨사이길이', en: 'Shoulder (biacromial) breadth',
+    // 포털의 측정 항목 — 이 코드로 다시 물으면 같은 수가 나온다.
+    item: { ko: '어깨사이길이', cd: 'S-STa-S-[SD01L~SD01R]-DM' },
+    usedBy: ['복도 유효폭', '보도 통행 폭', '군중 밀도'],
+    values: [
+      { valueMm: 446.68, population: 'kr-male-20-69', percentile: 'mean', n: 4295, source: 'sizekorea8' },
+      { valueMm: 406.08, population: 'kr-male-20-69', percentile: 5, n: 4295, source: 'sizekorea8' },
+      { valueMm: 446.8, population: 'kr-male-20-69', percentile: 50, n: 4295, source: 'sizekorea8' },
+      { valueMm: 488, population: 'kr-male-20-69', percentile: 95, n: 4295, source: 'sizekorea8' },
+      { valueMm: 400.53, population: 'kr-female-20-69', percentile: 'mean', n: 5285, source: 'sizekorea8' },
+      { valueMm: 365, population: 'kr-female-20-69', percentile: 5, n: 5285, source: 'sizekorea8' },
+      { valueMm: 398, population: 'kr-female-20-69', percentile: 50, n: 5285, source: 'sizekorea8' },
+      { valueMm: 436.07, population: 'kr-female-20-69', percentile: 95, n: 5285, source: 'sizekorea8' },
+    ],
+  },
+
+  sittingHeight: {
+    ko: '앉은키', en: 'Sitting height',
+    // 포털의 측정 항목 — 이 코드로 다시 물으면 같은 수가 나온다.
+    item: { ko: '앉은키', cd: 'S-SIb-H-[FL02-HD01]-DM' },
+    usedBy: ['책상·의자 검토', '앉은 시야'],
+    values: [
+      { valueMm: 934.73, population: 'kr-male-20-69', percentile: 'mean', n: 4295, source: 'sizekorea8' },
+      { valueMm: 882, population: 'kr-male-20-69', percentile: 5, n: 4295, source: 'sizekorea8' },
+      { valueMm: 935, population: 'kr-male-20-69', percentile: 50, n: 4295, source: 'sizekorea8' },
+      { valueMm: 986, population: 'kr-male-20-69', percentile: 95, n: 4295, source: 'sizekorea8' },
+      { valueMm: 875.79, population: 'kr-female-20-69', percentile: 'mean', n: 5285, source: 'sizekorea8' },
+      { valueMm: 827, population: 'kr-female-20-69', percentile: 5, n: 5285, source: 'sizekorea8' },
+      { valueMm: 875.4, population: 'kr-female-20-69', percentile: 50, n: 5285, source: 'sizekorea8' },
+      { valueMm: 926, population: 'kr-female-20-69', percentile: 95, n: 5285, source: 'sizekorea8' },
+    ],
+  },
+
+  bodyDepth: {
+    ko: '가슴두께', en: 'Chest depth',
+    // 포털의 측정 항목 — 이 코드로 다시 물으면 같은 수가 나온다.
+    item: { ko: '가슴두께', cd: 'S-STa-D-[CH03]-DM' },
+    usedBy: ['군중 밀도', '대기 공간'],
+    values: [
+      { valueMm: 232.51, population: 'kr-male-20-69', percentile: 'mean', n: 4295, source: 'sizekorea8' },
+      { valueMm: 199.96, population: 'kr-male-20-69', percentile: 5, n: 4295, source: 'sizekorea8' },
+      { valueMm: 231.5, population: 'kr-male-20-69', percentile: 50, n: 4295, source: 'sizekorea8' },
+      { valueMm: 268, population: 'kr-male-20-69', percentile: 95, n: 4295, source: 'sizekorea8' },
+      { valueMm: 207.41, population: 'kr-female-20-69', percentile: 'mean', n: 5285, source: 'sizekorea8' },
+      { valueMm: 171.26, population: 'kr-female-20-69', percentile: 5, n: 5285, source: 'sizekorea8' },
+      { valueMm: 205.8, population: 'kr-female-20-69', percentile: 50, n: 5285, source: 'sizekorea8' },
+      { valueMm: 250.47, population: 'kr-female-20-69', percentile: 95, n: 5285, source: 'sizekorea8' },
+    ],
+  },
+
+  eyeHeightSitting: {
+    ko: '앉은눈높이', en: 'Eye height, sitting',
+    // 포털의 측정 항목 — 이 코드로 다시 물으면 같은 수가 나온다.
+    item: { ko: '앉은눈높이', cd: 'S-SIb-H-[FL02-EY04]-DM' },
+    usedBy: ['앉은 시야', '회의실 검토'],
+    values: [
+      { valueMm: 807.65, population: 'kr-male-20-69', percentile: 'mean', n: 4295, source: 'sizekorea8' },
+      { valueMm: 757, population: 'kr-male-20-69', percentile: 5, n: 4295, source: 'sizekorea8' },
+      { valueMm: 808, population: 'kr-male-20-69', percentile: 50, n: 4295, source: 'sizekorea8' },
+      { valueMm: 858, population: 'kr-male-20-69', percentile: 95, n: 4295, source: 'sizekorea8' },
+      { valueMm: 755.03, population: 'kr-female-20-69', percentile: 'mean', n: 5285, source: 'sizekorea8' },
+      { valueMm: 709.13, population: 'kr-female-20-69', percentile: 5, n: 5285, source: 'sizekorea8' },
+      { valueMm: 755, population: 'kr-female-20-69', percentile: 50, n: 5285, source: 'sizekorea8' },
+      { valueMm: 802, population: 'kr-female-20-69', percentile: 95, n: 5285, source: 'sizekorea8' },
     ],
   },
 
   // ── 아직 못 채운 것 ────────────────────────────────────────
   //
-  // 지우지 않는다. 무엇이 없는지가 보여야 다음에 무엇을 받아 올지 정해진다.
-  eyeHeight: {
-    ko: '눈높이', en: 'Eye height',
-    pending: '사이즈코리아 포털에서 성별·연령대별 백분위를 받아야 한다. 키에서 비율로 만들지 말 것',
-    usedBy: ['시야 검토', '창 높이', '사이니지 높이'],
+  // 다섯이 채워지면서 **더 좁은 두 구멍**이 드러났다. 지우지 않는다 —
+  // 무엇이 없는지가 보여야 다음에 무엇을 받아 올지 정해진다.
+
+  childBodyDims: {
+    ko: '어린이·청소년 치수 (7~18세)', en: 'Child and adolescent dimensions',
+    pending: '제8차 조사는 20~69세만 잰다 — 포털에 7-12·13-18세를 물으면 0명이 나온다 (2026-09-13 확인). 학교 프로필이 어린이 팩을 세우므로 이 값이 필요하다. 제6차·제7차나 다른 조사에서 받아야 한다',
+    usedBy: ['학교 프로필', '어린이 눈높이', '어린이 통행 폭'],
   },
-  shoulderBreadth: {
-    ko: '어깨너비', en: 'Shoulder (biacromial) breadth',
-    pending: '사이즈코리아 포털. 통행 폭 검토는 95 백분위를 써야 한다',
-    usedBy: ['복도 유효폭', '보도 통행 폭', '군중 밀도'],
-  },
-  sittingHeight: {
-    ko: '앉은키', en: 'Sitting height',
-    pending: '사이즈코리아 포털',
-    usedBy: ['책상·의자 검토', '앉은 시야'],
-  },
-  bodyDepth: {
-    ko: '몸통 두께', en: 'Body depth',
-    pending: '사이즈코리아 포털. 군중 밀도(m²/인)의 바닥이 되는 값',
-    usedBy: ['군중 밀도', '대기 공간'],
-  },
-  eyeHeightSitting: {
-    ko: '앉은 눈높이', en: 'Eye height, sitting',
-    pending: '사이즈코리아 포털',
-    usedBy: ['앉은 시야', '회의실 검토'],
+
+  buttockFlesh: {
+    ko: '앉았을 때 엉덩이 살 두께', en: 'Buttock flesh thickness, sitting',
+    // 팩의 seat 은 **엉덩이 뼈** 높이다 (어른 0.591~0.610m). 의자 **면**은
+    // 그보다 살 두께만큼 아래인데, 그 항목이 사이즈코리아에 없다 — 앉은키·
+    // 앉은눈높이·앉은엉덩이배두께는 있지만 이것은 아니다.
+    pending: '사이즈코리아 제8차 측정 항목에 없다 (2026-09-13 확인). 팩의 seat.hipHeightM 은 엉덩이 뼈 높이라, 의자 면의 높이를 내려면 이 값이 필요하다 — 다른 출처가 필요하다',
+    usedBy: ['의자 면 높이'],
   },
 };
 
