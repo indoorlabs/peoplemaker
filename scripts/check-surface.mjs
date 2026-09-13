@@ -23,6 +23,7 @@ const PUBLIC = [
   'ACTIVITIES', 'planActivity', 'startActivity', 'clipForRole',
   'planCast', 'castReport',
   'ROUTINES', 'planRoutine', 'startRoutine',
+  'SCENARIOS', 'planScenario', 'scenarioReport',
   'profileShares', 'profileProblems', 'pendingProfiles', 'PROFILE_SOURCES',
   'planCrowd', 'affordable', 'frameCostMs', 'TIERS',
   'dimensionMm', 'pendingDimensions', 'DIMENSIONS',
