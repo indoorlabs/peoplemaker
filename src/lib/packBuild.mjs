@@ -542,7 +542,7 @@ export function deriveClip(doc, decl, { skeleton = 'mixamo' } = {}) {
  * 순서를 고정한다 — 팩을 다시 구울 때마다 순서가 바뀌면 diff 가 통째로
  * 바뀌어서 무엇이 달라졌는지 안 보인다.
  */
-export function buildCatalog({ packId, version, skeleton, clips, body, bodyFar, bodyDims, person }) {
+export function buildCatalog({ packId, version, skeleton, clips, body, bodyFar, bodyDims, person, origins }) {
   return {
     packId,
     version,
@@ -558,6 +558,9 @@ export function buildCatalog({ packId, version, skeleton, clips, body, bodyFar, 
     // (출처가 `declared-*`). 배역(lib/cast.mjs)이 이것으로 고른다. 사람이
     // 아닌 팩(검사용 합성 팩)에는 없다.
     ...(person ? { person } : {}),
+    // **표기 의무의 뿌리** — 이 팩의 자산이 어디서 왔는가. 고지문은 글로
+    // 안 적고 licenses/ 의 파일을 가리킨다 (lib/attribution.mjs).
+    ...(origins?.length ? { origins } : {}),
     forwardRad: packForwardRad(clips),
     builtBy: 'peoplemaker/build-pack',
     clips: [...clips].sort((a, b) => (a.id < b.id ? -1 : 1)),

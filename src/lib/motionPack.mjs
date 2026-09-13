@@ -223,6 +223,33 @@ export function validateCatalog(catalog, { clipFiles = null, packFiles = null } 
     }
   }
 
+  // **출처 선언** — 표기가 필요한 라이선스의 클립이 어디서 왔는가.
+  //
+  // 고지문을 여기 글로 적지 않고 `licenses/` 의 파일을 가리킨다. MIT 는
+  // "위 저작권 고지를 **그대로** 포함하라" 고 하는데, 옮겨 적으면 갈린다 —
+  // 실제로 팩의 note 에 "Copyright (c) Microsoft Corporation" 이라고 적혀
+  // 있었고 원문은 "Copyright (c) 2020 Microsoft" 였다 (2026-09-13 확인).
+  //
+  // 표기가 정말 다 채워졌는지는 lib/attribution.mjs 가 본다 (여기서 부르면
+  // 순환 import 가 된다 — 그 파일이 LICENSES 를 쓴다).
+  if (catalog.origins !== undefined) {
+    if (!Array.isArray(catalog.origins)) fail('catalog/origins', '출처 선언이 배열이 아니다');
+    else {
+      for (const o of catalog.origins) {
+        const at = `catalog/origins/${o?.tool || '?'}`;
+        if (!o?.tool) fail(`${at}/tool`, '어느 도구·저장소에서 온 것인지가 없다');
+        if (!LICENSES[o?.license]) fail(`${at}/license`, `라이선스가 '${o?.license}' 다`);
+        if (!o?.ko || !o?.en) fail(`${at}/name`, '이름이 두 언어로 없다');
+        if (!o?.url || !/^https:/.test(o.url)) fail(`${at}/url`, `주소가 '${o?.url}' 다`);
+        if (!o?.noticeFile || !String(o.noticeFile).startsWith('licenses/')) {
+          fail(`${at}/notice`, `고지문 파일이 '${o?.noticeFile}' 다 — licenses/… 를 가리켜야 한다`);
+        }
+        if (o?.notice || o?.text) fail(`${at}/inline`, '고지문을 글로 옮겨 적어 두었다 — 파일을 가리킬 것');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(o?.checked || '')) fail(`${at}/checked`, `원문을 확인한 날이 '${o?.checked}' 다`);
+      }
+    }
+  }
+
   // **섬네일** — 클립이 무슨 동작인지 보이는 그림 하나. 그린 그림이 아니라
   // 구운 자세에 살을 붙여 **잰** 그림이다 (lib/thumbnail.mjs). 있으면 팩 안의
   // 파일을 가리켜야 하고, 없는 파일을 가리키면 받는 쪽이 빈 칸을 본다.

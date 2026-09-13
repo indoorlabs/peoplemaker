@@ -29,6 +29,7 @@ const PUBLIC = [
   'dimensionMm', 'pendingDimensions', 'DIMENSIONS',
   'occupantValue', 'pendingOccupantValues', 'OCCUPANT_VALUES', 'OCCUPANT_SOURCES',
   'validateCatalog', 'LICENSES', 'packRedistributable', 'commercialClips',
+  'attributionsFor', 'attributionTally', 'attributionNeeds',
 ];
 
 /** 파일을 주소처럼 읽는 fetch — 브라우저 없이 문을 열어 보려고. */

@@ -43,6 +43,8 @@ export { dimensionMm, pendingDimensions, DIMENSIONS } from '../lib/anthropometry
 // 재실자 값 — 계단 속도·지연 시간. 미국 소방훈련 관찰값이다 (lib/occupancy.mjs).
 export { occupantValue, pendingOccupantValues, OCCUPANT_VALUES, OCCUPANT_SOURCES } from '../lib/occupancy.mjs';
 export { validateCatalog, LICENSES, packRedistributable, commercialClips } from '../lib/motionPack.mjs';
+// 표기 의무 — 이 팩을 쓰면 무엇을 적어야 하는가 (lib/attribution.mjs).
+export { attributionsFor, attributionTally, attributionNeeds } from '../lib/attribution.mjs';
 
 /**
  * 팩을 받아 온다.

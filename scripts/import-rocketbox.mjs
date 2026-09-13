@@ -494,6 +494,9 @@ const sources = {
   // 안 적힌 인물을 인자로 받아 들여올 때는 없는 채로 나가고, 그러면 배역이
   // 그 팩을 안 쓴다 (짐작해서 '어른' 을 넣지 않는다).
   ...(preset.person ? { person: preset.person } : {}),
+  // **표기 의무.** MIT 는 저작권 고지를 그대로 포함하라고 한다 — 고지문은
+  // licenses/ 에 원문 그대로 두고 여기서는 가리키기만 한다.
+  origins: [{"tool": "microsoft/Microsoft-Rocketbox", "license": "MIT", "ko": "Microsoft Rocketbox", "en": "Microsoft Rocketbox", "url": "https://github.com/microsoft/Microsoft-Rocketbox", "noticeFile": "licenses/microsoft-rocketbox.LICENSE.md", "noticeUrl": "https://raw.githubusercontent.com/microsoft/Microsoft-Rocketbox/master/LICENSE.md", "checked": "2026-09-13"}],
   // 먼 사람용 몸 — 무엇을 어떻게 줄였는지가 팩에 남아야 한다.
   ...(farFacts ? { bodyFar: farFacts } : {}),
   note: `Microsoft Rocketbox 의 ${avatarName} (MIT, Copyright (c) Microsoft Corporation). 몸과 동작이 원래 다른 파일이라 scripts/import-rocketbox.mjs 가 접붙였다 — 동작은 뼈 이름으로 맞췄고, 텍스처는 2048 TGA 를 1024 PNG 로 줄였다. 한 팩에 한 사람이다: 두 사람을 한 팩에 넣으면 속도에 맞춰 클립을 고르다 걷는 도중 사람이 바뀐다.`,

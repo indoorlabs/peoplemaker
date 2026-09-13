@@ -28,3 +28,4 @@ export * from './profile.mjs';
 export * from './occupancy.mjs';
 export * from './scenario.mjs';
 export * from './thumbnail.mjs';
+export * from './attribution.mjs';
