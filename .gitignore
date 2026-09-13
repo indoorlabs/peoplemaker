@@ -2,25 +2,44 @@ node_modules
 dist
 .env
 .env.*
-# 진짜 클립은 무겁고, 재배포가 금지된 것도 있다 (Mixamo). 팩은 카탈로그
-# (계약)만 저장소에 두고 GLB 는 따로 배포한다 — 무엇을 뒀는지는
-# catalog.json 이 말한다.
-packs/*/clips/*.glb
+# ── 팩 ──────────────────────────────────────────────────────
+#
+# 팩은 무겁다 (열셋 통째로 257MB). 그래서 예전에는 `packs/rocketbox-*/` 를
+# 통째로 무시했는데, 그러면 `npm i github:indoorlabs/peoplemaker` 로 받은 쪽에
+# **세울 몸이 하나도 안 간다** — spacemaker 를 열어 보고 알았다.
+#
+# 그래서 **먼 층 + 가장 적은 동작만** 둔다 (열둘에 5.5MB). 이만큼이면 설치만
+# 하고도 도시 스케일 군중이 서고 걷고 뛴다 — **대피는 안 된다** (둘러보기와
+# 문 열기가 더 들고, 그 둘을 두면 13.0MB 가 된다). 나머지(몸째 4.2MB ·
+# 텍스처 · 클립 31개)는 `scripts/build-dist.mjs` 로 내보내 따로 올린다.
+#
+# 무엇을 두는지는 `src/lib/dist.mjs` 의 SHIP_FILES 가 말하고,
+# `scripts/check-ship.mjs` 가 그것과 여기가 어긋나면 막는다.
+#
+# **재배포가 금지된 클립(Mixamo 등)은 여기 들어오면 안 된다.** 지금 팩은 전부
+# MIT 라 괜찮고, 계약이 그것을 말할 수 있다 (packRedistributable) — 게이트가
+# 커밋 전에 본다.
+#
+# 디렉터리를 통째로 막으면 **안쪽을 되살릴 수 없다** (git 은 지워진 폴더 안을
+# 안 들여다본다). 그래서 한 겹씩 막고 되살린다.
+packs/.cache/
 
-# **기준 팩은 뺀다.** 우리가 함수로 만든 CC0 이고 다섯 개에 70KB 다.
-# 저장소에 없으면 `npm i github:indoorlabs/peoplemaker` 로 받은 쪽에
-# 카탈로그만 가고 클립이 없다 — 실제로 그렇게 깨졌다.
-!packs/ref-synthetic/clips/*.glb
+packs/rocketbox-*/*
+!packs/rocketbox-*/catalog.json
+!packs/rocketbox-*/body-far.glb
+!packs/rocketbox-*/body-far-10.glb
+!packs/rocketbox-*/clips/
+packs/rocketbox-*/clips/*
+!packs/rocketbox-*/clips/idle.glb
+!packs/rocketbox-*/clips/walk-forward.glb
+!packs/rocketbox-*/clips/run.glb
+
+# 기준 팩은 우리가 함수로 만든 CC0 이고 작다 — 통째로 둔다.
+
 # 파이썬 파이프라인 (P2~)
 __pycache__
 *.pyc
 .venv
-
-# Rocketbox 등 원본 자산 캐시 — import 스크립트가 받아 두는 곳. 저장소에 안 올린다.
-packs/.cache/
-# Rocketbox 팩 — scripts/import-rocketbox.mjs 로 다시 만든다. 클립 GLB 는 원래 무시되므로
-# 설명 파일만 올리면 CI 가 클립이 없다고 실패한다.
-packs/rocketbox-*/
 
 # 내보낸 팩 — scripts/build-dist.mjs 가 만든다. 올리는 것은 사람이 정한다.
 dist/

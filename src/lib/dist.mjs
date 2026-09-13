@@ -90,6 +90,38 @@ export function distManifest(packs, { builtAt = null, version = 1 } = {}) {
 }
 
 /**
+ * **저장소에 두는 파일** — `npm i` 만으로 되는 만큼.
+ *
+ * 팩은 무겁다 (열셋 통째로 257MB). 그래서 예전에는 팩 폴더를 통째로 무시했는데,
+ * 그러면 받은 쪽에 **세울 몸이 하나도 안 간다** — spacemaker 를 열어 보고
+ * 알았다. 먼 층 + 가장 적은 동작만 두면 열둘에 5.5MB 다.
+ *
+ * ## 이만큼으로 되는 것과 안 되는 것
+ *
+ *   된다      도시 스케일 군중이 서고 · 걷고 · 뛴다 (서기·걷기·뛰기)
+ *   안 된다   **대피**는 둘러보기와 문 열기가 더 든다
+ *
+ * 대피까지 두려고 `look-around`(250KB)와 `door-open`(480KB)을 넣어 봤더니
+ * 5.5MB 가 **13.0MB** 가 됐다 — 활동 하나에 저장소가 두 배다. 그래서 안 둔다.
+ * 대피가 필요한 쪽은 그 둘만 더 받으면 된다:
+ *
+ *   npm run fetch:packs -- <주소> --tier far --clips look-around,door-open
+ *
+ * 뛰기는 두는 까닭이 다르다: 뛰는 클립이 없으면 **대피가 걷는 대피가 되고**
+ * 피난 시간이 거짓이 된다. 없는 편이 낫다.
+ *
+ * `.gitignore` 와 여기가 어긋나면 `scripts/check-ship.mjs` 가 막는다.
+ */
+export const SHIP_FILES = [
+  'catalog.json',
+  'body-far.glb',
+  'body-far-10.glb',
+  'clips/idle.glb',
+  'clips/walk-forward.glb',
+  'clips/run.glb',
+];
+
+/**
  * 걷기·서기 같은 **가장 적은 동작** — 이만큼은 있어야 사람이 사람처럼 선다.
  *
  * 서 있기만 있으면 군중이 전부 얼어 있고, 걷기만 있으면 멈춘 사람이 걷다 만

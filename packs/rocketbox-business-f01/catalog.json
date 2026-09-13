@@ -1,0 +1,1008 @@
+{
+  "packId": "rocketbox-business-f01",
+  "version": "0.1.0",
+  "skeleton": "biped",
+  "body": "body.glb",
+  "bodyFar": [
+    {
+      "file": "body-far.glb",
+      "ratio": 0.25,
+      "vertices": 1068,
+      "triangles": 2088,
+      "from": {
+        "vertices": 5503,
+        "triangles": 8352
+      }
+    },
+    {
+      "file": "body-far-10.glb",
+      "ratio": 0.1,
+      "vertices": 440,
+      "triangles": 834,
+      "from": {
+        "vertices": 5503,
+        "triangles": 8352
+      }
+    }
+  ],
+  "bodyDims": {
+    "source": "measured-from-pack",
+    "pose": "idle",
+    "heightM": 1.732,
+    "widthM": 0.48,
+    "depthM": 0.3,
+    "eyeHeightM": 1.606,
+    "walkWidthM": 0.525,
+    "maxWidthM": 0.525
+  },
+  "person": {
+    "source": "declared-by-import",
+    "ageBand": "adult",
+    "sex": "female",
+    "mobility": "walk",
+    "attire": "business"
+  },
+  "origins": [
+    {
+      "tool": "microsoft/Microsoft-Rocketbox",
+      "license": "MIT",
+      "ko": "Microsoft Rocketbox",
+      "en": "Microsoft Rocketbox",
+      "url": "https://github.com/microsoft/Microsoft-Rocketbox",
+      "noticeFile": "licenses/microsoft-rocketbox.LICENSE.md",
+      "noticeUrl": "https://raw.githubusercontent.com/microsoft/Microsoft-Rocketbox/master/LICENSE.md",
+      "checked": "2026-09-13"
+    }
+  ],
+  "forwardRad": 0,
+  "builtBy": "peoplemaker/build-pack",
+  "clips": [
+    {
+      "id": "angry",
+      "name": {
+        "ko": "화난 자세 (정장 여자 01)",
+        "en": "Angry stance (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_idle_angry_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "distress",
+        "conflict",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 23.8333,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/angry.svg"
+    },
+    {
+      "id": "clap",
+      "name": {
+        "ko": "박수 (정장 여자 01)",
+        "en": "Clapping (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_claphands_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "social",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 15.9167,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/clap.svg"
+    },
+    {
+      "id": "cough",
+      "name": {
+        "ko": "기침 (정장 여자 01)",
+        "en": "Coughing (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_idle_cough_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "distress",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 3.6667,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/cough.svg"
+    },
+    {
+      "id": "crouch",
+      "name": {
+        "ko": "쪼그려 앉기 (정장 여자 01)",
+        "en": "Crouching (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_crouch_idle.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 크기 비 1)"
+      },
+      "tags": [
+        "crouch",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 9.9167,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/crouch.svg"
+    },
+    {
+      "id": "crouch-in",
+      "name": {
+        "ko": "주저앉기 (정장 여자 01)",
+        "en": "Crouching down (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_crouch_in.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 크기 비 1)"
+      },
+      "tags": [
+        "crouch",
+        "transition",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 2.5,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/crouch-in.svg"
+    },
+    {
+      "id": "crouch-out",
+      "name": {
+        "ko": "주저앉았다 일어서기 (정장 여자 01)",
+        "en": "Standing up from a crouch (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_crouch_out.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 크기 비 1)"
+      },
+      "tags": [
+        "crouch",
+        "transition",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 2.6667,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/crouch-out.svg"
+    },
+    {
+      "id": "documents",
+      "name": {
+        "ko": "서류 보기 (정장 여자 01)",
+        "en": "Checking documents (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_documents_check.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "work",
+        "hold",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 12.125,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/documents.svg"
+    },
+    {
+      "id": "door-knock",
+      "name": {
+        "ko": "문 두드리기 (정장 여자 01)",
+        "en": "Knocking on a door (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_knock_door.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "door",
+        "reach",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 3.1667,
+      "rootMotion": "in-place",
+      "contacts": [
+        {
+          "atS": 0.9,
+          "part": "hand-r",
+          "kind": "touch"
+        },
+        {
+          "atS": 1.383,
+          "part": "hand-r",
+          "kind": "release"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/door-knock.svg",
+      "reach": {
+        "part": "hand-r",
+        "atS": 0.9,
+        "releaseS": 1.383,
+        "forwardM": 0.445,
+        "heightM": 1.485
+      }
+    },
+    {
+      "id": "door-listen",
+      "name": {
+        "ko": "문에 귀 대기 (정장 여자 01)",
+        "en": "Listening at a door (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_listen_door.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "door",
+        "distress",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 7.3333,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/door-listen.svg"
+    },
+    {
+      "id": "door-open",
+      "name": {
+        "ko": "문 열기 (정장 여자 01)",
+        "en": "Opening a door (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_try_door_inwards.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "door",
+        "reach",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 9,
+      "rootMotion": "in-place",
+      "contacts": [
+        {
+          "atS": 1.45,
+          "part": "hand-l",
+          "kind": "touch"
+        },
+        {
+          "atS": 2.933,
+          "part": "hand-l",
+          "kind": "release"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/door-open.svg",
+      "reach": {
+        "part": "hand-l",
+        "atS": 1.45,
+        "releaseS": 2.933,
+        "forwardM": 0.358,
+        "heightM": 1.065
+      }
+    },
+    {
+      "id": "drink",
+      "name": {
+        "ko": "마시기 (정장 여자 01)",
+        "en": "Drinking (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_drink_drinking.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "hold",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 11.875,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/drink.svg"
+    },
+    {
+      "id": "idle",
+      "name": {
+        "ko": "서 있기 (정장 여자 01)",
+        "en": "Idle (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_idle_breathe_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "idle",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 2.6667,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/idle.svg"
+    },
+    {
+      "id": "listen",
+      "name": {
+        "ko": "듣기 (정장 여자 01)",
+        "en": "Listen (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_gestic_listen_neutral_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "listen",
+        "social",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 21.4167,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/listen.svg"
+    },
+    {
+      "id": "look-around",
+      "name": {
+        "ko": "둘러보기 (정장 여자 01)",
+        "en": "Look around (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_idle_look_around_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "idle",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 4.4583,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/look-around.svg"
+    },
+    {
+      "id": "nervous",
+      "name": {
+        "ko": "불안해하기 (정장 여자 01)",
+        "en": "Nervous (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_idle_nervous_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "distress",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 46.1667,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/nervous.svg"
+    },
+    {
+      "id": "phone",
+      "name": {
+        "ko": "휴대폰 보기 (정장 여자 01)",
+        "en": "Texting (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_cell_phone_textmessage.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "phone",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 20.5,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/phone.svg"
+    },
+    {
+      "id": "phone-call",
+      "name": {
+        "ko": "전화 통화 (정장 여자 01)",
+        "en": "Phone call (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Adults/Male_Adult_01/Export/Male_Adult_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_cell_phone_talk_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedFrom": "rocketbox-m01/phone-call",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 엉덩이 높이 비 1.0314)"
+      },
+      "tags": [
+        "phone",
+        "talk",
+        "male",
+        "adult",
+        "retargeted"
+      ],
+      "durationS": 31.875,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/phone-call.svg"
+    },
+    {
+      "id": "photo",
+      "name": {
+        "ko": "사진 찍기 (정장 여자 01)",
+        "en": "Take a picture (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_take_picture.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "photo",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 8.4167,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/photo.svg"
+    },
+    {
+      "id": "run",
+      "name": {
+        "ko": "뛰기 (정장 여자 01)",
+        "en": "Running (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_xy/f_run_neutral_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "run",
+        "travel",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 0.75,
+      "rootMotion": "travel",
+      "speedMps": 2.763,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.233,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 0.6,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/run.svg"
+    },
+    {
+      "id": "run-injured",
+      "name": {
+        "ko": "다쳐서 뛰기 (정장 여자 01)",
+        "en": "Running injured (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_xy/f_run_injured.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "run",
+        "travel",
+        "distress",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 0.75,
+      "rootMotion": "travel",
+      "speedMps": 2.664,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.25,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 0.583,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/run-injured.svg"
+    },
+    {
+      "id": "sit",
+      "name": {
+        "ko": "앉아 있기 (정장 여자 01)",
+        "en": "Sitting (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_sit_chair_idle_neutral_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 크기 비 1)"
+      },
+      "tags": [
+        "sit",
+        "seated",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 33.2083,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "seat": {
+        "hipHeightM": 0.61,
+        "hipRatio": 0.66,
+        "feetForwardM": 0.554,
+        "groundOffsetM": 0,
+        "dwell": 1
+      },
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/sit.svg"
+    },
+    {
+      "id": "sit-table",
+      "name": {
+        "ko": "책상에 앉아 있기 (정장 여자 01)",
+        "en": "Sitting at a table (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_sit_table_idle_neutral_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 크기 비 1)"
+      },
+      "tags": [
+        "sit",
+        "seated",
+        "work",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 26.2083,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "seat": {
+        "hipHeightM": 0.609,
+        "hipRatio": 0.659,
+        "feetForwardM": 0.566,
+        "groundOffsetM": 0,
+        "dwell": 1
+      },
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/sit-table.svg"
+    },
+    {
+      "id": "stretch",
+      "name": {
+        "ko": "기지개 (정장 여자 01)",
+        "en": "Stretching (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_idle_stretch_arms_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "idle",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 7.2917,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/stretch.svg"
+    },
+    {
+      "id": "talk",
+      "name": {
+        "ko": "말하기 (정장 여자 01)",
+        "en": "Talk (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_gestic_talk_neutral_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "talk",
+        "social",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 27.3333,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/talk.svg"
+    },
+    {
+      "id": "walk-bruised",
+      "name": {
+        "ko": "절뚝이며 걷기 (정장 여자 01)",
+        "en": "Walking bruised (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_xy/f_walk_bruised.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "walk",
+        "travel",
+        "distress",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 1,
+      "rootMotion": "travel",
+      "speedMps": 1.303,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.2,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 0.817,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-bruised.svg"
+    },
+    {
+      "id": "walk-fast",
+      "name": {
+        "ko": "빨리 걷기 (정장 여자 01)",
+        "en": "Walking fast (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_xy/f_walk_fast_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "walk",
+        "travel",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 1,
+      "rootMotion": "travel",
+      "speedMps": 1.522,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.267,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 0.817,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-fast.svg"
+    },
+    {
+      "id": "walk-forward",
+      "name": {
+        "ko": "앞으로 걷기 (정장 여자 01)",
+        "en": "Walk forward (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_xy/f_walk_neutral_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "walk",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 1.1667,
+      "rootMotion": "travel",
+      "speedMps": 1.21,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.317,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 0.917,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-forward.svg"
+    },
+    {
+      "id": "walk-injured",
+      "name": {
+        "ko": "다쳐서 걷기 (정장 여자 01)",
+        "en": "Walking injured (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_xy/f_walk_injured.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "walk",
+        "travel",
+        "distress",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 1.125,
+      "rootMotion": "travel",
+      "speedMps": 1.145,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.132,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 0.596,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-injured.svg"
+    },
+    {
+      "id": "walk-slow",
+      "name": {
+        "ko": "천천히 걷기 (정장 여자 01)",
+        "en": "Walking slowly (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_xy/f_walk_slow_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "walk",
+        "travel",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 1.5,
+      "rootMotion": "travel",
+      "speedMps": 0.887,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.367,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 1.15,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-slow.svg"
+    },
+    {
+      "id": "wave",
+      "name": {
+        "ko": "손 흔들기 (정장 여자 01)",
+        "en": "Wave (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_wave_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "wave",
+        "social",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 5.5,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/wave.svg"
+    },
+    {
+      "id": "work-table",
+      "name": {
+        "ko": "책상에서 일하기 (정장 여자 01)",
+        "en": "Working at a table (business woman 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Business_Female_01/Export/Business_Female_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_work_table.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "work",
+        "female",
+        "adult",
+        "business"
+      ],
+      "durationS": 28.2917,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/work-table.svg"
+    }
+  ],
+  "note": "Microsoft Rocketbox 의 Business_Female_01 (MIT — 고지문은 licenses/microsoft-rocketbox.LICENSE.md). 몸과 동작이 원래 다른 파일이라 scripts/import-rocketbox.mjs 가 접붙였다 — 동작은 뼈 이름으로 맞췄고, 텍스처는 2048 TGA 를 1024 PNG 로 줄였다. 한 팩에 한 사람이다: 두 사람을 한 팩에 넣으면 속도에 맞춰 클립을 고르다 걷는 도중 사람이 바뀐다."
+}

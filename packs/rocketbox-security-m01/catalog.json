@@ -1,0 +1,1042 @@
+{
+  "packId": "rocketbox-security-m01",
+  "version": "0.1.0",
+  "skeleton": "biped",
+  "body": "body.glb",
+  "bodyFar": [
+    {
+      "file": "body-far.glb",
+      "ratio": 0.25,
+      "vertices": 1270,
+      "triangles": 2377,
+      "from": {
+        "vertices": 6609,
+        "triangles": 9515
+      }
+    },
+    {
+      "file": "body-far-10.glb",
+      "ratio": 0.1,
+      "vertices": 542,
+      "triangles": 950,
+      "from": {
+        "vertices": 6609,
+        "triangles": 9515
+      }
+    }
+  ],
+  "bodyDims": {
+    "source": "measured-from-pack",
+    "pose": "idle",
+    "heightM": 1.824,
+    "widthM": 0.602,
+    "depthM": 0.398,
+    "eyeHeightM": 1.683,
+    "walkWidthM": 0.582,
+    "maxWidthM": 0.602
+  },
+  "person": {
+    "source": "declared-by-import",
+    "ageBand": "adult",
+    "sex": "male",
+    "mobility": "walk",
+    "attire": "uniform"
+  },
+  "origins": [
+    {
+      "tool": "microsoft/Microsoft-Rocketbox",
+      "license": "MIT",
+      "ko": "Microsoft Rocketbox",
+      "en": "Microsoft Rocketbox",
+      "url": "https://github.com/microsoft/Microsoft-Rocketbox",
+      "noticeFile": "licenses/microsoft-rocketbox.LICENSE.md",
+      "noticeUrl": "https://raw.githubusercontent.com/microsoft/Microsoft-Rocketbox/master/LICENSE.md",
+      "checked": "2026-09-13"
+    }
+  ],
+  "forwardRad": 0,
+  "builtBy": "peoplemaker/build-pack",
+  "clips": [
+    {
+      "id": "angry",
+      "name": {
+        "ko": "화난 자세 (경비 남자 01)",
+        "en": "Angry stance (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_idle_angry_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "distress",
+        "conflict",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 28.3333,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/angry.svg"
+    },
+    {
+      "id": "clap",
+      "name": {
+        "ko": "박수 (경비 남자 01)",
+        "en": "Clapping (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_claphands_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "social",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 7,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/clap.svg"
+    },
+    {
+      "id": "cough",
+      "name": {
+        "ko": "기침 (경비 남자 01)",
+        "en": "Coughing (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_idle_cough_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "distress",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 3.6667,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/cough.svg"
+    },
+    {
+      "id": "crouch",
+      "name": {
+        "ko": "쪼그려 앉기 (경비 남자 01)",
+        "en": "Crouching (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_crouch_idle.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 크기 비 1)"
+      },
+      "tags": [
+        "crouch",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 6.8333,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/crouch.svg"
+    },
+    {
+      "id": "crouch-in",
+      "name": {
+        "ko": "주저앉기 (경비 남자 01)",
+        "en": "Crouching down (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Adults/Female_Adult_01/Export/Female_Adult_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_crouch_in.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 엉덩이 높이 비 0.9696)",
+        "retargetedFrom": "rocketbox-f01/crouch-in"
+      },
+      "tags": [
+        "crouch",
+        "transition",
+        "female",
+        "adult",
+        "retargeted"
+      ],
+      "durationS": 2.5,
+      "rootMotion": "in-place",
+      "contacts": [
+        {
+          "atS": 1.45,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 1.45,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/crouch-in.svg"
+    },
+    {
+      "id": "crouch-out",
+      "name": {
+        "ko": "주저앉았다 일어서기 (경비 남자 01)",
+        "en": "Standing up from a crouch (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Adults/Female_Adult_01/Export/Female_Adult_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_crouch_out.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 엉덩이 높이 비 0.9696)",
+        "retargetedFrom": "rocketbox-f01/crouch-out"
+      },
+      "tags": [
+        "crouch",
+        "transition",
+        "female",
+        "adult",
+        "retargeted"
+      ],
+      "durationS": 2.6667,
+      "rootMotion": "in-place",
+      "contacts": [
+        {
+          "atS": 0,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 0,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/crouch-out.svg"
+    },
+    {
+      "id": "documents",
+      "name": {
+        "ko": "서류 보기 (경비 남자 01)",
+        "en": "Checking documents (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_documents_check.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "work",
+        "hold",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 16.0833,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/documents.svg"
+    },
+    {
+      "id": "door-knock",
+      "name": {
+        "ko": "문 두드리기 (경비 남자 01)",
+        "en": "Knocking on a door (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_knock_door.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "door",
+        "reach",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 8,
+      "rootMotion": "in-place",
+      "contacts": [
+        {
+          "atS": 2.683,
+          "part": "foot-r",
+          "kind": "plant"
+        },
+        {
+          "atS": 2.767,
+          "part": "hand-r",
+          "kind": "touch"
+        },
+        {
+          "atS": 3.033,
+          "part": "hand-r",
+          "kind": "release"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/door-knock.svg",
+      "reach": {
+        "part": "hand-r",
+        "atS": 2.767,
+        "releaseS": 3.033,
+        "forwardM": 0.485,
+        "heightM": 1.403
+      }
+    },
+    {
+      "id": "door-listen",
+      "name": {
+        "ko": "문에 귀 대기 (경비 남자 01)",
+        "en": "Listening at a door (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_listen_door.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "door",
+        "distress",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 8.3333,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/door-listen.svg"
+    },
+    {
+      "id": "door-open",
+      "name": {
+        "ko": "문 열기 (경비 남자 01)",
+        "en": "Opening a door (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_try_door_inwards.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "door",
+        "reach",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 6.1667,
+      "rootMotion": "in-place",
+      "contacts": [
+        {
+          "atS": 0.5,
+          "part": "hand-r",
+          "kind": "touch"
+        },
+        {
+          "atS": 0.65,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 0.9,
+          "part": "hand-r",
+          "kind": "release"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/door-open.svg",
+      "reach": {
+        "part": "hand-r",
+        "atS": 0.5,
+        "releaseS": 0.9,
+        "forwardM": 0.446,
+        "heightM": 1.108
+      }
+    },
+    {
+      "id": "drink",
+      "name": {
+        "ko": "마시기 (경비 남자 01)",
+        "en": "Drinking (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_drink_drinking.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "hold",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 35,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/drink.svg"
+    },
+    {
+      "id": "idle",
+      "name": {
+        "ko": "서 있기 (경비 남자 01)",
+        "en": "Idle (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_idle_breathe_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "idle",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 2.7083,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/idle.svg"
+    },
+    {
+      "id": "listen",
+      "name": {
+        "ko": "듣기 (경비 남자 01)",
+        "en": "Listen (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_gestic_listen_neutral_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "listen",
+        "social",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 32.5,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/listen.svg"
+    },
+    {
+      "id": "look-around",
+      "name": {
+        "ko": "둘러보기 (경비 남자 01)",
+        "en": "Look around (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_idle_look_around_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "idle",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 4.625,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/look-around.svg"
+    },
+    {
+      "id": "nervous",
+      "name": {
+        "ko": "불안해하기 (경비 남자 01)",
+        "en": "Nervous (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_idle_nervous_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "distress",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 30.875,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/nervous.svg"
+    },
+    {
+      "id": "phone",
+      "name": {
+        "ko": "휴대폰 보기 (경비 남자 01)",
+        "en": "Texting (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_cell_phone_textmessage.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "phone",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 34.4583,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/phone.svg"
+    },
+    {
+      "id": "phone-call",
+      "name": {
+        "ko": "전화 통화 (경비 남자 01)",
+        "en": "Phone call (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_cell_phone_talk_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "phone",
+        "talk",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 31.875,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/phone-call.svg"
+    },
+    {
+      "id": "photo",
+      "name": {
+        "ko": "사진 찍기 (경비 남자 01)",
+        "en": "Take a picture (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_take_picture.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "photo",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 8.5,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/photo.svg"
+    },
+    {
+      "id": "run",
+      "name": {
+        "ko": "뛰기 (경비 남자 01)",
+        "en": "Running (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_xy/m_run_neutral_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "run",
+        "travel",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 0.7083,
+      "rootMotion": "travel",
+      "speedMps": 2.87,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.27,
+          "part": "foot-r",
+          "kind": "plant"
+        },
+        {
+          "atS": 0.641,
+          "part": "foot-l",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/run.svg"
+    },
+    {
+      "id": "run-injured",
+      "name": {
+        "ko": "다쳐서 뛰기 (경비 남자 01)",
+        "en": "Running injured (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_xy/m_run_injured.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "run",
+        "travel",
+        "distress",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 0.6667,
+      "rootMotion": "travel",
+      "speedMps": 3.452,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.25,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 0.567,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/run-injured.svg"
+    },
+    {
+      "id": "sit",
+      "name": {
+        "ko": "앉아 있기 (경비 남자 01)",
+        "en": "Sitting (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_sit_chair_idle_neutral_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 크기 비 1)"
+      },
+      "tags": [
+        "sit",
+        "seated",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 36.0833,
+      "rootMotion": "in-place",
+      "contacts": [
+        {
+          "atS": 20.767,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "seat": {
+        "hipHeightM": 0.591,
+        "hipRatio": 0.66,
+        "feetForwardM": 0.54,
+        "groundOffsetM": -0.005,
+        "dwell": 1
+      },
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/sit.svg"
+    },
+    {
+      "id": "sit-table",
+      "name": {
+        "ko": "책상에 앉아 있기 (경비 남자 01)",
+        "en": "Sitting at a table (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_sit_table_idle_neutral_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 크기 비 1)"
+      },
+      "tags": [
+        "sit",
+        "seated",
+        "work",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 45.6667,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "seat": {
+        "hipHeightM": 0.577,
+        "hipRatio": 0.645,
+        "feetForwardM": 0.494,
+        "groundOffsetM": -0.006,
+        "dwell": 1
+      },
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/sit-table.svg"
+    },
+    {
+      "id": "stretch",
+      "name": {
+        "ko": "기지개 (경비 남자 01)",
+        "en": "Stretching (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_idle_stretch_arms_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "idle",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 6.625,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/stretch.svg"
+    },
+    {
+      "id": "talk",
+      "name": {
+        "ko": "말하기 (경비 남자 01)",
+        "en": "Talk (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_gestic_talk_neutral_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "talk",
+        "social",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 35.5417,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/talk.svg"
+    },
+    {
+      "id": "walk-bruised",
+      "name": {
+        "ko": "절뚝이며 걷기 (경비 남자 01)",
+        "en": "Walking bruised (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_xy/m_walk_bruised.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "walk",
+        "travel",
+        "distress",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 2.5,
+      "rootMotion": "travel",
+      "speedMps": 0.717,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.867,
+          "part": "foot-r",
+          "kind": "plant"
+        },
+        {
+          "atS": 1.483,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 2.05,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-bruised.svg"
+    },
+    {
+      "id": "walk-fast",
+      "name": {
+        "ko": "빨리 걷기 (경비 남자 01)",
+        "en": "Walking fast (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_xy/m_walk_fast_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "walk",
+        "travel",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 1.0417,
+      "rootMotion": "travel",
+      "speedMps": 1.494,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.265,
+          "part": "foot-r",
+          "kind": "plant"
+        },
+        {
+          "atS": 0.81,
+          "part": "foot-l",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-fast.svg"
+    },
+    {
+      "id": "walk-forward",
+      "name": {
+        "ko": "앞으로 걷기 (경비 남자 01)",
+        "en": "Walk forward (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_xy/m_walk_neutral_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "walk",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 1.1667,
+      "rootMotion": "travel",
+      "speedMps": 1.018,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.267,
+          "part": "foot-r",
+          "kind": "plant"
+        },
+        {
+          "atS": 0.85,
+          "part": "foot-l",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-forward.svg"
+    },
+    {
+      "id": "walk-injured",
+      "name": {
+        "ko": "다쳐서 걷기 (경비 남자 01)",
+        "en": "Walking injured (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Adults/Female_Adult_01/Export/Female_Adult_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_xy/f_walk_injured.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedFrom": "rocketbox-f01/walk-injured",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 엉덩이 높이 비 0.9696)"
+      },
+      "tags": [
+        "walk",
+        "travel",
+        "distress",
+        "female",
+        "adult",
+        "retargeted"
+      ],
+      "durationS": 1.125,
+      "rootMotion": "travel",
+      "speedMps": 1.292,
+      "travelHeadingRad": 0,
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-injured.svg"
+    },
+    {
+      "id": "walk-slow",
+      "name": {
+        "ko": "천천히 걷기 (경비 남자 01)",
+        "en": "Walking slowly (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_xy/m_walk_slow_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "walk",
+        "travel",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 1.4583,
+      "rootMotion": "travel",
+      "speedMps": 0.823,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.402,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 1.14,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-slow.svg"
+    },
+    {
+      "id": "wave",
+      "name": {
+        "ko": "손 흔들기 (경비 남자 01)",
+        "en": "Wave (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_wave_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "wave",
+        "social",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 2.8333,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/wave.svg"
+    },
+    {
+      "id": "work-table",
+      "name": {
+        "ko": "책상에서 일하기 (경비 남자 01)",
+        "en": "Working at a table (security man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Security_Male_01/Export/Security_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_work_table.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "work",
+        "male",
+        "adult",
+        "security"
+      ],
+      "durationS": 11.2917,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/work-table.svg"
+    }
+  ],
+  "note": "Microsoft Rocketbox 의 Security_Male_01 (MIT — 고지문은 licenses/microsoft-rocketbox.LICENSE.md). 몸과 동작이 원래 다른 파일이라 scripts/import-rocketbox.mjs 가 접붙였다 — 동작은 뼈 이름으로 맞췄고, 텍스처는 2048 TGA 를 1024 PNG 로 줄였다. 한 팩에 한 사람이다: 두 사람을 한 팩에 넣으면 속도에 맞춰 클립을 고르다 걷는 도중 사람이 바뀐다."
+}
