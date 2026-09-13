@@ -25,3 +25,4 @@ export * from './bodyMesh.mjs';
 export * from './cast.mjs';
 export * from './routine.mjs';
 export * from './profile.mjs';
+export * from './occupancy.mjs';

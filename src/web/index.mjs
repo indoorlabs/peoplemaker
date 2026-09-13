@@ -38,6 +38,8 @@ export {
   measuredFor, planCrowdMeasured,
 } from '../lib/crowdBudget.mjs';
 export { dimensionMm, pendingDimensions, DIMENSIONS } from '../lib/anthropometry.mjs';
+// 재실자 값 — 계단 속도·지연 시간. 미국 소방훈련 관찰값이다 (lib/occupancy.mjs).
+export { occupantValue, pendingOccupantValues, OCCUPANT_VALUES, OCCUPANT_SOURCES } from '../lib/occupancy.mjs';
 export { validateCatalog, LICENSES, packRedistributable, commercialClips } from '../lib/motionPack.mjs';
 
 /**

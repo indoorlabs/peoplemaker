@@ -26,6 +26,7 @@ const PUBLIC = [
   'profileShares', 'profileProblems', 'pendingProfiles', 'PROFILE_SOURCES',
   'planCrowd', 'affordable', 'frameCostMs', 'TIERS',
   'dimensionMm', 'pendingDimensions', 'DIMENSIONS',
+  'occupantValue', 'pendingOccupantValues', 'OCCUPANT_VALUES', 'OCCUPANT_SOURCES',
   'validateCatalog', 'LICENSES', 'packRedistributable', 'commercialClips',
 ];
 
