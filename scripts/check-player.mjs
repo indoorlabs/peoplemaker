@@ -14,6 +14,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { runGate, ROOT } from './gate-lib.mjs';
+import { crossFadeS, CROSSFADE_MAX_S } from '../src/lib/packRuntime.mjs';
 import { createClipPlayer } from '../src/web/clipPlayer.mjs';
 import { pickWalkClip, contactsAt, durationAt, strideS, TIME_SCALE_MAX } from '../src/lib/packRuntime.mjs';
 import { PLANT_MAX_Y_M, angleDiff } from '../src/lib/packBuild.mjs';
@@ -288,6 +289,16 @@ runGate('check-player', async (g) => {
       player.playClip(q, 'idle');
       n++;
       if (q.clipId !== 'idle') g.fail('playClip/switch', '클립을 안 바꾼다');
+      // **갈아 끼우기는 이제 즉시가 아니다.** 섞어 넘기기가 들어오면서 앞
+      // 클립이 0.25초 동안 옅어지며 남는다 — 그 동안 발이 아직 걷는다.
+      // 이 검사는 "옛 액션이 **계속** 도는가" 를 보는 것이므로, 섞기가 끝난
+      // 뒤부터 재야 한다. (안 고쳤더니 선 사람의 발 폭이 0.002 → 0.007m 로
+      // 늘어 견줄 자와 안 갈렸다.)
+      n++;
+      if (!(q.fadeS > 0)) g.fail('playClip/fade', `갈아 끼웠는데 섞는 시간이 ${q.fadeS} 다`);
+      for (let t = 0; t < q.fadeS + 0.05; t += 1 / 60) player.update(1 / 60);
+      n++;
+      if (q.fading) g.fail('playClip/fade-end', '섞기가 끝날 때가 지났는데 앞 액션이 남아 있다');
       // 발이 얼마나 오르내리는가 — **여러 번 재서 폭을 본다.**
       // 두 시점만 견주면 우연히 같은 높이를 잡는다. 실제로 그래서 이
       // 검사가 돌연변이를 놓쳤다.
@@ -405,5 +416,98 @@ runGate('check-player', async (g) => {
   }
 
   console.log(`  [재생] three ${THREE.REVISION} · 클립 ${gltfs.size}개를 읽고 사람 ${player.people.length}명을 세웠다`);
+  // ── 섞어 넘기기 ──
+  //
+  // 활동이 클립을 갈아탈 때 툭 끊기던 것을 섞는다. **그런데 섞으면 발이
+  // 미끄러진다** — 두 클립의 발이 서로 다른 자리에 있는 동안 살이 그 사이
+  // 어딘가에 있게 되기 때문이다. 공짜가 아니므로 **둘 다 잰다**: 안 섞으면
+  // 자세가 얼마나 튀는가, 섞으면 발이 얼마나 미끄러지는가.
+  {
+    const cat = catalog;
+    const two = ['idle', 'walk-forward'].filter((id) => cat.clips.some((c) => c.id === id));
+    n++;
+    if (two.length < 2) { g.setupFail('섞기를 볼 클립 둘이 없다'); return n; }
+
+    // 규칙부터 — 같은 클립이면 0, 짧은 클립이면 짧게, 이동끼리는 더 짧게.
+    const byId = new Map(cat.clips.map((c) => [c.id, c]));
+    const idle = byId.get('idle');
+    const walk = byId.get('walk-forward');
+    n++;
+    if (crossFadeS(idle, idle) !== 0) g.fail('fade/same', '같은 클립인데 섞는다');
+    n++;
+    if (crossFadeS(null, walk) !== 0) g.fail('fade/first', '처음 세우는 것인데 섞는다');
+    n++;
+    if (!(crossFadeS(idle, walk) > 0 && crossFadeS(idle, walk) <= CROSSFADE_MAX_S)) {
+      g.fail('fade/range', `섞는 시간이 ${crossFadeS(idle, walk)}s 다 (0 ~ ${CROSSFADE_MAX_S})`);
+    }
+    n++;
+    // **짧은 클립을 통째로 뭉개지 않는가** — 0.3s 짜리를 0.25s 섞으면 안 보인다.
+    const tiny = { id: 'tiny', durationS: 0.3, rootMotion: 'in-place' };
+    if (!(crossFadeS(idle, tiny) <= 0.1 + 1e-9)) g.fail('fade/short', `0.3s 클립에 ${crossFadeS(idle, tiny)}s 를 섞는다`);
+    n++;
+    // 이동끼리는 더 짧게 — 발이 땅에 있는 동안 섞으면 미끄러짐이 바로 보인다.
+    const run = byId.get('run') || { id: 'run', durationS: 5, rootMotion: 'travel' };
+    const w2 = { ...walk, durationS: 5, rootMotion: 'travel' };
+    if (!(crossFadeS(w2, { ...run, durationS: 5, rootMotion: 'travel' }) < crossFadeS(idle, walk))) {
+      g.fail('fade/travel', '이동 클립끼리를 제자리 클립과 같은 길이로 섞는다');
+    }
+
+    // ── 자세가 튀는가 / 발이 미끄러지는가 ──
+    // 발 뼈를 **이름으로 찾는다** — 계약의 contacts[].part 는 'foot-l' 같은
+    // 부위 이름이지 뼈 이름이 아니다. 처음에 그 둘을 헷갈려 게이트가
+    // "발 뼈(foot-r)를 못 찾는다" 로 멈췄다.
+    let foot = null;
+    player.spawn({ clipId: two[0] }).root.traverse((o) => {
+      if (!foot && o.isBone && /foot/i.test(o.name) && !/toe/i.test(o.name)) foot = o.name;
+    });
+    n++;
+    if (!foot) { g.setupFail('발 뼈를 못 찾는다'); return n; }
+    const jumpOf = (fadeS) => {
+      const p2 = player.spawn({ clipId: two[0], position: [0, 0, 0] });
+      for (let t = 0; t < 1; t += 1 / 60) player.update(1 / 60);
+      const before = player.boneWorld(p2, foot)?.clone();
+      player.playClip(p2, two[1], { fadeS });
+      player.update(1 / 60);
+      const after = player.boneWorld(p2, foot)?.clone();
+      if (!before || !after) return null;
+      // 한 프레임에 발이 얼마나 옮겨 갔는가 — 안 섞으면 그것이 '튐' 이다.
+      const jump = before.distanceTo(after);
+      // 섞는 동안 발이 얼마나 더 가는가 — 그것이 '미끄러짐' 이다.
+      let slide = 0;
+      let prev = after.clone();
+      const steps = Math.max(1, Math.round((fadeS || 0) * 60));
+      for (let i = 0; i < steps; i++) {
+        player.update(1 / 60);
+        const now = player.boneWorld(p2, foot);
+        slide += prev.distanceTo(now);
+        prev = now.clone();
+      }
+      return { jump, slide };
+    };
+
+    const hard = jumpOf(0);
+    const soft = jumpOf(crossFadeS(idle, walk));
+    n++;
+    if (!hard || !soft) { g.setupFail(`발 뼈(${foot})를 못 찾는다`); return n; }
+    n++;
+    // **섞으면 첫 프레임의 튐이 줄어야 한다.** 그게 섞는 이유다.
+    if (!(soft.jump < hard.jump)) {
+      g.fail('fade/jump', `안 섞으면 ${(hard.jump * 1000).toFixed(1)}mm · 섞으면 ${(soft.jump * 1000).toFixed(1)}mm 튄다 — 안 줄었다`);
+    }
+    n++;
+    // 그리고 **대가가 있어야 한다** — 공짜면 뭔가 안 하고 있는 것이다.
+    if (!(soft.slide > 0)) g.fail('fade/slide', '섞는데 발이 하나도 안 움직인다 — 섞이지 않고 있다');
+    console.log(
+      `  [재생] 섞어 넘기기: 안 섞으면 발이 한 프레임에 ${(hard.jump * 1000).toFixed(1)}mm 튄다`
+      + ` · ${crossFadeS(idle, walk)}s 섞으면 ${(soft.jump * 1000).toFixed(1)}mm 로 줄고 그 동안 ${(soft.slide * 1000).toFixed(1)}mm 미끄러진다`,
+    );
+    n++;
+    // 섞기가 끝나면 앞 액션을 놓는가 — 안 놓으면 사람마다 액션이 쌓인다.
+    const p3 = player.spawn({ clipId: two[0], position: [0, 0, 0] });
+    player.playClip(p3, two[1]);
+    for (let t = 0; t < 1; t += 1 / 60) player.update(1 / 60);
+    if (p3.fading) g.fail('fade/leak', '섞기가 1초 뒤에도 안 끝났다 — 앞 액션이 쌓인다');
+  }
+
   return n;
 });

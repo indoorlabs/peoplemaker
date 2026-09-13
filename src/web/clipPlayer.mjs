@@ -11,7 +11,7 @@
 //
 // 배치·경로·활동 스케줄은 **여기서 안 한다** (README 의 경계).
 
-import { pickWalkClip, contactsAt, durationAt } from '../lib/packRuntime.mjs';
+import { pickWalkClip, contactsAt, durationAt, crossFadeS } from '../lib/packRuntime.mjs';
 
 /**
  * 뿌리 뼈의 **꼬리 이름** — three 안에서 찾을 때 쓴다.
@@ -106,18 +106,43 @@ export function createClipPlayer({ THREE, SkeletonUtils, catalog, gltfOf }) {
    * 만들면 **걷다 만 자세로 굳는다**. 서 있는 사람은 서 있는 클립을 틀어야
    * 한다. 같은 클립이면 아무것도 안 한다 (프레임마다 불러도 된다).
    */
-  function playClip(person, clipId) {
+  function playClip(person, clipId, { fadeS = null } = {}) {
     if (person.clipId === clipId) return person;
     const clip = byId.get(clipId);
     if (!clip) throw new Error(`카탈로그에 ${clipId} 가 없다`);
     const gltf = gltfOf(clipId);
     if (!gltf) throw new Error(`${clipId} 의 GLB 가 없다 — 받지 않은 클립이면 pack.load(['${clipId}']) 를 먼저`);
-    person.action.stop();
-    person.action = person.mixer.clipAction(playableClip(gltf, person.inPlace));
-    person.action.play();
-    person.action.timeScale = person.timeScale;
+
+    // 얼마 동안 섞을지는 **순수 층이 정한다** (lib/packRuntime.mjs).
+    const dur = fadeS == null ? crossFadeS(person.clip, clip) : Math.max(0, fadeS);
+    const next = person.mixer.clipAction(playableClip(gltf, person.inPlace));
+    const prev = person.action;
+
+    if (dur > 0 && prev) {
+      // **앞 클립을 아직 안 멈춘다.** 멈추면 섞을 것이 없다.
+      next.reset();
+      next.enabled = true;
+      next.setEffectiveWeight(0);
+      next.timeScale = person.timeScale;
+      next.play();
+      prev.crossFadeTo(next, dur, false);
+      // 섞기가 끝나면 앞 클립을 놓아 준다 — 안 놓으면 사람마다 액션이
+      // 쌓이고, 무게가 0 이어도 mixer 가 프레임마다 계산한다.
+      person.fading = { action: prev, leftS: dur };
+    } else {
+      if (prev) prev.stop();
+      next.reset();
+      next.enabled = true;
+      next.setEffectiveWeight(1);
+      next.timeScale = person.timeScale;
+      next.play();
+      person.fading = null;
+    }
+
+    person.action = next;
     person.clipId = clipId;
     person.clip = clip;
+    person.fadeS = dur;
     return person;
   }
 
@@ -133,7 +158,15 @@ export function createClipPlayer({ THREE, SkeletonUtils, catalog, gltfOf }) {
 
   /** 시간을 흘린다. dt 는 **초**다 (three 의 기본과 같다). */
   function update(dtS) {
-    for (const p of people) p.mixer.update(dtS);
+    for (const p of people) {
+      p.mixer.update(dtS);
+      if (!p.fading) continue;
+      p.fading.leftS -= dtS;
+      if (p.fading.leftS <= 0) {
+        p.fading.action.stop();
+        p.fading = null;
+      }
+    }
   }
 
   /** 지금 재생 위치 (s) — 재생 속도를 반영한 시각이다. */

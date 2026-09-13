@@ -23,7 +23,7 @@ import { colorsFromUV } from '../lib/vertexColor.mjs';
 export { createClipPlayer } from './clipPlayer.mjs';
 export { createInstancedCrowd } from './instancedCrowd.mjs';
 export { createMixedCrowd } from './mixedCrowd.mjs';
-export { pickWalkClip, contactsAt, durationAt, strideS, TIME_SCALE_MAX } from '../lib/packRuntime.mjs';
+export { pickWalkClip, contactsAt, durationAt, strideS, TIME_SCALE_MAX, crossFadeS, CROSSFADE_MAX_S } from '../lib/packRuntime.mjs';
 export { ACTIVITIES, planActivity, startActivity, clipForRole } from '../lib/activity.mjs';
 // 배역 — 프로필과 팩 묶음을 받아 사람 번호를 팩에 붙인다 (lib/cast.mjs).
 export { planCast, castReport } from '../lib/cast.mjs';

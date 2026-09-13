@@ -70,6 +70,40 @@ export function pickWalkClip(catalog, desiredMps) {
  * 알아야 하는데, 재생 속도를 바꾸면 그 시각이 함께 바뀐다. 원본 시각을
  * 그대로 쓰면 빨리 걷는 사람의 발이 늦게 닿는다.
  */
+/**
+ * **섞어 넘기는 시간의 위 한계** (s).
+ *
+ * 활동이 클립을 갈아탈 때 지금까지는 툭 끊었다. 회의(앉아서 말하기⇄듣기)
+ * 에서는 덜 보이지만 버티기·주저앉기처럼 느린 동작에서는 그대로 보인다.
+ *
+ * 그런데 **섞으면 발이 미끄러진다.** 두 클립의 발이 서로 다른 자리에 있는
+ * 동안 살이 그 사이 어딘가에 있게 되기 때문이다. 길게 섞을수록 부드럽고
+ * 길게 미끄러진다 — 공짜가 아니다. 그래서 위 한계를 두고, 그 대가를
+ * 게이트가 잰다 (scripts/check-player.mjs).
+ */
+export const CROSSFADE_MAX_S = 0.25;
+
+/**
+ * 이 두 클립 사이를 **얼마 동안 섞을 것인가** (s).
+ *
+ * 짧은 쪽 클립의 3분의 1을 넘지 않는다 — 0.3초짜리 클립을 0.25초 동안
+ * 섞으면 그 클립은 거의 안 보이고 앞뒤만 뭉갠다.
+ *
+ * 이동 클립끼리는 **더 짧게** 섞는다. 걷다가 뛰는 사이에는 발이 땅에 닿아
+ * 있는 시간이 있어서, 그 동안 섞으면 미끄러짐이 바로 눈에 띈다.
+ *
+ * @param from 지금 클립 (카탈로그의 것) · null 이면 처음 세우는 것이라 0
+ * @param to   갈아탈 클립
+ */
+export function crossFadeS(from, to, { max = CROSSFADE_MAX_S } = {}) {
+  if (!from || !to) return 0;
+  if (from.id === to.id) return 0;
+  const shortest = Math.min(from.durationS || 0, to.durationS || 0);
+  if (!(shortest > 0)) return 0;
+  const travelBoth = from.rootMotion === 'travel' && to.rootMotion === 'travel';
+  return +Math.min(max * (travelBoth ? 0.5 : 1), shortest / 3).toFixed(3);
+}
+
 export function contactsAt(clip, timeScale = 1) {
   if (!(timeScale > 0)) return [];
   return (clip.contacts || []).map((c) => ({ ...c, atS: +(c.atS / timeScale).toFixed(4) }));

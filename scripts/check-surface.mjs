@@ -20,6 +20,7 @@ const PUBLIC = [
   'loadPack', 'bakeFromPack', 'geometryOf', 'measuredFor', 'planCrowdMeasured',
   'createClipPlayer', 'createInstancedCrowd', 'createMixedCrowd',
   'pickWalkClip', 'contactsAt', 'durationAt', 'strideS', 'TIME_SCALE_MAX',
+  'crossFadeS', 'CROSSFADE_MAX_S',
   'ACTIVITIES', 'planActivity', 'startActivity', 'clipForRole',
   'planCast', 'castReport',
   'ROUTINES', 'planRoutine', 'startRoutine',
