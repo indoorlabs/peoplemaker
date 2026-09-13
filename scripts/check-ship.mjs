@@ -142,7 +142,51 @@ runGate('check-ship', (g) => {
     );
   }
 
-  // ── 5. .gitignore 와 SHIP_FILES 가 같은 말을 하는가 ──
+  // ── 5. 최소 예제가 **설치하면 되는 것만** 쓰는가 ──
+  //
+  // demo/minimal.js 는 소비처가 그대로 베끼는 자리다. 거기서 안 따라오는
+  // 클립을 쓰면, 베낀 쪽은 `npm i` 하고 곧바로 404 를 본다.
+  {
+    const f = path.join(ROOT, 'demo', 'minimal.js');
+    n++;
+    if (!fs.existsSync(f)) g.fail('demo/none', 'demo/minimal.js 가 없다');
+    else {
+      const raw = fs.readFileSync(f, 'utf8');
+      // **주석을 걷어내고 본다.** 처음에 그냥 봤더니 "`body: 'far'` 가
+      // 요점이다" 라는 주석 때문에, 코드에서 그것을 빼도 게이트가 통과했다.
+      const SLASHES = '//';
+      const src = raw
+        .split('\n')
+        .map((l) => (l.includes(SLASHES) ? l.slice(0, l.indexOf(SLASHES)) : l))
+        .join('\n');
+      const shipped = new Set(SHIP_FILES.filter((r) => r.startsWith('clips/')).map((r) => r.slice(6).replace(/\.glb$/, '')));
+      n++;
+      // 예제가 대는 클립 이름을 다 뽑아 본다.
+      const used = [...src.matchAll(/clipId: '([a-z0-9-]+)'/g)].map((m) => m[1]);
+      const stray2 = used.filter((id) => !shipped.has(id));
+      if (stray2.length) g.fail('demo/clips', `최소 예제가 안 따라오는 클립을 쓴다: ${[...new Set(stray2)].join(' · ')}`);
+      n++;
+      const listed = /const SHIPPED = \[([^\]]*)\]/.exec(src);
+      const inList = listed ? [...listed[1].matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1]) : [];
+      const strayList = inList.filter((id) => !shipped.has(id));
+      if (!inList.length || strayList.length) {
+        g.fail('demo/list', `예제의 SHIPPED 가 ${inList.join(' · ') || '없다'} — 저장소에 두는 것과 갈렸다`);
+      }
+      n++;
+      // **문 하나만 쓴다** — 안쪽 파일을 직접 가져가면 내부를 고칠 때 깨진다.
+      const deep = [...src.matchAll(/from '([^']+)'/g)].map((m) => m[1])
+        .filter((x) => /^\.\.?\//.test(x) || /src\/(lib|web)\//.test(x));
+      if (deep.length) g.fail('demo/door', `최소 예제가 안쪽 파일을 직접 가져간다: ${deep.join(' · ')}`);
+      n++;
+      if (!/from 'peoplemaker'/.test(src)) g.fail('demo/name', "예제가 'peoplemaker' 라는 이름으로 안 가져온다 — 베끼는 쪽과 다른 코드가 된다");
+      n++;
+      // 먼 몸으로 받는가 — 몸째를 받으면 4.2MB 를 헛되이 받는다.
+      if (!/body: 'far'/.test(src)) g.fail('demo/far', "예제가 body: 'far' 를 안 쓴다");
+      console.log(`  [배포] 최소 예제: 클립 ${inList.join('·')} · 문 하나만 쓴다 · 먼 몸으로 받는다`);
+    }
+  }
+
+  // ── 6. .gitignore 와 SHIP_FILES 가 같은 말을 하는가 ──
   {
     const one = personPacks[0].id;
     for (const rel of SHIP_FILES) {

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>PeopleMaker — 가장 짧은 길</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #14161a; color: #d7dbe0;
+               font: 13px/1.6 ui-monospace, Menlo, Consolas, monospace; }
+  #hud { position: fixed; left: 12px; top: 12px; z-index: 2; background: rgba(20,22,26,.86);
+         padding: 10px 14px; border: 1px solid #2a2f36; border-radius: 6px; white-space: pre; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<!--
+  **소비처가 그대로 베끼는 자리.**
+
+  `npm i github:indoorlabs/peoplemaker` 하면 사람 열둘의 먼 층이 따라온다
+  (5.5MB — 서기·걷기·뛰기). demo/minimal.js 는 그것만 쓴다.
+
+  importmap 의 'peoplemaker' 가 요점이다 — 베끼는 쪽에서는 그 줄이 없어도
+  된다 (node_modules 가 그 이름을 이미 안다). 여기서는 저장소를 그대로
+  가리키므로 데모가 도는 코드와 나가는 코드가 같다.
+-->
+<div id="hud">읽는 중…</div>
+<script type="importmap">
+{
+  "imports": {
+    "three": "/node_modules/three/build/three.module.js",
+    "three/addons/": "/node_modules/three/examples/jsm/",
+    "peoplemaker": "/src/web/index.mjs"
+  }
+}
+</script>
+<script type="module" src="/demo/minimal.js"></script>
+</body>
+</html>
