@@ -192,5 +192,45 @@ runGate('check-thumb', (g) => {
     console.log(`  [섬네일] ${PACK}: ${withThumb}개 · ${(bytes / 1024).toFixed(0)}KB (평균 ${Math.round(bytes / withThumb)}바이트)`);
   }
 
+  // ── 6. 대조표가 지금 팩과 맞는가 ──
+  //
+  // 섬네일 377개를 하나씩 열어 볼 수는 없다 — 한 장에 모은 대조표
+  // (demo/clips.html) 가 그래서 있다. 그런데 그 파일은 **굽는 순간 낡기
+  // 시작한다**: 클립을 더하고 대조표를 안 다시 만들면 없는 동작이 없는 채로
+  // 보인다. 수를 견줘서 그때 말한다.
+  {
+    const sheet = path.join(ROOT, 'demo', 'clips.html');
+    n++;
+    if (!fs.existsSync(sheet)) {
+      g.fail('sheet/none', 'demo/clips.html 이 없다 — node scripts/build-sheet.mjs');
+    } else {
+      const html = fs.readFileSync(sheet, 'utf8');
+      let packs = 0;
+      let clips = 0;
+      for (const id of fs.readdirSync(path.join(ROOT, 'packs'))) {
+        const f = path.join(ROOT, 'packs', id, 'catalog.json');
+        if (!fs.existsSync(f)) continue;
+        packs++;
+        clips += JSON.parse(fs.readFileSync(f, 'utf8')).clips.length;
+      }
+      n++;
+      if ((html.match(/<section>/g) || []).length !== packs) {
+        g.fail('sheet/packs', `대조표에 팩이 ${(html.match(/<section>/g) || []).length}개 · 실제는 ${packs}개 — 다시 만들 것`);
+      }
+      n++;
+      if ((html.match(/<figure class="c"/g) || []).length !== clips) {
+        g.fail('sheet/clips', `대조표에 클립이 ${(html.match(/<figure class="c"/g) || []).length}개 · 실제는 ${clips}개 — 다시 만들 것`);
+      }
+      n++;
+      // **그림이 안에 박혀 있는가** — 파일로 가리키면 옮길 때 깨진다.
+      if ((html.match(/<svg /g) || []).length !== clips) {
+        g.fail('sheet/inline', `박힌 그림이 ${(html.match(/<svg /g) || []).length}개다 — 클립 수와 같아야 한다`);
+      }
+      n++;
+      if (/섬네일 없음/.test(html)) g.fail('sheet/missing', '대조표에 섬네일 없는 칸이 있다');
+      console.log(`  [섬네일] 대조표: 팩 ${packs} · 클립 ${clips} · ${Math.round(html.length / 1024)}KB (그림을 안에 박는다)`);
+    }
+  }
+
   return n;
 });
