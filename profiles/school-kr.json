@@ -1,0 +1,29 @@
+{
+  "id": "school-kr",
+  "ko": "초등학교 (한국)",
+  "en": "Elementary school (KR)",
+  "note": "초등학교다. 비는 교원 1인당 학생 수에서 나온다 — 중·고등학교는 그 수가 다르고(중 11.8 · 고 10.1), 학생의 나이대도 youth 라 팩이 아직 없다. 행정·조리 직원은 이 비에 안 들어 있다 (교원만이다).",
+  "routine": "schoolDay",
+  "mix": {
+    "source": "kess2025",
+    "what": "교원 1인당 학생 수 12.1명 (초등학교, 2025년 교육기본통계)",
+    "weights": {
+      "student": 12.1,
+      "teacher": 1
+    }
+  },
+  "composition": [
+    {
+      "role": "student",
+      "ko": "학생",
+      "want": { "ageBand": "child" },
+      "routinePart": "student"
+    },
+    {
+      "role": "teacher",
+      "ko": "교원",
+      "want": { "ageBand": "adult" },
+      "routinePart": "teacher"
+    }
+  ]
+}

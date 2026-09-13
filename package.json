@@ -12,11 +12,13 @@
     ".": "./src/web/index.mjs",
     "./lib": "./src/lib/index.mjs",
     "./packs/*": "./packs/*",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./profiles/*": "./profiles/*"
   },
   "files": [
     "src",
     "packs",
+    "profiles",
     "docs",
     "README.md",
     "agents.md"

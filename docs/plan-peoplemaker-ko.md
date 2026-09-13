@@ -234,7 +234,8 @@ Quaternius · CMHT Oculus · Google Poly 를 모아 둔 곳)에 휠체어는 둘
 | **P3** | 장면 결합 (IFC affordance → 클립 선택) | 가구를 옮기면 동작이 따라온다. 발·엉덩이 접촉 오차 5cm 이내 |
 | **O1** 됨 | 배역 · `catalog.person` (2026-09-13) | 양로원 coverage 0.18 · 게이트 14개 1,722검사 |
 | **O2** 됨 | 일과 층 · 활동 8가지 (2026-09-13) | 일과 3 중 1 이 돈다 (먹는 클립 0) · 게이트 15개 2,030검사 |
-| **O3~O6** | 용도 프로필 · 재실자 값 · 시나리오 (`plan-occupancy-ko.md`) | preflight 한 장을 수로 낸다. P4 의 전제 |
+| **O3** 됨 | 용도 프로필 2종 (2026-09-13) | 출처 없는 비율 0건 · pending 1건 · 게이트 16개 2,078검사 |
+| **O4~O6** | 재실자 값 · 시나리오 preflight (`plan-occupancy-ko.md`) | preflight 한 장을 수로 낸다. P4 의 전제 |
 | **P4** | 군중 (JuPedSim/RVO2) | 재실자 500명 피난 시간이 나온다 |
 | **P5** | 물리 (ProtoMotions/PHC) — 필요해지면 | 판단 유보 |
 

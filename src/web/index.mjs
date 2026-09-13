@@ -29,6 +29,8 @@ export { ACTIVITIES, planActivity, startActivity, clipForRole } from '../lib/act
 export { planCast, castReport } from '../lib/cast.mjs';
 // 일과 — 활동의 차례. 시각도 방도 안 갖는다 (lib/routine.mjs).
 export { ROUTINES, planRoutine, startRoutine } from '../lib/routine.mjs';
+// 용도 프로필 — "학교" 가 무엇을 뜻하는가. 비율은 저장 안 하고 비에서 계산한다.
+export { profileShares, profileProblems, pendingProfiles, PROFILE_SOURCES } from '../lib/profile.mjs';
 import { attachAnimation } from '../lib/gltfWrite.mjs';
 
 export {

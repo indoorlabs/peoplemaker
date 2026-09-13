@@ -26,6 +26,7 @@
 // 이 파일에는 three.js 도 DOM 도 없다. 값과 규칙만 있다.
 
 import { AGE_BANDS, SEXES, MOBILITIES, ATTIRES } from './motionPack.mjs';
+import { profileShares } from './profile.mjs';
 
 /** 배역이 고를 수 있는 잣대 — 프로필이 이것 말고 다른 키를 쓰면 던진다. */
 export const WANT_KEYS = ['ageBand', 'sex', 'mobility', 'attire'];
@@ -90,19 +91,34 @@ export function splitInt(weights, total) {
   return base;
 }
 
+/**
+ * 이 프로필의 **역할마다 비율** — 두 길이 있다.
+ *
+ *   1. `mix.weights` 가 있으면 거기서 계산한다 (profile.mjs). 배포하는
+ *      프로필은 이쪽이다 — 비율을 손으로 안 적어야 갈리지 않는다.
+ *   2. 역할마다 `share` 가 적혀 있으면 그것을 쓴다. 게이트 안에서 지어 쓰는
+ *      시험용 프로필이 이쪽이다.
+ *
+ * 둘 다 없으면 null — 그러면 부르는 쪽이 **인원을 직접 줘야 한다** (counts).
+ */
+export function sharesOf(profile) {
+  const fromMix = profileShares(profile);
+  if (fromMix) return fromMix;
+  const comp = profile.composition || [];
+  if (comp.every((c) => c.share > 0)) return comp.map((c) => ({ role: c.role, share: c.share }));
+  return null;
+}
+
 /** 프로필이 말이 되는가 — 안 되면 **던진다** (조용히 고쳐 주지 않는다). */
-export function validateProfile(profile) {
+export function validateProfile(profile, { counts = null } = {}) {
   if (!profile || typeof profile !== 'object') throw new Error('프로필이 값이 아니다');
   const comp = profile.composition;
   if (!Array.isArray(comp) || !comp.length) throw new Error(`${profile.id}: composition 이 비었다`);
   const seen = new Set();
-  let sum = 0;
   for (const c of comp) {
     if (!c.role) throw new Error(`${profile.id}: 역할 이름이 없는 줄이 있다`);
     if (seen.has(c.role)) throw new Error(`${profile.id}: 역할 '${c.role}' 이 두 번 적혔다`);
     seen.add(c.role);
-    if (!(c.share > 0)) throw new Error(`${profile.id}: ${c.role} 의 비율이 ${c.share} 다`);
-    sum += c.share;
     matchesWant({ ageBand: 'adult' }, c.want || {});   // 키·값 오타를 여기서 잡는다
     if (c.substitute) {
       if (!c.substitute.why) {
@@ -114,7 +130,28 @@ export function validateProfile(profile) {
       matchesWant({ ageBand: 'adult' }, c.substitute.want || {});
     }
   }
+
+  // 인원을 직접 받았으면 비율이 없어도 된다 — "이 건물에 몇 명" 은 공간 쪽이 안다.
+  if (counts) {
+    for (const k of Object.keys(counts)) {
+      if (!seen.has(k)) throw new Error(`${profile.id}: '${k}' 라는 역할이 없는데 인원이 적혔다`);
+      if (!Number.isInteger(counts[k]) || counts[k] < 0) throw new Error(`${profile.id}: ${k} 의 인원이 ${counts[k]} 다`);
+    }
+    return true;
+  }
+
+  const shares = sharesOf(profile);
+  if (!shares) {
+    throw new Error(
+      `${profile.id}: 비율을 모른다 — ${profile.mix?.pending ? `못 구한 것이 있다 (${profile.mix.pending})` : '비(mix.weights)도 share 도 없다'}. `
+      + '인원을 직접 주면(counts) 그대로 쓴다',
+    );
+  }
+  const sum = shares.reduce((s, x) => s + x.share, 0);
   if (Math.abs(sum - 1) > 1e-6) throw new Error(`${profile.id}: 비율의 합이 ${sum.toFixed(4)} 다 (1 이어야)`);
+  for (const x of shares) {
+    if (!(x.share > 0)) throw new Error(`${profile.id}: ${x.role} 의 비율이 ${x.share} 다`);
+  }
   return true;
 }
 
@@ -123,7 +160,9 @@ export function validateProfile(profile) {
  *
  * @param profile { id, composition: [{ role, share, want, substitute? }] }
  * @param packs   카탈로그 배열 (또는 `{ catalog }` 를 가진 것 — loadPack 의 결과)
- * @param count   세울 사람 수
+ * @param count   세울 사람 수 (비율로 나눈다)
+ * @param counts  역할마다 인원 — 주면 비율을 안 쓴다. 비율을 못 구한
+ *                프로필(양로원)은 이쪽으로 쓴다
  *
  * @returns {
  *   ok,                         빈 자리가 없는가
@@ -136,8 +175,12 @@ export function validateProfile(profile) {
  *   missing: [{ role, want, n, why }],
  * }
  */
-export function planCast(profile, { packs, count }) {
-  validateProfile(profile);
+export function planCast(profile, { packs, count, counts = null }) {
+  validateProfile(profile, { counts });
+  if (counts) {
+    // 역할마다 인원을 직접 받았다 — 비율은 안 쓴다.
+    count = Object.values(counts).reduce((s, v) => s + v, 0);
+  }
   if (!Number.isInteger(count) || count < 0) throw new Error(`세울 사람 수가 ${count} 다`);
 
   // 사람이 아닌 팩은 배역에 안 쓴다 — person 이 없으면 그 팩은 사람이라고
@@ -147,7 +190,9 @@ export function planCast(profile, { packs, count }) {
     .filter((c) => c.person)
     .sort((a, b) => (a.packId < b.packId ? -1 : 1));   // 결정적인 차례
 
-  const ns = splitInt(profile.composition.map((c) => c.share), count);
+  const ns = counts
+    ? profile.composition.map((c) => counts[c.role] || 0)
+    : splitInt(sharesOf(profile).map((x) => x.share), count);
   const roles = [];
   const missing = [];
   const perPack = new Map();

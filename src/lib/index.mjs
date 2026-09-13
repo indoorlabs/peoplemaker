@@ -24,3 +24,4 @@ export * from './activity.mjs';
 export * from './bodyMesh.mjs';
 export * from './cast.mjs';
 export * from './routine.mjs';
+export * from './profile.mjs';
