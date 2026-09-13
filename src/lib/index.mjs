@@ -23,3 +23,4 @@ export * from './vertexColor.mjs';
 export * from './activity.mjs';
 export * from './bodyMesh.mjs';
 export * from './cast.mjs';
+export * from './routine.mjs';

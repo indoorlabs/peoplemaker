@@ -22,6 +22,7 @@ const PUBLIC = [
   'pickWalkClip', 'contactsAt', 'durationAt', 'strideS', 'TIME_SCALE_MAX',
   'ACTIVITIES', 'planActivity', 'startActivity', 'clipForRole',
   'planCast', 'castReport',
+  'ROUTINES', 'planRoutine', 'startRoutine',
   'planCrowd', 'affordable', 'frameCostMs', 'TIERS',
   'dimensionMm', 'pendingDimensions', 'DIMENSIONS',
   'validateCatalog', 'LICENSES', 'packRedistributable', 'commercialClips',

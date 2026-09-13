@@ -21,6 +21,29 @@ import { ACTIVITIES, ROLES, planActivity, startActivity, clipForRole } from '../
 
 const packOf = (id) => JSON.parse(fs.readFileSync(path.join(ROOT, 'packs', id, 'catalog.json'), 'utf8'));
 
+/**
+ * 이 팩(여자 01)으로 **무엇이 되고 무엇이 안 되는가.**
+ *
+ * 처음에는 "활동은 전부 돼야 한다" 로 두었는데, 식사를 넣는 순간 게이트가
+ * 막았다 — 그런데 그것은 결함이 아니라 **사실**이다 (먹는 클립이 0개다).
+ * 그렇다고 식사를 마시기로 풀면 "급식실 재실 시간" 자리에 물 마시는 사람이
+ * 들어앉는다. 그래서 되는 것과 안 되는 것을 **적어 두고**, 둘 중 어느 쪽이
+ * 바뀌어도 게이트가 말하게 한다.
+ *
+ *   true      이 팩으로 된다
+ *   '역할'    그 역할의 클립이 없어서 못 한다
+ */
+const CAN = {
+  meeting: true,
+  deskWork: true,
+  lesson: true,
+  rest: true,
+  queue: true,
+  goToRoom: true,
+  evacuate: true,
+  meal: 'eat',
+};
+
 runGate('check-activity', (g) => {
   let n = 0;
 
@@ -75,8 +98,23 @@ runGate('check-activity', (g) => {
   for (const id of Object.keys(ACTIVITIES)) {
     n++;
     const plan = planActivity(cat, id);
-    if (!plan.ok) {
-      g.fail(`pack/${id}`, `이 팩으로 못 한다 — 없는 것: ${plan.missing.map((m) => m.role || m.need).join(', ')}`);
+    const want = CAN[id];
+    if (want === undefined) {
+      g.fail(`pack/${id}/undeclared`, '새 활동인데 되는지 안 되는지가 CAN 에 안 적혀 있다');
+      continue;
+    }
+    if (want === true && !plan.ok) {
+      g.fail(`pack/${id}`, `되던 활동이 안 된다 — 없는 것: ${plan.missing.map((m) => m.role || m.need).join(', ')}`);
+      continue;
+    }
+    if (want !== true) {
+      // 못 하는 활동 — **왜 못 하는지가 적어 둔 것과 같아야** 한다.
+      n++;
+      if (plan.ok) {
+        g.fail(`pack/${id}/now-ok`, `'${want}' 가 없어 못 하던 활동이 이제 된다 — 클립이 들어왔으면 CAN 을 고칠 것`);
+      } else if (!plan.missing.some((m) => m.role === want)) {
+        g.fail(`pack/${id}/why`, `'${want}' 때문에 못 한다고 적혀 있는데 실제로는 ${plan.missing.map((m) => m.role || m.need).join(', ')} 가 없다`);
+      }
       continue;
     }
     n++;

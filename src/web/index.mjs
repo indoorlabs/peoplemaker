@@ -27,6 +27,8 @@ export { pickWalkClip, contactsAt, durationAt, strideS, TIME_SCALE_MAX } from '.
 export { ACTIVITIES, planActivity, startActivity, clipForRole } from '../lib/activity.mjs';
 // 배역 — 프로필과 팩 묶음을 받아 사람 번호를 팩에 붙인다 (lib/cast.mjs).
 export { planCast, castReport } from '../lib/cast.mjs';
+// 일과 — 활동의 차례. 시각도 방도 안 갖는다 (lib/routine.mjs).
+export { ROUTINES, planRoutine, startRoutine } from '../lib/routine.mjs';
 import { attachAnimation } from '../lib/gltfWrite.mjs';
 
 export {

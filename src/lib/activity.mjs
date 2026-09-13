@@ -39,6 +39,7 @@ export const ROLES = {
   stand: ['idle'],
   walk: ['walk-forward'],
   walkFast: ['walk-fast', 'walk-forward'],
+  walkSlow: ['walk-slow', 'walk-forward'],
   run: ['run'],
   sit: ['sit'],
   sitDesk: ['sit-table', 'sit'],
@@ -54,6 +55,11 @@ export const ROLES = {
   stretch: ['stretch'],
   clap: ['clap'],
   crouch: ['crouch'],
+  // **먹기는 아직 아무 팩에도 없다.** 마시기로 대신하지 않는다 — 그러면
+  // "급식실 재실 시간" 자리에 물 마시는 사람이 들어앉는다. 없는 채로 두면
+  // planActivity 가 없다고 말하고, 일과가 그것을 그대로 위로 올린다.
+  // (Rocketbox 의 동작 326개 중에 있을 수 있다 — 찾으면 수입 쪽에 한 줄이다.)
+  eat: ['eat'],
 };
 
 /**
@@ -111,6 +117,83 @@ export const ACTIVITIES = {
           drink: { role: 'drink', forS: 'clip', next: [['work', 1]], needs: 'desk' },
           stretch: { role: 'stretch', forS: 'clip', next: [['work', 1]], needs: 'desk' },
           phone: { role: 'phone', forS: 'clip', next: [['work', 1]], needs: 'desk' },
+        },
+      },
+    },
+  },
+
+  lesson: {
+    ko: '수업', en: 'Lesson',
+    note: '학생은 앉아서 듣고 쓰고, 교사는 서서 말하며 둘러본다. 손드는 클립은 아직 없다.',
+    parts: {
+      student: {
+        start: 'sit-down',
+        states: {
+          'sit-down': { role: 'sitDesk', forS: 2, next: [['listen', 1]], needs: 'desk' },
+          listen: { role: 'listen', forS: 'clip', next: [['listen', 3], ['write', 2], ['papers', 1]], needs: 'desk' },
+          write: { role: 'work', forS: 'clip', next: [['listen', 2], ['papers', 1]], needs: 'desk' },
+          papers: { role: 'papers', forS: 'clip', next: [['listen', 1], ['write', 1]], needs: 'desk' },
+        },
+      },
+      teacher: {
+        start: 'talk',
+        states: {
+          talk: { role: 'talk', forS: 'clip', next: [['talk', 2], ['watch', 1], ['papers', 1]] },
+          watch: { role: 'lookAround', forS: 'clip', next: [['talk', 1]] },
+          papers: { role: 'papers', forS: 'clip', next: [['talk', 1]] },
+        },
+      },
+    },
+  },
+
+  meal: {
+    ko: '식사', en: 'Meal',
+    // **이 팩들로는 아직 못 한다.** 먹는 클립이 하나도 없다. 마시기로 대신
+    // 하면 화면은 멀쩡하고 수는 거짓이 된다 — 그래서 없는 채로 둔다.
+    note: '먹는 클립이 없으면 못 한다 — 마시는 사람으로 급식을 세지 않는다.',
+    parts: {
+      diner: {
+        start: 'sit-down',
+        states: {
+          'sit-down': { role: 'sitDesk', forS: 2, next: [['eat', 1]], needs: 'desk' },
+          eat: { role: 'eat', forS: 'clip', next: [['eat', 4], ['drink', 1], ['talk', 1]], needs: 'desk' },
+          drink: { role: 'drink', forS: 'clip', next: [['eat', 1]], needs: 'desk' },
+          talk: { role: 'talk', forS: 'clip', next: [['eat', 1]], needs: 'desk' },
+        },
+      },
+    },
+  },
+
+  rest: {
+    ko: '쉬기', en: 'Resting',
+    note: '거실·라운지의 기본. 앉아서 듣고 말하고 둘러본다 — 요양시설 재실자의 대부분 시간이다.',
+    parts: {
+      resident: {
+        start: 'sit-down',
+        states: {
+          'sit-down': { role: 'sit', forS: 2, next: [['watch', 1]], needs: 'seat' },
+          watch: { role: 'listen', forS: 'clip', next: [['watch', 4], ['chat', 2], ['drink', 1], ['around', 1]], needs: 'seat' },
+          chat: { role: 'talk', forS: 'clip', next: [['watch', 2], ['chat', 1]], needs: 'seat' },
+          drink: { role: 'drink', forS: 'clip', next: [['watch', 1]], needs: 'seat' },
+          around: { role: 'lookAround', forS: 'clip', next: [['watch', 1]], needs: 'seat' },
+        },
+      },
+    },
+  },
+
+  queue: {
+    ko: '줄서기', en: 'Queueing',
+    // 줄은 **공간이 만든다** — 어디에 서고 얼마나 기다리는지는 여기서 모른다.
+    // 여기는 "서서 기다리다 한 걸음 나아간다" 는 차례만 준다.
+    note: '얼마나 기다리는지는 공간 쪽이 안다 — 한 걸음은 알려 줄 때 나아간다.',
+    parts: {
+      waiter: {
+        start: 'wait',
+        states: {
+          wait: { role: 'stand', forS: 'until-cue', next: [['step', 3], ['around', 1], ['phone', 1]] },
+          step: { role: 'walkSlow', forS: 'clip', next: [['wait', 1]] },
+          around: { role: 'lookAround', forS: 'clip', next: [['wait', 1]] },
+          phone: { role: 'phone', forS: 'clip', next: [['wait', 1]] },
         },
       },
     },
