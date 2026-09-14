@@ -568,7 +568,7 @@ npm i github:indoorlabs/peoplemaker   → 사람 12명 · 4.19MB
 대피가 필요하면 그 둘만 더 받는다:
 
 ```sh
-npm run fetch:packs -- <주소> --tier far --clips look-around,door-open
+npm run fetch:packs -- \n  https://github.com/indoorlabs/peoplemaker/releases/download/packs-2026-09-14/packs.json \n  --tier far --clips look-around,door-open
 ```
 
 **뛰기는 두는 까닭이 다르다.** 뛰는 클립이 없으면 대피가 걷는 대피가 되고
@@ -618,7 +618,7 @@ npm run fetch:packs -- <packs.json 주소> --tier far    # 골라 받는다
 적어 둔다:
 
 ```sh
-npm run fetch:packs -- <주소> --tier far --clips idle,walk-forward,run
+npm run fetch:packs -- \n  https://github.com/indoorlabs/peoplemaker/releases/download/packs-2026-09-14/packs.json \n  --tier far --clips idle,walk-forward,run
 ```
 
 **해시를 본다.** 받다 끊긴 GLB 는 열 때 터지는 것이 아니라 **이상한 자세로

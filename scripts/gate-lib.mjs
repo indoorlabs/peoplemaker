@@ -39,8 +39,22 @@ export function fullPacks(root = ROOT) {
   ));
 }
 
-/** 팩을 어떻게 받는지 — 건너뛸 때 함께 적는다. */
-export const HOW_TO_GET_PACKS = 'node scripts/fetch-packs.mjs <packs.json 주소> --tier all --clips all';
+/**
+ * **올려 둔 팩의 목록** — 새로 받은 쪽이 여기서 받는다.
+ *
+ * 저장소에는 먼 층만 있다 (87개 4.2MB). 게이트 중 다섯은 진짜 몸과 클립이
+ * 있어야 볼 것이 있어서, 없으면 건너뛰고 **어떻게 받는지**를 함께 적는다.
+ */
+export const PACKS_URL = 'https://github.com/indoorlabs/peoplemaker/releases/download/packs-2026-09-14/packs.json';
+
+/**
+ * 팩을 어떻게 받는지 — 건너뛸 때 함께 적는다.
+ *
+ * 주소가 `<packs.json 주소>` 라는 빈자리였던 때, 새로 받은 사람은 건너뛴다는
+ * 말만 보고 **어디서 받는지는 못 알았다**. 올려 둔 뒤에도 한동안 그대로여서,
+ * 베껴 붙이면 되는 줄을 안 주고 있었다.
+ */
+export const HOW_TO_GET_PACKS = `node scripts/fetch-packs.mjs ${PACKS_URL} --tier all --clips all`;
 
 export function runGate(name, collect) {
   const update = process.argv.includes('--update');

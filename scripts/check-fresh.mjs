@@ -19,7 +19,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { runGate, ROOT, fullPacks, HOW_TO_GET_PACKS } from './gate-lib.mjs';
+import { runGate, ROOT, fullPacks, HOW_TO_GET_PACKS, PACKS_URL } from './gate-lib.mjs';
 
 /** 새로 받은 쪽에서도 **반드시** 돌아야 하는 게이트 — 팩이 없어도 볼 것이 있다. */
 const MUST_RUN = [
@@ -112,6 +112,12 @@ runGate('check-fresh', (g) => {
     }
     if (packNotes.length && !packNotes.every((l) => l.includes('fetch-packs'))) {
       g.fail('how', '건너뛴다면서 어떻게 받는지를 안 알려 준다');
+    }
+    n++;
+    // **빈자리를 주면 알려 준 것이 아니다.** 오랫동안 `<packs.json 주소>` 라고
+    // 적혔다 — 새로 받은 사람은 건너뛴다는 말만 보고 어디서 받는지는 몰랐다.
+    if (!/^https:\/\//.test(PACKS_URL) || HOW_TO_GET_PACKS.includes('<')) {
+      g.fail('where', `받는 법에 빈자리가 있다 — ${HOW_TO_GET_PACKS}`);
     }
 
     console.log(

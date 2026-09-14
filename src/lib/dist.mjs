@@ -138,7 +138,7 @@ export function distManifest(packs, { builtAt = null, version = 1, layout = 'tre
  * 5.5MB 가 **13.0MB** 가 됐다 — 활동 하나에 저장소가 두 배다. 그래서 안 둔다.
  * 대피가 필요한 쪽은 그 둘만 더 받으면 된다:
  *
- *   npm run fetch:packs -- <주소> --tier far --clips look-around,door-open
+ *   npm run fetch:packs -- <packs.json 주소> --tier far --clips look-around,door-open
  *
  * 뛰기는 두는 까닭이 다르다: 뛰는 클립이 없으면 **대피가 걷는 대피가 되고**
  * 피난 시간이 거짓이 된다. 없는 편이 낫다.

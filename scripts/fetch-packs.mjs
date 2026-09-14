@@ -2,7 +2,7 @@
 //
 //   node scripts/fetch-packs.mjs <목록 주소> [--tier far] [--pack id,id] [--to packs]
 //
-//   node scripts/fetch-packs.mjs https://어딘가/packs.json --tier far
+//   node scripts/fetch-packs.mjs https://github.com/indoorlabs/peoplemaker/releases/download/packs-2026-09-14/packs.json --tier far
 //   node scripts/fetch-packs.mjs file:///C:/.../dist/packs.json --tier far --pack rocketbox-f01
 //
 // 팩은 저장소에 없다. 소비처(spacemaker)의 node_modules 를 열어 보면 기준 팩
