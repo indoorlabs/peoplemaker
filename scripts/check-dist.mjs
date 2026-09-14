@@ -18,7 +18,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { runGate, ROOT } from './gate-lib.mjs';
+import { runGate, ROOT, fullPacks, HOW_TO_GET_PACKS } from './gate-lib.mjs';
 import {
   TIERS, distManifest, tierBytes, bytesFor, missingClips, manifestProblems, MIN_CLIPS,
 } from '../src/lib/dist.mjs';
@@ -27,6 +27,13 @@ const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex').slice
 
 runGate('check-dist', (g) => {
   let n = 0;
+
+  // 저장소에는 팩의 **먼 층만** 들어 있다 — 새로 받은 쪽에는 이 게이트가 볼
+  // 것이 없다. 터지지 말고 **건너뛰되 수로 말한다** (gate-lib 의 skip).
+  if (!fullPacks().length) {
+    g.skip(`팩을 통째로 내보내 보는 게이트라 몸과 클립이 있어야 한다 — ${HOW_TO_GET_PACKS}`);
+    return n;
+  }
 
   // ── 1. 층 나누기가 말이 되는가 ──
   {
@@ -62,9 +69,15 @@ runGate('check-dist', (g) => {
   // ── 2. 목록이 팩과 어긋나면 잡는가 ──
   {
     const packDir = path.join(ROOT, 'packs');
-    const ids = fs.readdirSync(packDir).filter((id) => fs.existsSync(path.join(packDir, id, 'catalog.json')));
+    const ids = fullPacks();   // 굽는 데 필요한 것이 다 있는 팩만
     n++;
-    if (ids.length < 2) { g.setupFail('팩이 둘 미만이다'); return n; }
+    // **팩이 둘 미만이면 여기까지만 본다.** 위의 층 계산은 팩 없이도 돌지만
+    // 목록·골라 받기·내보내 받기는 진짜 팩이 있어야 한다 — 새로 받은 쪽에는
+    // 기준 팩 하나뿐이라, 터지거나 SETUP 결함을 내지 말고 수로 말한다.
+    if (ids.length < 2) {
+      console.log(`  [배포] 팩이 ${ids.length}개라 목록·받기 검사는 건너뛴다 — ${HOW_TO_GET_PACKS}`);
+      return n;
+    }
 
     const rowsOf = (id) => {
       const dir = path.join(packDir, id);

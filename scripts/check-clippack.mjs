@@ -15,7 +15,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { runGate, ROOT } from './gate-lib.mjs';
+import { runGate, ROOT, fullPacks, HOW_TO_GET_PACKS } from './gate-lib.mjs';
 import {
   compactChannels, quantizeRotations, constantOf, quatAngleDeg, compactReport, CLIP_EPS,
 } from '../src/lib/clipPack.mjs';
@@ -23,10 +23,23 @@ import { parseGLB } from '../src/lib/gltf.mjs';
 import { extractAnimation, motionOnly, encodeGLB } from '../src/lib/gltfWrite.mjs';
 import { deriveClip } from '../src/lib/packBuild.mjs';
 
-const PACK = 'rocketbox-f01';
+// **있는 팩 중에서 고른다.** 이름을 박아 두면 새로 받은 쪽에서 그 팩이
+// 없어 터진다 (저장소에는 먼 층만 들어 있다).
+const pickPack = () => {
+  const have = fullPacks();
+  return have.includes('rocketbox-f01') ? 'rocketbox-f01' : have[0];
+};
 
 runGate('check-clippack', (g) => {
   let n = 0;
+  const PACK = pickPack();
+
+  // 저장소에는 팩의 **먼 층만** 들어 있다 — 새로 받은 쪽에는 이 게이트가 볼
+  // 것이 없다. 터지지 말고 **건너뛰되 수로 말한다** (gate-lib 의 skip).
+  if (!fullPacks().length) {
+    g.skip(`진짜 클립을 접어 보는 게이트라 클립 전부가 있어야 한다 — ${HOW_TO_GET_PACKS}`);
+    return n;
+  }
 
   // ── 1. 상수 찾기가 말이 되는가 ──
   {

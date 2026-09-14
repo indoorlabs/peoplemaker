@@ -15,7 +15,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runGate } from './gate-lib.mjs';
+import { runGate, fullPacks, HOW_TO_GET_PACKS } from './gate-lib.mjs';
 import { buildGLB, FIXTURES } from '../src/lib/fixtureRig.mjs';
 import { parseGLB, sampleAnimation, animationDurationS, parentMap, nodeWorldMatrix } from '../src/lib/gltf.mjs';
 import {
@@ -135,6 +135,13 @@ function aimPairs(S, T) {
 
 runGate('check-retarget', async (g) => {
   let n = 0;
+
+  // 저장소에는 팩의 **먼 층만** 들어 있다 — 새로 받은 쪽에는 이 게이트가 볼
+  // 것이 없다. 터지지 말고 **건너뛰되 수로 말한다** (gate-lib 의 skip).
+  if (!fullPacks().length) {
+    g.skip(`진짜 몸으로 옮겨 보는 게이트라 몸이 있어야 한다 — ${HOW_TO_GET_PACKS}`);
+    return n;
+  }
 
   // ── 1. 규약 알아보기 ──
   n++;
@@ -372,10 +379,12 @@ runGate('check-retarget', async (g) => {
   // 걷기를 여자 01 에게 옮겨 방향을 본다 — 같은 규약·다른 비율의 실제 경우.
   {
     const m = path.join(ROOT, 'packs', 'rocketbox-m01', 'clips', 'walk-forward.glb');
-    // 나뉜 팩이면 몸은 body.glb 다 (클립에는 스킨이 없다).
+    // **몸이 있어야 한다.** 나뉜 팩의 클립에는 스킨이 없어서, 몸 대신 클립을
+    // 집으면 뼈 없는 문서로 옮기게 되고 방향이 68° 어긋난 것처럼 나온다.
+    // 새로 받은 쪽에는 걷기 클립만 있고 몸이 없어서 실제로 그렇게 됐다.
     const fBody = path.join(ROOT, 'packs', 'rocketbox-f01', 'body.glb');
-    const f = fs.existsSync(fBody) ? fBody : path.join(ROOT, 'packs', 'rocketbox-f01', 'clips', 'idle.glb');
-    if (fs.existsSync(m) && fs.existsSync(f)) {
+    const f = fs.existsSync(fBody) ? fBody : null;
+    if (fs.existsSync(m) && f) {
       const src = docOf(new Uint8Array(fs.readFileSync(m)));
       const dst = docOf(new Uint8Array(fs.readFileSync(f)));
       const r = retargetClip(src, dst);
@@ -405,7 +414,7 @@ runGate('check-retarget', async (g) => {
       if (worst > 1) g.fail('real/directions', `남자 → 여자 걷기에서 ${where} 방향이 ${worst.toFixed(1)}° 다르다`);
       console.log(`  [옮김] 실제: rocketbox-m01 걷기 → f01 · 짝 ${r.report.pairs} · 엉덩이 비 ${r.report.hipScale} · 방향 오차 최대 ${worst.toFixed(3)}° · 버린 뼈 이동 몫 최대 ${dropped.toFixed(1)}°`);
     } else {
-      console.log('  [옮김] 실제 Rocketbox 팩이 없어 6번은 건너뛴다 (import-rocketbox 로 만들면 돈다)');
+      console.log(`  [옮김] 진짜 몸이 없어 6번은 건너뛴다 — ${HOW_TO_GET_PACKS}`);
     }
   }
 

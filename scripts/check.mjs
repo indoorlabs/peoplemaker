@@ -26,16 +26,21 @@ if (!gates.length) {
 }
 
 let failed = 0;
+let skipped = 0;
 const t0 = Date.now();
 
 for (const g of gates) {
   const r = spawnSync(process.execPath, [path.join(here, g), ...args], { stdio: 'inherit' });
-  if (r.status !== 0) failed++;
+  // 3 은 **건너뜀** — 볼 것이 없어서 못 본 것이다 (팩의 먼 층만 받은 새 클론).
+  // 실패도 통과도 아니라, 몇 개가 그랬는지를 수로 남긴다.
+  if (r.status === 3) skipped++;
+  else if (r.status !== 0) failed++;
 }
 
 const secs = ((Date.now() - t0) / 1000).toFixed(1);
+const tail = skipped ? ` · ${skipped}개는 건너뛰었다 (팩을 받아야 돈다)` : '';
 if (failed) {
-  console.error(`\n게이트 ${gates.length}개 중 ${failed}개 실패 (${secs}s)`);
+  console.error(`\n게이트 ${gates.length}개 중 ${failed}개 실패${tail} (${secs}s)`);
   process.exit(1);
 }
-console.log(`\n게이트 ${gates.length}개 전부 통과 (${secs}s)`);
+console.log(`\n게이트 ${gates.length}개 중 ${gates.length - skipped}개 통과${tail} (${secs}s)`);

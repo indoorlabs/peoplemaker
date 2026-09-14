@@ -17,7 +17,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { runGate, ROOT } from './gate-lib.mjs';
+import { runGate, ROOT, fullPacks, HOW_TO_GET_PACKS } from './gate-lib.mjs';
 import { weldMesh, simplifyMesh, surfaceDeviation } from '../src/lib/meshLod.mjs';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { bakeClip } from '../src/lib/poseBake.mjs';
@@ -156,6 +156,13 @@ function flippedFaces(out, welded) {
 
 runGate('check-lod', (g) => {
   let n = 0;
+
+  // 저장소에는 팩의 **먼 층만** 들어 있다 — 새로 받은 쪽에는 이 게이트가 볼
+  // 것이 없다. 터지지 말고 **건너뛰되 수로 말한다** (gate-lib 의 skip).
+  if (!fullPacks().length) {
+    g.skip(`진짜 살을 줄여 보는 게이트라 몸이 있어야 한다 — ${HOW_TO_GET_PACKS}`);
+    return n;
+  }
 
   // ── 1. 아는 모양에서 아는 답 ──
   {
@@ -444,7 +451,7 @@ runGate('check-lod', (g) => {
   {
     const dir = path.join(ROOT, 'packs');
     const packs = fs.existsSync(dir)
-      ? fs.readdirSync(dir).filter((d) => fs.existsSync(path.join(dir, d, 'catalog.json')))
+      ? fullPacks()   // **굽는 데 필요한 것이 다 있는 팩만** — 저장소에는 먼 층만 들어 있다
       : [];
     let checked = 0;
     for (const p of packs) {

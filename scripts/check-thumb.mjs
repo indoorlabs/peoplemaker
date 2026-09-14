@@ -13,7 +13,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { runGate, ROOT } from './gate-lib.mjs';
+import { runGate, ROOT, fullPacks, HOW_TO_GET_PACKS } from './gate-lib.mjs';
 import {
   silhouetteGrid, runsOf, filledCells, gridBounds, thumbSvg, thumbBox,
   THUMB_COLS as C, THUMB_ROWS as R,
@@ -23,10 +23,23 @@ import { attachAnimation } from '../src/lib/gltfWrite.mjs';
 import { bakeClip } from '../src/lib/poseBake.mjs';
 import { skinnedMeshOf, skinPoints } from '../src/lib/bodyMesh.mjs';
 
-const PACK = 'rocketbox-f01';
+// **있는 팩 중에서 고른다.** 이름을 박아 두면 새로 받은 쪽에서 그 팩이
+// 없어 터진다 (저장소에는 먼 층만 들어 있다).
+const pickPack = () => {
+  const have = fullPacks();
+  return have.includes('rocketbox-f01') ? 'rocketbox-f01' : have[0];
+};
 
 runGate('check-thumb', (g) => {
   let n = 0;
+  const PACK = pickPack();
+
+  // 저장소에는 팩의 **먼 층만** 들어 있다 — 새로 받은 쪽에는 이 게이트가 볼
+  // 것이 없다. 터지지 말고 **건너뛰되 수로 말한다** (gate-lib 의 skip).
+  if (!fullPacks().length) {
+    g.skip(`몸에 살을 붙여 그려 보는 게이트라 몸이 있어야 한다 — ${HOW_TO_GET_PACKS}`);
+    return n;
+  }
 
   // ── 1. 격자가 점을 제대로 찍는가 ──
   {
@@ -101,7 +114,12 @@ runGate('check-thumb', (g) => {
     if (grid) poses[id] = { grid, b: gridBounds(grid), cells: filledCells(grid) };
   }
   n++;
-  if (!poses.idle || !poses.sit) { g.setupFail('서기·앉기 클립이 없다'); return n; }
+  // 서기·앉기가 다 있어야 자세를 가를 수 있다. 기준 팩 하나만 받은 쪽에는
+  // 앉는 클립이 없다 — 거기까지만 보고 수로 말한다.
+  if (!poses.idle || !poses.sit) {
+    console.log(`  [섬네일] ${PACK} 에 서기·앉기가 다 없어 자세 가르기는 건너뛴다 — ${HOW_TO_GET_PACKS}`);
+    return n;
+  }
 
   // 앉으면 머리가 내려간다 — 그림에서는 위쪽이 빈다 (y0 가 커진다).
   for (const id of ['sit', 'crouch', 'crouch-in']) {

@@ -18,16 +18,49 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(here, '..');
 const BASELINE_DIR = path.join(here, 'baselines');
 
+/**
+ * **굽는 데 필요한 것이 다 있는 팩** — 몸과 사람이 적은 것까지.
+ *
+ * 저장소에는 팩의 **먼 층만** 들어 있다 (열둘에 4.2MB). 몸째·텍스처·클립
+ * 31개는 따로 배포한다. 그래서 새로 받은 사람에게는 굽거나 재는 게이트가
+ * 볼 것이 없다 — 그때 **터지지 말고 건너뛰어야** 한다.
+ *
+ * 새로 받아 `npm run check` 를 돌려 보고 알았다: 스물셋 중 일곱이 터지거나
+ * 엉뚱한 결함을 냈다. 이 저장소가 "게이트가 기본" 이라고 적어 두고 정작
+ * **이 기계에서만** 참이었던 것이다.
+ */
+export function fullPacks(root = ROOT) {
+  const dir = path.join(root, 'packs');
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((id) => (
+    fs.existsSync(path.join(dir, id, 'catalog.json'))
+    && fs.existsSync(path.join(dir, id, 'sources.json'))
+    && fs.existsSync(path.join(dir, id, 'body.glb'))
+  ));
+}
+
+/** 팩을 어떻게 받는지 — 건너뛸 때 함께 적는다. */
+export const HOW_TO_GET_PACKS = 'node scripts/fetch-packs.mjs <packs.json 주소> --tier all --clips all';
+
 export function runGate(name, collect) {
   const update = process.argv.includes('--update');
   const setupErrors = [];
   const findings = [];
+  let skipped = null;
 
   // 게이트는 자기 셋업부터 검사한다 — 평면 게이트 1일차 320건 중 절반이
   // 게이트 자신의 버그였다. 셋업 결함은 조용한 남 탓이 아니라 크게 실패한다.
   const api = {
     fail: (id, msg) => findings.push({ id, msg }),
     setupFail: (msg) => setupErrors.push(msg),
+    /**
+     * **볼 것이 없어서 못 본다** — 실패도 통과도 아니다.
+     *
+     * 조용히 통과시키면 게이트가 눈을 감는 가장 흔한 길이 되고, 실패로 두면
+     * 새로 받은 사람이 첫 명령에서 빨간 글을 본다. 그래서 셋째 자리를 두고
+     * **수로 센다** (스물셋 중 몇 개가 건너뛰었는지 요약에 나온다).
+     */
+    skip: (why) => { skipped = why; },
   };
 
   let counted = 0;
@@ -55,6 +88,10 @@ export function runGate(name, collect) {
   return finish(counted);
 
   function finish(counted) {
+  if (skipped) {
+    console.log(`[${name}] 건너뜀 — ${skipped}`);
+    process.exit(3);
+  }
   if (setupErrors.length) {
     console.error(`\n[${name}] SETUP 결함 ${setupErrors.length}건 — 게이트가 불가능한 것을 시켰다:`);
     for (const m of setupErrors) console.error(`  · ${m}`);
