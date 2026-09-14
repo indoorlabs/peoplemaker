@@ -116,6 +116,24 @@ function decodeAccessor({ json, bin }, index) {
     const rowOff = base + (stride ? i * stride : i * per * comp.size);
     for (let c = 0; c < per; c++) out[i * per + c] = get(rowOff + c * comp.size);
   }
+
+  // **정규화된 정수는 규약대로 실수로 돌려준다.**
+  //
+  // glTF 에서 `normalized: true` 는 "이 정수는 실수를 접어 넣은 것" 이라는
+  // 뜻이다. 여기서 안 풀면 뼈 회전이 32767 같은 수로 읽혀 사람이 터진다.
+  // 한 군데서 풀어야 읽는 쪽(굽기·재기·옮기기)이 전부 그대로 돌아간다 —
+  // 회전을 int16 로 적기 시작하면서 이 자리가 필요해졌다.
+  if (acc.normalized) {
+    const denom = { 5120: 127, 5121: 255, 5122: 32767, 5123: 65535 }[acc.componentType];
+    if (denom) {
+      const f = new Float32Array(out.length);
+      const signed = acc.componentType === 5120 || acc.componentType === 5122;
+      for (let i = 0; i < out.length; i++) {
+        f[i] = signed ? Math.max(out[i] / denom, -1) : out[i] / denom;
+      }
+      return f;
+    }
+  }
   return out;
 }
 

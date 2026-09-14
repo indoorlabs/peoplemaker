@@ -68,7 +68,8 @@ export function extractAnimation(doc, animIndex = 0) {
     name: a.name || 'clip',
     channels: a.channels.map((ch) => {
       const s = a.samplers[ch.sampler];
-      if (doc.json.accessors[s.output]?.normalized) throw new Error('정규화된 정수 애니메이션은 다루지 않는다');
+      // 정규화된 정수도 읽는다 — readAccessor 가 규약대로 실수로 풀어 준다
+      // (회전을 int16 로 적기 시작하면서 열었다).
       return {
         node: ch.target.node,
         nodeName: doc.json.nodes[ch.target.node]?.name,
@@ -108,7 +109,12 @@ export function appendAnimation(doc, anim) {
     const keys = ch.times.length * (ch.interpolation === 'CUBICSPLINE' ? 3 : 1);
     const per = ch.values.length / keys;
     const type = per === 4 ? 'VEC4' : per === 3 ? 'VEC3' : 'SCALAR';
-    const output = w.put(ch.values, type);
+    // **Int16Array 로 주면 정규화된 정수로 적는다** (회전 8.7MB → 4.4MB).
+    // 실수로 적을 것과 섞이지 않게, 무엇으로 적는지는 값의 꼴이 정한다.
+    const quant = ch.values instanceof Int16Array;
+    const output = quant
+      ? w.put(ch.values, type, { normalized: true }, 5122)
+      : w.put(ch.values, type);
     samplers.push({ input, output, interpolation: ch.interpolation || 'LINEAR' });
     channels.push({ sampler: samplers.length - 1, target: { node: ch.node, path: ch.path } });
   }

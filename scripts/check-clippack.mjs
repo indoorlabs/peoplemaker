@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { runGate, ROOT } from './gate-lib.mjs';
 import {
-  compactChannels, constantOf, quatAngleDeg, compactReport, CLIP_EPS,
+  compactChannels, quantizeRotations, constantOf, quatAngleDeg, compactReport, CLIP_EPS,
 } from '../src/lib/clipPack.mjs';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { extractAnimation, motionOnly, encodeGLB } from '../src/lib/gltfWrite.mjs';
@@ -207,6 +207,65 @@ runGate('check-clippack', (g) => {
     console.log(`  [클립] ${PACK} 6개: ${(before / 1024).toFixed(0)}KB → ${(after / 1024).toFixed(0)}KB (${(100 * (1 - after / before)).toFixed(1)}% 줄었다) · 잰 값은 그대로`);
   }
 
+  // ── 6-2. 회전을 int16 로 줄이기 ──
+  //
+  // 접기(손실 0)와 달리 **이쪽은 손실이 있다** — 최대 0.0034°. 그 대가로
+  // 파일의 34%가 준다. 게이트는 오차가 그 자리에 머무는지, 그리고 되읽었을 때
+  // 규약대로 실수로 풀리는지를 본다.
+  {
+    const nm = names.find((x) => x !== undefined);
+    const doc = parseGLB(fs.readFileSync(path.join(dir, nm)));
+    const anim = extractAnimation(doc);
+    const { channels, report } = quantizeRotations(anim.channels);
+    n++;
+    if (!(report.quantized > 0)) g.fail('quant/none', '회전 트랙이 있는데 하나도 안 줄였다');
+    n++;
+    // **회전만** 줄인다 — 이동을 int16 로 적으면 -1~1 밖이라 잘린다.
+    const pos = channels.find((c) => c.path === 'translation');
+    if (pos && pos.values instanceof Int16Array) g.fail('quant/pos', '이동 트랙을 int16 로 적었다 — 1m 밖이 잘린다');
+    n++;
+    // 0.01° 를 넘으면 이 방법을 다시 봐야 한다 (처음 잴 때 0.0034° 였다 —
+    // 지금 저장소의 클립은 이미 줄어 있어 다시 줄이면 오차가 더 작게 나온다).
+    if (!(report.maxRotDeg < 0.01)) g.fail('quant/err', `각오차가 ${report.maxRotDeg}° 다 — 0.01° 를 넘으면 다시 재야 한다`);
+    n++;
+    // **더 거칠게 줄이면 오차가 따라 커지는가.** 값 하나가 범위 안인지보다
+    // 이것이 이 저장소의 물음이다 — int8 은 int16 보다 256배 거칠다.
+    const coarse = quantizeRotations(anim.channels, { bits: 8 }).report;
+    if (!(coarse.maxRotDeg > report.maxRotDeg * 10)) {
+      g.fail('quant/shake', `256배 거칠게 줄였는데 오차가 ${report.maxRotDeg.toExponential(1)}° → ${coarse.maxRotDeg.toExponential(1)}° 다 — 줄이는 시늉만 하고 있다`);
+    }
+    n++;
+    if (!(report.bytesAfter * 2 === report.bytesBefore)) g.fail('quant/bytes', `${report.bytesBefore} → ${report.bytesAfter} — 절반이 아니다`);
+    n++;
+    // 두 번 줄여도 또 줄이지 않는다 (멱등).
+    if (quantizeRotations(channels).report.quantized !== 0) g.fail('quant/idem', '이미 줄인 것을 또 줄인다');
+
+    // **되읽으면 실수로 풀리는가** — 안 풀리면 뼈가 32767 로 돌아간다.
+    const out = motionOnly(doc, { name: anim.name, channels }).doc;
+    const back = extractAnimation(parseGLB(encodeGLB(out)));
+    const r = back.channels.find((c) => c.path === 'rotation');
+    n++;
+    if (!r || !(r.values instanceof Float32Array)) g.fail('quant/read', '되읽은 회전이 실수가 아니다');
+    else {
+      n++;
+      let worst = 0;
+      const orig = anim.channels.find((c) => c.path === 'rotation' && c.nodeName === r.nodeName);
+      for (let i = 0; i < r.values.length; i += 4) {
+        worst = Math.max(worst, quatAngleDeg(
+          [orig.values[i], orig.values[i + 1], orig.values[i + 2], orig.values[i + 3]],
+          [r.values[i], r.values[i + 1], r.values[i + 2], r.values[i + 3]],
+        ));
+      }
+      if (!(worst < 0.01)) g.fail('quant/roundtrip', `되읽은 값이 ${worst}° 벌어졌다`);
+      n++;
+      // 32767 같은 날것이 새어 나오면 즉시 안다.
+      if (Math.max(...Array.from(r.values.slice(0, 64)).map(Math.abs)) > 1.0001) {
+        g.fail('quant/raw', '되읽은 회전에 정수가 그대로 들어 있다 — 정규화를 안 풀었다');
+      }
+      console.log(`  [클립] 회전 int16: ${(report.bytesBefore / 1024).toFixed(0)}KB → ${(report.bytesAfter / 1024).toFixed(0)}KB · 오차 최대 ${report.maxRotDeg.toExponential(1)}° · 되읽어도 ${worst.toExponential(1)}°`);
+    }
+  }
+
   // ── 7. 저장소의 클립이 이미 접혀 있는가 ──
   //
   // 접어 둔 것이 다시 부풀면(수입 스크립트를 다시 돌렸다든가) 배포가 조용히
@@ -217,11 +276,28 @@ runGate('check-clippack', (g) => {
       const anim = extractAnimation(parseGLB(fs.readFileSync(path.join(dir, nm))));
       folded += compactChannels(anim.channels, { eps: CLIP_EPS }).report.folded;
     }
+    // **파일의 접근자를 본다.** extractAnimation 은 정규화를 규약대로 실수로
+    // 풀어 주므로, 푼 값을 보면 이미 줄인 것도 "안 줄었다" 로 보인다
+    // (처음에 그렇게 써서 437개가 남았다고 나왔다).
+    let notQuant = 0;
+    for (const nm of names) {
+      const d = parseGLB(fs.readFileSync(path.join(dir, nm)));
+      const an = d.json.animations[0];
+      for (const ch of an.channels) {
+        if (ch.target.path !== 'rotation') continue;
+        const acc = d.json.accessors[an.samplers[ch.sampler].output];
+        if (!(acc.componentType === 5122 && acc.normalized)) notQuant++;
+      }
+    }
     n++;
     if (folded > 0) {
-      g.fail('stale', `저장소의 클립에 아직 접을 것이 ${folded}개 있다 — node scripts/compact-clips.mjs --all`);
+      g.fail('stale', `저장소의 클립에 아직 접을 것이 ${folded}개 있다 — node scripts/compact-clips.mjs --all --quantize`);
     }
-    console.log(`  [클립] 저장소의 클립은 이미 접혀 있다 (더 접을 것 ${folded}개) · eps ${CLIP_EPS}`);
+    n++;
+    if (notQuant > 0) {
+      g.fail('stale/quant', `저장소의 클립에 아직 줄일 회전이 ${notQuant}개 있다 — node scripts/compact-clips.mjs --all --quantize`);
+    }
+    console.log(`  [클립] 저장소의 클립은 이미 접히고 줄어 있다 (더 접을 것 ${folded} · 더 줄일 것 ${notQuant}) · eps ${CLIP_EPS}`);
   }
 
   void compactReport;

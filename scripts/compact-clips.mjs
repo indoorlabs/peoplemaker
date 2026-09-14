@@ -16,11 +16,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { extractAnimation, motionOnly, encodeGLB } from '../src/lib/gltfWrite.mjs';
-import { compactChannels, compactReport, CLIP_EPS } from '../src/lib/clipPack.mjs';
+import { compactChannels, quantizeRotations, compactReport, CLIP_EPS } from '../src/lib/clipPack.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
 const dry = argv.includes('--dry');
+// 회전을 int16 로도 줄일 것인가 — 이쪽은 손실이 있다 (최대 0.0034°).
+const quant = argv.includes('--quantize');
 const epsArg = argv.indexOf('--eps');
 const eps = epsArg >= 0 ? Number(argv[epsArg + 1]) : CLIP_EPS;
 let ids = argv.filter((a) => !a.startsWith('--') && !(epsArg >= 0 && a === argv[epsArg + 1]));
@@ -45,7 +47,9 @@ for (const id of ids) {
     const doc = parseGLB(buf);
     const anim = extractAnimation(doc);
     const { channels, report } = compactChannels(anim.channels, { eps });
-    const { doc: out, missing } = motionOnly(doc, { name: anim.name, channels });
+    const q = quant ? quantizeRotations(channels) : { channels, report: { maxRotDeg: 0 } };
+    if (quant) report.maxRotDeg = Math.max(report.maxRotDeg, q.report.maxRotDeg);
+    const { doc: out, missing } = motionOnly(doc, { name: anim.name, channels: q.channels });
     if (missing.length) { console.error(`  ✗ ${id}/${name}: 뼈를 못 찾았다 — ${missing.slice(0, 3).join(', ')}`); continue; }
     const bytes = encodeGLB(out);
     b += buf.length;
