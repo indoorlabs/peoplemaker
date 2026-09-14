@@ -122,7 +122,12 @@ const NAMES = {
   idle: { ko: '서 있기 (G1)', en: 'Idle (G1)' },
   'walk-forward': { ko: '앞으로 걷기 (G1)', en: 'Walk forward (G1)' },
   reach: { ko: '오른손 뻗기 (G1)', en: 'Reach with the right hand (G1)' },
+  'walk-carry': { ko: '들고 걷기 (G1)', en: 'Walk carrying (G1)' },
 };
+// 들고 걷기는 **무엇을 드는지**를 사람이 적는다 (살을 봐서 알 수 없다). 집는 물체를
+// 대표해 낱말표의 'cup' 으로 둔다 — FetchMan 이 집던 것도 그릇·양초 같은 손 안의
+// 물건이다. 손이 어디 있는지는 build-pack 이 잰다 (grip).
+const HOLDS = { 'walk-carry': { what: 'cup', hand: 'right' } };
 const sources = {
   packId: PACK,
   version: '0.1.0',
@@ -150,6 +155,7 @@ const sources = {
     license: 'CC0-1.0',
     source: { tool: 'peoplemaker/make-g1-pack', synthetic: true },
     tags: [c.kind],
+    ...(HOLDS[c.id] ? { holds: HOLDS[c.id] } : {}),
   })),
 };
 fs.writeFileSync(path.join(out, 'sources.json'), `${JSON.stringify(sources, null, 2)}\n`);

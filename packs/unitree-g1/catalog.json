@@ -56,7 +56,7 @@
   "forwardRad": 0,
   "builtBy": "peoplemaker/build-pack",
   "builtAt": "2026-09-14",
-  "builtFrom": "01b0307",
+  "builtFrom": "f068c9b-dirty",
   "clips": [
     {
       "id": "idle",
@@ -114,6 +114,53 @@
         "releaseS": 2.05,
         "forwardM": 0.333,
         "heightM": 1.077
+      }
+    },
+    {
+      "id": "walk-carry",
+      "name": {
+        "ko": "들고 걷기 (G1)",
+        "en": "Walk carrying (G1)"
+      },
+      "license": "CC0-1.0",
+      "source": {
+        "tool": "peoplemaker/make-g1-pack",
+        "synthetic": true
+      },
+      "tags": [
+        "walk"
+      ],
+      "holds": {
+        "what": "cup",
+        "hand": "right"
+      },
+      "durationS": 0.8,
+      "rootMotion": "travel",
+      "speedMps": 1.35,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.067,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 0.467,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-carry.svg",
+      "grip": {
+        "bones": {
+          "hand-l": "left_wrist_yaw_link",
+          "hand-r": "right_wrist_yaw_link"
+        },
+        "spanM": 0.329,
+        "spanSpreadM": 0.146,
+        "heightM": 0.901,
+        "forwardM": 0.268
       }
     },
     {

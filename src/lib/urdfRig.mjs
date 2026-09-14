@@ -247,6 +247,9 @@ export const ROBOT_CLIPS = [
   { id: 'idle', durationS: 4.0, speedMps: 0, kind: 'idle' },
   { id: 'walk-forward', durationS: 0.8, speedMps: 1.35, cycles: 1, kind: 'walk' },
   { id: 'reach', durationS: 2.4, speedMps: 0, kind: 'reach' },
+  // 들고 걷기 — 집은 뒤에 빈손으로 걷지 않으려고. 걸음은 walk-forward 와 같고
+  // 오른팔만 앞에 들어 흔들지 않는다. 속도는 같은 빌린 값(든 것이 가벼울 때).
+  { id: 'walk-carry', durationS: 0.8, speedMps: 1.35, cycles: 1, kind: 'walk', carry: 'R' },
 ];
 
 /** G1 의 관절 이름 — 링크 이름으로 부른다 (노드 = 링크). */
@@ -318,6 +321,13 @@ export function poseAt(spec, t, rig) {
     a[G1.ankle.L] = -(hipL + 0.5 * kneeL); a[G1.ankle.R] = -(hipR + 0.5 * kneeR);
     a[G1.shoulder.L] = S * Math.sin(ph); a[G1.shoulder.R] = -S * Math.sin(ph);
     a[G1.elbow.L] = 0.25; a[G1.elbow.R] = 0.25;
+    if (spec.carry === 'R') {
+      // 든 팔은 앞에 고정 — 어깨를 앞으로 0.9, 팔꿈치를 1.0 접어 손을 몸 앞
+      // 허리 높이쯤에 둔다. 흔들지 않는다. 손이 어디에 있는지는 재서 grip 에 적힌다.
+      a[G1.shoulder.R] = -0.9;
+      a[G1.shoulderRoll.R] = -0.1;
+      a[G1.elbow.R] = 1.0;
+    }
     // 뿌리: 앞(+Z)으로 속도 × 시간. 위아래는 걸음마다 조금 (재는 쪽이 넘기는 흔들림).
     root = [0, y0 + 0.01 * Math.cos(2 * ph), spec.speedMps * t];
   } else if (spec.kind === 'idle') {
