@@ -50,15 +50,35 @@ const clipArg = flags.clips === undefined ? MIN_CLIPS
 const to = path.resolve(flags.to || path.join(ROOT, 'packs'));
 
 const base = new URL(src.includes('://') ? src : pathToFileURL(path.resolve(src)).href);
+// **끊기면 다시 받는다.** 공개 Release 에서 12명(132개)을 받다가 한 번 소켓이
+// 끊겼는데(UND_ERR_SOCKET), 그 하나로 전부가 멈췄다 — 두 번째 돌리니 그냥 됐다.
+// 파일 백 개를 받는 도구가 한 번의 딸꾹질에 죽으면 받는 쪽은 팩이 깨진 줄 안다.
+// 404 는 다시 받지 않는다 — 그것은 딸꾹질이 아니라 **없는 것**이다.
+const RETRIES = 3;
 const get = async (rel) => {
   const u = new URL(rel, base);
   if (u.protocol === 'file:') return fs.readFileSync(fileURLToPath(u));
-  const res = await fetch(u);
-  if (!res.ok) throw new Error(`${u} → ${res.status}`);
-  return Buffer.from(await res.arrayBuffer());
+  let last;
+  for (let attempt = 1; attempt <= RETRIES; attempt++) {
+    try {
+      const res = await fetch(u);
+      if (!res.ok) throw Object.assign(new Error(`${u} → ${res.status}`), { final: res.status < 500 });
+      return Buffer.from(await res.arrayBuffer());
+    } catch (e) {
+      last = e;
+      if (e.final || attempt === RETRIES) break;
+      console.error(`  … ${rel} 받다 끊겼다 — 다시 받는다 (${attempt + 1}/${RETRIES})`);
+      await new Promise((r) => setTimeout(r, 500 * attempt));
+    }
+  }
+  throw last;
 };
 
-const manifest = JSON.parse((await get('packs.json')).toString('utf8'));
+// **준 이름의 목록을 받는다.** 전에는 늘 'packs.json' 을 받았다 — 주소를
+// 폴더로만 보고 파일 이름을 버린 것이다. packs-404.json 을 줘도 옆의
+// packs.json 을 조용히 받아서, 게이트가 없는 파일을 0번 달라는 걸 보고 알았다.
+const manifestName = path.posix.basename(base.pathname) || 'packs.json';
+const manifest = JSON.parse((await get(manifestName)).toString('utf8'));
 const probs = manifestProblems(manifest);
 if (probs.length) {
   console.error(`목록이 말이 안 된다 (${probs.length}군데):`);

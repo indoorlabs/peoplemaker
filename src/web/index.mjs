@@ -35,7 +35,7 @@ export { SCENARIOS, planScenario, scenarioReport } from '../lib/scenario.mjs';
 export { profileShares, profileProblems, pendingProfiles, PROFILE_SOURCES } from '../lib/profile.mjs';
 import { attachAnimation } from '../lib/gltfWrite.mjs';
 // 클립 파일이 없을 때 **무엇이 딸려 오는지**를 말하려고 쓴다 (수를 여기 또 적지 않는다).
-import { SHIP_FILES, MIN_CLIPS } from '../lib/dist.mjs';
+import { SHIP_FILES, MIN_CLIPS, PACKS_URL } from '../lib/dist.mjs';
 
 export {
   planCrowd, affordable, frameCostMs, TIERS,
@@ -167,7 +167,7 @@ export async function loadPack({
       + `적지만 **이 사본에 파일이 다 있는 것은 아니다** — 저장소에 딸려 오는 사본은 `
       + `${SHIP_FILES.filter((f) => f.startsWith('clips/')).map((f) => f.slice(6, -4)).join(' · ')} 뿐이다. `
       + `있는 것만 달라고 하거나(clips: ['${MIN_CLIPS.join("', '")}']), 나머지를 먼저 받을 것 `
-      + `(node scripts/fetch-packs.mjs <목록 주소> --clips ${id},…).`,
+      + `(node scripts/fetch-packs.mjs ${PACKS_URL} --clips ${id},…).`,
     );
   };
 

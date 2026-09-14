@@ -45,7 +45,9 @@ export function fullPacks(root = ROOT) {
  * 저장소에는 먼 층만 있다 (87개 4.2MB). 게이트 중 다섯은 진짜 몸과 클립이
  * 있어야 볼 것이 있어서, 없으면 건너뛰고 **어떻게 받는지**를 함께 적는다.
  */
-export const PACKS_URL = 'https://github.com/indoorlabs/peoplemaker/releases/download/packs-2026-09-14/packs.json';
+// 주소는 순수 층(lib/dist.mjs)이 갖는다 — 받는 쪽의 오류 문구도 같은 것을 쓴다.
+import { PACKS_URL } from '../src/lib/dist.mjs';
+export { PACKS_URL };
 
 /**
  * 팩을 어떻게 받는지 — 건너뛸 때 함께 적는다.

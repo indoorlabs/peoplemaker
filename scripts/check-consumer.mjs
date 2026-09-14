@@ -23,7 +23,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { runGate, ROOT } from './gate-lib.mjs';
 import { validateCatalog } from '../src/lib/motionPack.mjs';
-import { SHIP_FILES } from '../src/lib/dist.mjs';
+import { SHIP_FILES, PACKS_URL } from '../src/lib/dist.mjs';
 
 const PACK = 'ref-synthetic';
 
@@ -282,6 +282,11 @@ runGate('check-consumer', async (g) => {
       // **어떻게 하면 되는지**를 말해야 한다.
       if (!/fetch-packs/.test(msg) || !/clips:/.test(msg)) {
         g.fail('ship/how', '두 갈래(있는 것만 달라기 · 나머지 받기) 중 하나라도 안 알려 준다');
+      }
+      n++;
+      // **어디서 받는지**도 — 빈자리(`<목록 주소>`)를 주면 알려 준 것이 아니다.
+      if (!msg.includes(PACKS_URL) || msg.includes('<')) {
+        g.fail('ship/where', '받으라면서 어디서 받는지는 빈자리로 둔다');
       }
     }
 

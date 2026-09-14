@@ -41,6 +41,16 @@ export const TIERS = {
 };
 
 /**
+ * **올려 둔 팩의 목록** — 저장소에 없는 것은 여기서 받는다.
+ *
+ * 값과 규칙만 있는 이 파일에 주소가 있는 까닭: 게이트가 건너뛸 때도, 받는
+ * 쪽이 없는 클립을 만났을 때도 **같은 주소를 말해야** 한다. 한쪽은 빈자리를
+ * 주고 있었다 — 오류 문구가 `<목록 주소>` 라고 적어서, 그것을 본 사람은
+ * 어디서 받는지 몰랐다.
+ */
+export const PACKS_URL = 'https://github.com/indoorlabs/peoplemaker/releases/download/packs-2026-09-14/packs.json';
+
+/**
  * **올려 둔 것이 어떤 모양으로 놓여 있는가.**
  *
  * 파일을 폴더째 올릴 수 있는 자리(정적 호스팅·버킷)면 `packs/<팩>/<경로>` 로
@@ -170,8 +180,15 @@ export const MIN_CLIPS = ['idle', 'walk-forward'];
  * @param clips  함께 받을 클립 id 들 (기본 MIN_CLIPS · 'all' 이면 전부)
  */
 export function bytesFor(row, { tier = 'far', clips = MIN_CLIPS } = {}) {
-  const base = row?.tiers?.[tier] ?? 0;
-  if (clips === 'all') return base + Object.values(row?.clipBytes || {}).reduce((s, b) => s + b, 0);
+  const clipTotal = Object.values(row?.clipBytes || {}).reduce((s, b) => s + b, 0);
+  // **층이 이미 클립을 품고 있으면 그 몫을 뺀다.** `all`·`sheet` 의 크기표에는
+  // 클립이 들어 있는데(그래야 "동작 전부 172.5MB" 라는 수가 나온다), 받을 때는
+  // 클립을 따로 고르므로 두 번 세면 안 된다 — 'sheet' 에 클립 0개를 달라니
+  // 67KB 라 해 놓고 42KB 를 받았다. 무엇을 받을지는 fetch-packs 와 같은
+  // 규칙이다: 클립이 아닌 파일은 층으로, 클립은 고른 것으로.
+  const tierHasClips = TIERS[tier]?.match?.('clips/x.glb') === true;
+  const base = (row?.tiers?.[tier] ?? 0) - (tierHasClips ? clipTotal : 0);
+  if (clips === 'all') return base + clipTotal;
   const want = (clips || []).filter((id) => row?.clipBytes?.[id] !== undefined);
   return base + want.reduce((s, id) => s + row.clipBytes[id], 0);
 }

@@ -1,6 +1,6 @@
 # spacemaker 를 올리는 법 — 무엇을 하면 무엇이 달라지는가
 
-이 문서는 **spacemaker 쪽을 고칠 사람**에게 쓴다. peoplemaker 를 38커밋 뒤의
+이 문서는 **spacemaker 쪽을 고칠 사람**에게 쓴다. peoplemaker 를 44커밋 뒤의
 것으로 올릴 때 저쪽 저장소에서 해야 하는 일과, **안 해도 되는 일**을 적는다.
 수는 전부 잰 것이고 어디서 잰 것인지 함께 적는다.
 
@@ -14,7 +14,7 @@
 
 | | spacemaker 가 보는 것 | 지금 peoplemaker |
 | --- | --- | --- |
-| 핀 | `2c0cf83` (2026-09-11) | `HEAD` — 그 뒤 38커밋 |
+| 핀 | `2c0cf83` (2026-09-11) | `HEAD` — 그 뒤 44커밋 |
 | `origin/main` | `2c0cf83` | `6578f8b` — **밀었다** (2026-09-14) |
 | 서비스하는 팩 | `public/packs/` 3개 · 23MB | 저장소에 13개 · 4.22MB |
 | 사람 | 2명 (여자 01 · 남자 01) | 12명 (어른 8 · 어린이 2 · 의료 2 · 경비 2) |
@@ -24,7 +24,7 @@
 | 구운 도장 | **없다** | `builtAt` · `builtFrom` (갈아 끼운 것을 확인할 수 있다) |
 
 이 문서를 쓸 때만 해도 `origin/main` 이 저쪽 핀과 **같은 커밋**이었다 —
-38커밋이 밀리지 않아 `npm update` 를 해도 받을 것이 없었다. 지금은 밀었으니
+44커밋이 밀리지 않아 `npm update` 를 해도 받을 것이 없었다. 지금은 밀었으니
 (`6578f8b`) 아래 1번부터 하면 된다.
 
 ## 1. 핀을 올린다 — **코드는 안 고친다**
@@ -41,7 +41,7 @@ planCrowd · planCrowdMeasured · measuredFor · pickWalkClip
 player: spawn · walkAt · placeAt · playClip · update
 ```
 
-이 차례가 38커밋 뒤에도 그대로 도는지는 **이쪽 게이트가 매 커밋 증명한다**
+이 차례가 44커밋 뒤에도 그대로 도는지는 **이쪽 게이트가 매 커밋 증명한다**
 (`scripts/check-consumer.mjs`, 검사 46). 저쪽 소스 8개를 읽어 부르는 이름과
 차례를 그대로 옮겨 적었고, 일부러 열한 군데를 깨서 열하나 다 잡히는 것을
 확인했다. **옛 팩 꼴을 거부하지 않는지도 함께 본다** — 그래서 팩을 안 갈아도
@@ -83,8 +83,11 @@ peoplemaker 쪽 오류가 이제 그 사정을 말한다:
 pack://…/clips/run-injured.glb 가 없다 (HTTP 404). 카탈로그는 클립 34개를 적지만
 **이 사본에 파일이 다 있는 것은 아니다** — 저장소에 딸려 오는 사본은
 idle · walk-forward · run 뿐이다. 있는 것만 달라고 하거나(clips: ['idle',
-'walk-forward']), 나머지를 먼저 받을 것 (node scripts/fetch-packs.mjs <목록> --clips …).
+'walk-forward']), 나머지를 먼저 받을 것 (node scripts/fetch-packs.mjs
+https://github.com/indoorlabs/peoplemaker/releases/download/packs-2026-09-14/packs.json --clips run-injured,…).
 ```
+
+오류가 **어디서 받는지까지** 말한다 — 빈자리(`<목록 주소>`)로 두던 것을 고쳤다.
 
 세 갈래가 있다. **셋째가 가장 낫다** — 손댈 곳이 아예 없어진다.
 
@@ -99,17 +102,23 @@ node node_modules/peoplemaker/scripts/fetch-packs.mjs \
   --to public/packs
 ```
 
+공개 주소에서 실제로 받아 열어 봤다:
+
 ```
-사람 12명 · 먼 층 2.08MB + 걷는 클립 4.80MB = 6.88MB
-rocketbox-f01 을 저쪽 고르개로 열어 보니: 고른 것 8, 받은 것 8 — 열린다
-1.2m/s → walk-forward ×0.9917 (다친 걸음 셋이 섞여 있는데 안 골랐다)
+far 층 + 클립 8개 = 6.9MB · 받음 132개 (파일마다 SHA-256 을 견줬다)
+사람 12명 중 12명이 저쪽 고르개(travel || idle) 그대로 열린다
+  여자·어린이 02   고른 8 · 받은 8 · 1.2m/s → walk-forward ×0.9917
+  남자·어린이 01   고른 7 · 받은 7 · 1.2m/s → walk-forward ×1.1788
+                  (남자 팩에는 walk-injured 가 없다 — 받기 도구가 그렇게 말한다)
+다친 걸음 셋이 후보에 섞여 있는데 어느 팩도 안 골랐다
 ```
 
 지금 `public/packs/` 가 23MB 니 **여전히 3분의 1 이하**다.
 
 올릴 자리는 만들어 뒀다 — 위 주소가 공개 Release 다 (팩 13 · 파일 878 ·
 174.7MB). 받을 때 **파일마다 SHA-256 을 견주므로** 받다 끊긴 GLB 가 이상한
-자세로 열리는 일이 없다. 아래 둘은 그 주소를 안 쓰고 싶을 때의 길이다.
+자세로 열리는 일이 없고, 받다 끊기면 세 번까지 다시 받는다. 아래 둘은 그
+주소를 안 쓰고 싶을 때의 길이다.
 
 **갈래 1 — 카탈로그를 온 파일에 맞춘다** (코드 수정 없음).
 복사한 뒤 카탈로그에서 파일이 없는 클립을 지운다:
@@ -175,7 +184,7 @@ const PEOPLE_CLIPS = () => ['idle', 'walk-forward'];
 일곱이 다시 필요하면 골라서 받는다:
 
 ```sh
-node scripts/fetch-packs.mjs <목록 주소> --tier far --clips idle,walk-forward,run,talk,wave
+node node_modules/peoplemaker/scripts/fetch-packs.mjs \n  https://github.com/indoorlabs/peoplemaker/releases/download/packs-2026-09-14/packs.json \n  --tier far --clips idle,walk-forward,run,talk,wave --to public/packs
 ```
 
 대피 시나리오까지 하려면 `look-around` 와 문 여는 동작이 더 든다 —

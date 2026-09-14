@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { runGate, ROOT, fullPacks, HOW_TO_GET_PACKS } from './gate-lib.mjs';
 import {
   TIERS, distManifest, tierBytes, bytesFor, missingClips, manifestProblems, MIN_CLIPS,
@@ -146,6 +146,17 @@ runGate('check-dist', (g) => {
     if (!(bytesFor(row, { tier: 'far', clips: MIN_CLIPS }) < row.tiers.near)) {
       g.fail('choose/win', '골라 받는 것이 몸째 받는 것보다 안 가볍다');
     }
+    // **클립을 품은 층에서 클립을 두 번 세지 않는가.** 'sheet' 에 클립 0개를
+    // 달라니 67KB 라 해 놓고 42KB 를 받았다 — 층에 든 클립 몫을 안 뺐다.
+    const clipTotal = Object.values(row.clipBytes).reduce((s, b) => s + b, 0);
+    n++;
+    if (bytesFor(row, { tier: 'sheet', clips: 'all' }) !== row.tiers.sheet) {
+      g.fail('choose/twice', `sheet 에 클립 전부를 고르면 층 크기와 같아야 하는데 ${bytesFor(row, { tier: 'sheet', clips: 'all' })} vs ${row.tiers.sheet} 다 — 클립을 두 번 센다`);
+    }
+    n++;
+    if (bytesFor(row, { tier: 'all', clips: [] }) !== row.tiers.all - clipTotal) {
+      g.fail('choose/none-all', 'all 층에 클립 0개를 고르면 클립 몫이 빠져야 한다 — 안 받는 것을 센다');
+    }
     const kb = (b) => `${Math.round(b / 1024)}KB`;
     const people = manifest.packs.filter((r) => r.person);
     console.log(
@@ -224,6 +235,85 @@ runGate('check-dist', (g) => {
         fs.writeFileSync(upstream, goodBytes);
         console.log(`  [배포] 내보내고 받아서 열었다: ${one} · 클립 ${have}개 · 다시 받으면 0개 · 바뀐 것만 1개 · 보낸 쪽이 깨지면 안 쓴다`);
       }
+    }
+
+    // ── 4-b. **받다 끊기면 다시 받는가** ──
+    //
+    // 공개 Release 에서 12명(132개)을 받다가 한 번 소켓이 끊겼는데, 그 하나로
+    // 전부가 멈췄다 — 두 번째 돌리니 그냥 됐다. 위의 왕복은 file:// 라 이
+    // 자리를 못 본다. 그래서 **파일마다 첫 요청을 끊는 서버**를 띄워 받아 본다.
+    // 반대로 404 는 딸꾹질이 아니라 없는 것이니 **다시 달라고 하면 안 된다.**
+    if (fs.existsSync(path.join(tmp, 'out', 'packs.json'))) {
+      const srv = path.join(tmp, 'flaky.mjs');
+      fs.writeFileSync(srv, `
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+const [root, portFile, logFile] = process.argv.slice(2);
+const seen = new Map();
+http.createServer((req, res) => {
+  const rel = decodeURIComponent(req.url.replace(/^\\//, ''));
+  const k = (seen.get(rel) || 0) + 1;
+  seen.set(rel, k);
+  fs.appendFileSync(logFile, rel + '\\n');
+  // 목록은 그냥 준다 — 파일 받기만 흔든다.
+  if (k === 1 && !/\\.json$/.test(rel)) { req.socket.destroy(); return; }
+  const f = path.join(root, rel);
+  if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.statusCode = 404; res.end(); return; }
+  res.end(fs.readFileSync(f));
+}).listen(0, '127.0.0.1', function () { fs.writeFileSync(portFile, String(this.address().port)); });
+`);
+      const portFile = path.join(tmp, 'port');
+      const logFile = path.join(tmp, 'req.log');
+      fs.writeFileSync(logFile, '');
+      const child = spawn(process.execPath, [srv, path.join(tmp, 'out'), portFile, logFile], { stdio: 'ignore' });
+      // 동기 게이트라 서버가 뜰 때까지 잠깐 기다린다.
+      const deadline = Date.now() + 5000;
+      while (!fs.existsSync(portFile) && Date.now() < deadline) {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+      }
+      n++;
+      if (!fs.existsSync(portFile)) g.fail('retry/server', '시험용 서버가 안 떴다');
+      else {
+        const base = `http://127.0.0.1:${fs.readFileSync(portFile, 'utf8').trim()}/`;
+        const r = spawnSync(process.execPath, [
+          path.join(ROOT, 'scripts', 'fetch-packs.mjs'), `${base}packs.json`,
+          '--tier', 'far', '--pack', one, '--clips', 'none', '--to', path.join(tmp, 'recv-http'),
+        ], { encoding: 'utf8' });
+        n++;
+        if (r.status !== 0) g.fail('retry/give-up', `한 번 끊겼다고 포기했다 — ${((r.stdout || '') + (r.stderr || '')).slice(-160)}`);
+        n++;
+        if (!/다시 받는다/.test(r.stderr || '')) g.fail('retry/quiet', '다시 받았으면 그렇다고 말해야 한다');
+        n++;
+        if (!fs.existsSync(path.join(tmp, 'recv-http', one, 'catalog.json'))) g.fail('retry/landed', '다시 받았다는데 파일이 없다');
+
+        // **404 는 다시 받지 않는다.** 목록에 없는 파일 하나를 끼워 넣고 몇 번 달라는지 센다.
+        const m = JSON.parse(fs.readFileSync(path.join(tmp, 'out', 'packs.json'), 'utf8'));
+        const row = m.packs.find((p) => p.packId === one);
+        row.files.push({ path: 'ghost.glb', bytes: 1, sha256: 'deadbeefdeadbeef' });
+        row.bytes += 1;
+        fs.writeFileSync(path.join(tmp, 'out', 'packs-404.json'), JSON.stringify(m));
+        fs.writeFileSync(logFile, '');
+        const r2 = spawnSync(process.execPath, [
+          path.join(ROOT, 'scripts', 'fetch-packs.mjs'), `${base}packs-404.json`,
+          '--tier', 'sheet', '--pack', one, '--clips', 'none', '--to', path.join(tmp, 'recv-404'),
+        ], { encoding: 'utf8' });
+        const reqs = fs.readFileSync(logFile, 'utf8').split('\n').filter(Boolean);
+        const ghostReqs = reqs.filter((l) => l.endsWith('ghost.glb')).length;
+        n++;
+        // **준 이름의 목록을 받아야 한다.** 처음에는 늘 packs.json 을 받아서,
+        // 끼워 넣은 파일을 0번 달라는 것을 보고 알았다 — 이 검사 셋이 통째로 헛돌았다.
+        if (reqs[0] !== 'packs-404.json') g.fail('retry/manifest-name', `packs-404.json 을 줬는데 ${reqs[0]} 을 받았다 — 목록 이름을 버린다`);
+        n++;
+        if (r2.status === 0) g.fail('retry/404-ok', '목록에 있는데 없는 파일인데도 받기가 성공했다고 한다');
+        n++;
+        // 이 서버는 첫 요청을 끊으므로 **딱 두 번**이어야 한다: 끊긴 뒤 한 번 더
+        // 달라고(다시 받기), 404 를 받고는 그만(없는 것은 다시 안 달란다). 세 번이면
+        // 404 를 딸꾹질로 본 것이고, 한 번이면 끊긴 것을 다시 안 받은 것이다.
+        if (ghostReqs !== 2) g.fail('retry/404-retry', `없는 파일을 ${ghostReqs}번 달랬다 — 끊기면 한 번 더, 404 면 그만이어야 2번이다`);
+        console.log(`  [배포] 첫 요청을 끊는 서버에서: 다시 받아 ${one} 이 온다 · 없는 파일은 끊긴 뒤 한 번 더 달라고 404 에 그만둔다 (${ghostReqs}번)`);
+      }
+      child.kill();
     }
     fs.rmSync(tmp, { recursive: true, force: true });
   }
