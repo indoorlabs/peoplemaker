@@ -161,6 +161,33 @@ runGate('check-consumer', async (g) => {
     if (asked?.clipId !== 'bait-injured') {
       g.fail('run/distress-ask', `다친 걸음을 달랬는데 ${asked?.clipId ?? '아무것도'} 가 나온다`);
     }
+    // **드는 클립도 같은 규칙이다.** 로봇 팩의 들고 걷기(walk-carry)는 walk-forward
+    // 와 속도가 같아서, 속도로만 고르면 동률이다 — 빈손인데 무언가를 든 채로 걸을
+    // 수 있었다. 저쪽은 laden 을 안다: 빈손이면 드는 클립을 안 고르고, 들었으면
+    // 드는 클립만 고른다.
+    const carry = {
+      ...pack.catalog,
+      clips: [...pack.catalog.clips, {
+        id: 'bait-carry',
+        rootMotion: 'travel',
+        speedMps: 1.2,
+        holds: { what: 'cup', hand: 'right' },
+        contacts: [{ kind: 'plant', tS: 0, side: 'l' }],
+      }],
+    };
+    n++;
+    if (api.pickWalkClip(carry, 1.2)?.clipId === 'bait-carry') {
+      g.fail('run/carry-bait', '빈손으로 걸으라는데 드는 클립을 골랐다 — 속도가 딱 맞는다고');
+    }
+    n++;
+    if (api.pickWalkClip(carry, 1.2, { holding: true })?.clipId !== 'bait-carry') {
+      g.fail('run/carry-ask', '들고 걸으라는데 드는 클립을 안 준다');
+    }
+    n++;
+    // 든 팩에 드는 클립이 없으면 **빈 손으로 대신 걷지 않는다** — null 이어야 쓰는 쪽이 안다.
+    if (api.pickWalkClip(pack.catalog, 1.2, { holding: true }) !== null) {
+      g.fail('run/carry-none', '드는 클립이 없는 팩에서 들고 걸으라는데 빈손 클립을 준다');
+    }
   }
   n++;
   const sameAgain = player.walkAt(person, 1.2);

@@ -147,8 +147,9 @@ export function createClipPlayer({ THREE, SkeletonUtils, catalog, gltfOf }) {
   }
 
   /** 이 사람을 이 속도로 걷게 — 어느 클립을 얼마로 돌릴지는 순수 층이 정한다. */
-  function walkAt(person, desiredMps, { distress = false } = {}) {
-    const pick = pickWalkClip(catalog, desiredMps, { distress });
+  // holding: 무언가를 들었는가 — 들었으면 드는 클립만, 빈손이면 빈손 클립만 (lib/packRuntime.mjs).
+  function walkAt(person, desiredMps, { distress = false, holding = false } = {}) {
+    const pick = pickWalkClip(catalog, desiredMps, { distress, holding });
     if (!pick) return null;
     playClip(person, pick.clipId);
     person.timeScale = pick.timeScale;

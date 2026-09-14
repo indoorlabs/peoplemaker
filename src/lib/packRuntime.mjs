@@ -31,11 +31,18 @@ export const TIME_SCALE_MIN = 1 / TIME_SCALE_MAX;
  * 다친 걸음이 필요하면 **달라고 해야 한다** (`distress: true`). 없으면 빈
  * 목록이고, 그러면 쓰는 쪽이 "이 팩에는 다친 걸음이 없다" 를 안다.
  */
-export function walkClips(catalog, { distress = false } = {}) {
+export function walkClips(catalog, { distress = false, holding = false } = {}) {
   return (catalog?.clips || []).filter((c) => {
     if (!(c.rootMotion === 'travel' && c.speedMps > 0)) return false;
     if (!(c.contacts || []).some((x) => x.kind === 'plant')) return false;
-    return (c.tags || []).includes('distress') === distress;
+    if ((c.tags || []).includes('distress') !== distress) return false;
+    // **드는 클립도 같은 규칙이다.** 로봇 팩에 들고 걷기(walk-carry, 속도가
+    // walk-forward 와 같다)가 들어오자 속도로만 고르면 둘이 동률이라 빈손인
+    // 사람이 무언가를 든 채로 걸을 수 있었다. 들었는지는 쓰는 쪽이 안다
+    // (spacemaker 의 laden) — 빈손이면 드는 클립을 안 고르고, 들었으면 드는
+    // 클립만 고른다. 든 팩에 드는 클립이 없으면 빈 목록이고, 그러면 쓰는 쪽이
+    // "이 팩은 든 채로 못 걷는다" 를 안다 (조용히 빈손으로 걷지 않는다).
+    return !!c.holds === holding;
   });
 }
 
@@ -54,8 +61,9 @@ export function inPlaceClips(catalog) {
  * **가장 가까운 것**을 돌려주되 `timeScale` 이 한계에 걸렸다고 알린다 —
  * null 을 주면 쓰는 쪽이 사람을 아예 안 세우게 되고, 그것은 더 나쁘다.
  */
-export function pickWalkClip(catalog, desiredMps, { distress = false } = {}) {
-  const clips = walkClips(catalog, { distress });
+export function pickWalkClip(catalog, desiredMps, { distress = false, holding = false } = {}) {
+  // holding 을 걸러내기에만 넣고 여기서 안 넘겨서 게이트에 잡혔다 — 규칙과 고르기는 한 줄로 이어져야 한다.
+  const clips = walkClips(catalog, { distress, holding });
   if (!clips.length || !(desiredMps > 0)) return null;
   // 필요한 재생 속도가 1 에 가장 가까운 클립. 로그 거리로 재야 0.5배와
   // 2배가 같은 만큼 멀다 — 선형으로 재면 느린 쪽만 골라진다.
