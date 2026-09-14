@@ -34,6 +34,8 @@ export { SCENARIOS, planScenario, scenarioReport } from '../lib/scenario.mjs';
 // 용도 프로필 — "학교" 가 무엇을 뜻하는가. 비율은 저장 안 하고 비에서 계산한다.
 export { profileShares, profileProblems, pendingProfiles, PROFILE_SOURCES } from '../lib/profile.mjs';
 import { attachAnimation } from '../lib/gltfWrite.mjs';
+// 클립 파일이 없을 때 **무엇이 딸려 오는지**를 말하려고 쓴다 (수를 여기 또 적지 않는다).
+import { SHIP_FILES, MIN_CLIPS } from '../lib/dist.mjs';
 
 export {
   planCrowd, affordable, frameCostMs, TIERS,
@@ -143,6 +145,32 @@ export async function loadPack({
   let bodyDoc = null;
 
   const known = new Set(catalog.clips.map((c) => c.id));
+
+  /**
+   * 클립 파일 하나를 받는다 — **없으면 무엇을 하면 되는지 말한다.**
+   *
+   * 카탈로그는 그 사람이 할 줄 아는 동작을 **전부** 적는다(31~34개). 그런데
+   * 파일은 사본마다 다르다 — 저장소에 딸려 오는 사본에는 셋뿐이다
+   * (`SHIP_FILES`: idle · walk-forward · run). 그래서 "카탈로그에서 걷는 것을
+   * 전부 골라 달라" 는 흔한 쓰임이 **404 로 터진다.**
+   *
+   * spacemaker 가 그렇게 부른다 — `travel || idle` 로 여덟을 골라서 다섯이
+   * 없다. 그냥 두면 `clips/run-injured.glb 를 못 받았다 (HTTP 404)` 만 나와서,
+   * 받는 쪽은 팩이 깨진 줄 안다. 깨진 것이 아니라 **이 사본이 일부**다.
+   */
+  const getClip = async (id) => {
+    const r = await fetchImpl(`${url}/clips/${id}.glb`);
+    if (r.ok) return r.arrayBuffer();
+    if (r.status !== 404) throw new Error(`clips/${id}.glb 를 못 받았다 (HTTP ${r.status})`);
+    throw new Error(
+      `${url}/clips/${id}.glb 가 없다 (HTTP 404). 카탈로그는 클립 ${catalog.clips.length}개를 `
+      + `적지만 **이 사본에 파일이 다 있는 것은 아니다** — 저장소에 딸려 오는 사본은 `
+      + `${SHIP_FILES.filter((f) => f.startsWith('clips/')).map((f) => f.slice(6, -4)).join(' · ')} 뿐이다. `
+      + `있는 것만 달라고 하거나(clips: ['${MIN_CLIPS.join("', '")}']), 나머지를 먼저 받을 것 `
+      + `(node scripts/fetch-packs.mjs <목록 주소> --clips ${id},…).`,
+    );
+  };
+
   const gltfs = new Map();
   const buffers = new Map();
   const pending = new Map();
@@ -152,7 +180,7 @@ export async function loadPack({
     if (gltfs.has(id)) return null;
     if (!pending.has(id)) {
       pending.set(id, (async () => {
-        const buf = await get(`clips/${id}.glb`);
+        const buf = await getClip(id);
         const g = await parse(buf);
         buffers.set(id, buf);
         gltfs.set(id, split ? { scene: body.scene, animations: g.animations } : g);

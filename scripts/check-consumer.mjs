@@ -23,6 +23,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { runGate, ROOT } from './gate-lib.mjs';
 import { validateCatalog } from '../src/lib/motionPack.mjs';
+import { SHIP_FILES } from '../src/lib/dist.mjs';
 
 const PACK = 'ref-synthetic';
 
@@ -229,7 +230,70 @@ runGate('check-consumer', async (g) => {
     console.log(`  [소비처] 저쪽이 부르는 차례가 그대로 돈다 — 클립 ${want.length}개(${want.join('·')}) · 걸음 ${pick?.clipId} ×${pick?.timeScale.toFixed(2)} → ${pick?.effectiveMps.toFixed(2)}m/s`);
   }
 
-  // ── 6. 저쪽이 들고 있는 팩은 얼마나 낡았는가 ──
+  // ── 6. **저장소에 딸려 오는 사본**을 저쪽 고르개로 열면 ──
+  //
+  // 저쪽에게 "팩을 갈아 끼우면 된다" 고 적으려다 재현해 보고 알았다:
+  // 저장소에 딸려 오는 사본은 카탈로그가 클립 34개를 적는데 파일은 셋뿐이라,
+  // `travel || idle` 로 고르면 여덟 중 **다섯이 404** 다. 위의 3~5번은
+  // 기준 팩(파일이 다 있다)으로만 봐서 이 자리를 못 봤다.
+  //
+  // 깨진 팩이 아니라 **일부만 온 사본**이다. 그러니 오류가 그렇게 말해야 한다.
+  {
+    const from = path.join(ROOT, 'packs', 'rocketbox-f01');
+    n++;
+    if (!fs.existsSync(path.join(from, 'catalog.json'))) { g.skip('rocketbox-f01 이 없다'); return n; }
+
+    // 딸려 오는 파일만 있는 사본을 만든다 (SHIP_FILES 그대로).
+    const ship = new Map();
+    for (const rel of SHIP_FILES) {
+      const f = path.join(from, rel);
+      if (fs.existsSync(f)) ship.set(rel, fs.readFileSync(f));
+    }
+    const shipFetch = async (u) => {
+      const rel = u.replace(/^pack:\/\/ship\/?/, '');
+      if (!ship.has(rel)) return { ok: false, status: 404 };
+      const b = ship.get(rel);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => JSON.parse(b.toString('utf8')),
+        arrayBuffer: async () => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength),
+      };
+    };
+    const open = (clips) => api.loadPack({ url: 'pack://ship', GLTFLoader, fetchImpl: shipFetch, clips, body: 'far' });
+
+    n++;
+    let msg = null;
+    try {
+      await open(PEOPLE_CLIPS);
+      g.fail('ship/silent', '없는 클립을 달랬는데 그냥 열렸다 — 받는 쪽이 빈 사람을 세운다');
+    } catch (e) { msg = e.message; }
+
+    if (msg) {
+      n++;
+      // **무엇이 없는지**를 말해야 한다.
+      if (!/walk-slow|walk-fast|walk-injured|walk-bruised|run-injured/.test(msg)) {
+        g.fail('ship/what', `없는 클립 이름이 오류에 없다 — ${msg.slice(0, 80)}`);
+      }
+      n++;
+      // **왜 없는지**를 말해야 한다 (깨진 팩이 아니라 일부만 온 사본이다).
+      if (!/사본/.test(msg)) g.fail('ship/why', '팩이 깨진 것인지 사본이 일부인지를 안 말한다');
+      n++;
+      // **어떻게 하면 되는지**를 말해야 한다.
+      if (!/fetch-packs/.test(msg) || !/clips:/.test(msg)) {
+        g.fail('ship/how', '두 갈래(있는 것만 달라기 · 나머지 받기) 중 하나라도 안 알려 준다');
+      }
+    }
+
+    n++;
+    // 그리고 **알려 준 대로 하면 열려야 한다** — 안 그러면 헛말이다.
+    const here = SHIP_FILES.filter((f) => f.startsWith('clips/')).map((f) => f.slice(6, -4));
+    const ok = await open(here);
+    if (here.some((id) => !ok.has(id))) g.fail('ship/remedy', '있는 것만 달랬는데도 안 열린다');
+    console.log(`  [소비처] 딸려 오는 사본: 카탈로그 클립 ${ok.catalog.clips.length} · 파일 ${here.length}(${here.join('·')}) · 저쪽 고르개는 ${PEOPLE_CLIPS(ok.catalog).length}개를 고른다 → 말이 되는 오류를 낸다`);
+  }
+
+  // ── 7. 저쪽이 들고 있는 팩은 얼마나 낡았는가 ──
   //
   // **깨지는 것은 아니다** — 옛 팩도 받아 준다. 다만 저쪽은 먼 층도 배역도
   // 못 쓴다. 그 사실을 수로 남긴다.
