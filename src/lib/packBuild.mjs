@@ -627,7 +627,9 @@ export function deriveClip(doc, decl, { skeleton = 'mixamo' } = {}) {
  * 순서를 고정한다 — 팩을 다시 구울 때마다 순서가 바뀌면 diff 가 통째로
  * 바뀌어서 무엇이 달라졌는지 안 보인다.
  */
-export function buildCatalog({ packId, version, skeleton, clips, body, bodyFar, bodyDims, person, origins }) {
+export function buildCatalog({
+  packId, version, skeleton, clips, body, bodyFar, bodyDims, person, origins, builtAt, builtFrom,
+}) {
   return {
     packId,
     version,
@@ -648,6 +650,17 @@ export function buildCatalog({ packId, version, skeleton, clips, body, bodyFar, 
     ...(origins?.length ? { origins } : {}),
     forwardRad: packForwardRad(clips),
     builtBy: 'peoplemaker/build-pack',
+    // **언제 · 어느 커밋으로 구웠는가.**
+    //
+    // 이것이 없던 때, 소비처가 서비스하는 팩과 여기 팩이 내용은 전혀 다른데
+    // `version` 은 둘 다 '0.1.0' 이고 `builtBy` 도 같았다 — **옛 사본을 물고
+    // 있어도 알 길이 없다.** 브라우저나 CDN 이 catalog.json 을 캐시하면 조용히
+    // 옛 사람이 선다.
+    //
+    // 시각과 커밋은 **부르는 쪽이 넘긴다** (순수 층은 시계도 git 도 안 본다).
+    // 안 넘기면 안 적는다 — 짐작한 날짜를 적으면 틀렸을 때 말이 없다.
+    ...(builtAt ? { builtAt } : {}),
+    ...(builtFrom ? { builtFrom } : {}),
     clips: [...clips].sort((a, b) => (a.id < b.id ? -1 : 1)),
   };
 }

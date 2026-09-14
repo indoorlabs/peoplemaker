@@ -303,8 +303,39 @@ runGate('check-consumer', async (g) => {
     if (!here.bodyFar?.length) g.fail('now/far', '지금 팩에 먼 몸이 없다');
     n++;
     if (!here.person) g.fail('now/person', '지금 팩에 사람이 누구인지가 없다');
+
+    // **사본이 낡았는지 가릴 수 있는가.**
+    //
+    // 저쪽 팩과 이쪽 팩은 내용이 전혀 다른데 `version` 이 둘 다 '0.1.0' 이고
+    // `builtBy` 도 같았다 — 브라우저나 CDN 이 옛 catalog.json 을 물고 있어도
+    // 알 길이 없었다. 이제 언제·어느 커밋으로 구웠는지가 붙는다.
+    n++;
+    if (!here.builtAt) g.fail('stamp/at', '언제 구운 사본인지가 없다 — 낡았는지 가릴 수가 없다');
+    n++;
+    if (!here.builtFrom) g.fail('stamp/from', '어느 커밋으로 구운 사본인지가 없다');
+    n++;
+    // 밀기 전에 구운 팩이 섞이지 않게 — 고친 채로 구운 것은 다시 못 만든다.
+    if (/-dirty$/.test(here.builtFrom || '')) {
+      g.fail('stamp/dirty', `${here.packId} 이 고친 채로 구워졌다 (${here.builtFrom}) — 그 커밋으로 다시 만들 수 없다`);
+    }
+    n++;
+    // **그래도 도장 없는 옛 팩은 받아 줘야 한다** — 저쪽이 지금 그것을 쓴다.
+    const noStamp = { ...here };
+    delete noStamp.builtAt;
+    delete noStamp.builtFrom;
+    if (validateCatalog(noStamp).length) g.fail('stamp/old', '도장이 없는 옛 팩을 거부한다 — 저쪽 화면이 통째로 막힌다');
+    n++;
+    // 아무 글이나 들어가면 가리는 데 못 쓴다.
+    if (!validateCatalog({ ...here, builtAt: '어제' }).some((e) => e.id === 'catalog/builtAt')) {
+      g.fail('stamp/shape', "구운 날짜에 '어제' 를 넣어도 안 잡는다");
+    }
+    n++;
+    if (!validateCatalog({ ...here, builtFrom: 'HEAD' }).some((e) => e.id === 'catalog/builtFrom')) {
+      g.fail('stamp/shape-from', "구운 커밋에 'HEAD' 를 넣어도 안 잡는다");
+    }
     console.log(
-      `  [소비처] 지금 팩: 클립 ${here.clips.length} · 먼 몸 ${here.bodyFar.length}단계 · 배역 가능 · 장비 ${here.clips.filter((c) => c.grip).length}개`,
+      `  [소비처] 지금 팩: 클립 ${here.clips.length} · 먼 몸 ${here.bodyFar.length}단계 · 배역 가능 · 장비 ${here.clips.filter((c) => c.grip).length}개`
+      + ` · ${here.builtAt} 에 ${here.builtFrom} 로 구웠다`,
     );
   }
 

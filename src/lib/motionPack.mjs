@@ -210,6 +210,17 @@ export function validateCatalog(catalog, { clipFiles = null, packFiles = null } 
     fail('catalog/skeleton', `스켈레톤 규약이 '${catalog.skeleton}' 이다 — ${Object.keys(SKELETONS).join(' 또는 ')} 여야 한다`);
   }
 
+  // **언제 · 어느 커밋으로 구운 사본인가.** 없어도 된다 — 이것이 생기기 전에
+  // 구운 팩이 소비처에서 돌고 있고, 그것을 거부하면 그 화면이 통째로 막힌다.
+  // 다만 **적혀 있으면 읽을 수 있는 꼴**이어야 한다. 아무 글이나 들어가면
+  // 사본이 낡았는지 가리는 데 못 쓴다.
+  if (catalog.builtAt !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(catalog.builtAt)) {
+    fail('catalog/builtAt', `구운 날짜가 '${catalog.builtAt}' 다 — YYYY-MM-DD 여야 한다`);
+  }
+  if (catalog.builtFrom !== undefined && !/^[0-9a-f]{7,40}(-dirty)?$/.test(catalog.builtFrom)) {
+    fail('catalog/builtFrom', `구운 커밋이 '${catalog.builtFrom}' 다 — git 해시여야 한다`);
+  }
+
   // 몸이 따로인 팩. 이름만 적고 파일이 없으면 받는 쪽이 살 없는 동작만 쥔다.
   // 먼 사람용 몸 — **단계 목록**이다 (덜 줄인 것부터). 있으면 무엇을 얼마로
   // 줄였는지가 함께 있어야 한다. 그 수가 없으면 소비처는 "이것이 진짜 그

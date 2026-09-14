@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { attachAnimation } from '../src/lib/gltfWrite.mjs';
 import { deriveClip, applyReach, applyGrip, buildCatalog, deriveBodyDims } from '../src/lib/packBuild.mjs';
@@ -126,8 +127,29 @@ function packFileList(d) {
   return out;
 }
 
+// **언제 · 어느 커밋으로 구웠는가** — 순수 층은 시계도 git 도 안 보므로
+// 여기서 재서 넘긴다. git 이 없는 데서 구울 수도 있으니 없으면 안 적는다.
+const builtAt = new Date().toISOString().slice(0, 10);
+let builtFrom;
+try {
+  const sha = spawnSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
+  if (sha.status === 0) {
+    // **굽는 데 들어가는 것만 본다** — 굽는 코드와 이 팩이 적어 둔 것.
+    // 저장소 전체를 보면 팩을 줄줄이 구울 때 첫 팩의 결과물 때문에 둘째부터
+    // 전부 '-dirty' 가 된다. 그것은 이 팩을 다시 만들 수 있느냐와 무관하다.
+    const dirty = spawnSync(
+      'git', ['status', '--porcelain', '--', 'src', 'scripts', `packs/${packId}/sources.json`],
+      { cwd: ROOT, encoding: 'utf8' },
+    );
+    // 고친 것이 있는 채로 구우면 그 커밋으로 다시 만들 수 없다 — 그 사실을 적는다.
+    builtFrom = sha.stdout.trim() + (dirty.stdout?.trim() ? '-dirty' : '');
+  }
+} catch { /* git 이 없는 데서도 구워진다 */ }
+
 const catalog = buildCatalog({
   packId: sources.packId, version: sources.version, skeleton: sources.skeleton, clips,
+  builtAt,
+  builtFrom,
   // 사람이 적은 것 — 이 팩의 사람이 누구인가. 없으면 없는 대로 간다
   // (검사용 합성 팩은 사람이 아니다).
   person: sources.person,
