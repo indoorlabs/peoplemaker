@@ -376,6 +376,47 @@
       "thumb": "thumbs/drink.svg"
     },
     {
+      "id": "file",
+      "name": {
+        "ko": "서류철 들기 (여자아이 01)",
+        "en": "Holding a file (girl 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Children/Female_Child_01/Export/Female_Child_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_documentfile_idle.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 크기 비 0.8203)"
+      },
+      "tags": [
+        "hold",
+        "equipment",
+        "work",
+        "female",
+        "child"
+      ],
+      "holds": {
+        "what": "document",
+        "hand": "right"
+      },
+      "durationS": 26.6667,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/file.svg",
+      "grip": {
+        "bones": {
+          "hand-l": "Bip02 L Hand",
+          "hand-r": "Bip02 R Hand"
+        },
+        "spanM": 0.385,
+        "spanSpreadM": 0.033,
+        "heightM": 0.723,
+        "forwardM": -0.013
+      }
+    },
+    {
       "id": "idle",
       "name": {
         "ko": "서 있기 (여자아이 01)",
@@ -477,6 +518,46 @@
       "thumb": "thumbs/nervous.svg"
     },
     {
+      "id": "newspaper",
+      "name": {
+        "ko": "신문 보기 (여자아이 01)",
+        "en": "Reading a newspaper (girl 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Children/Female_Child_01/Export/Female_Child_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_newspaper_hand_idle.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 크기 비 0.8203)"
+      },
+      "tags": [
+        "hold",
+        "equipment",
+        "female",
+        "child"
+      ],
+      "holds": {
+        "what": "newspaper",
+        "hand": "both"
+      },
+      "durationS": 34.5417,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/newspaper.svg",
+      "grip": {
+        "bones": {
+          "hand-l": "Bip02 L Hand",
+          "hand-r": "Bip02 R Hand"
+        },
+        "spanM": 0.332,
+        "spanSpreadM": 0.015,
+        "heightM": 0.717,
+        "forwardM": -0.01
+      }
+    },
+    {
       "id": "phone",
       "name": {
         "ko": "휴대폰 보기 (여자아이 01)",
@@ -500,34 +581,6 @@
       "contacts": [],
       "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
       "thumb": "thumbs/phone.svg"
-    },
-    {
-      "id": "phone-call",
-      "name": {
-        "ko": "전화 통화 (여자아이 01)",
-        "en": "Phone call (girl 01)"
-      },
-      "license": "MIT",
-      "source": {
-        "tool": "microsoft/Microsoft-Rocketbox",
-        "avatar": "Assets/Avatars/Adults/Male_Adult_01/Export/Male_Adult_01.fbx",
-        "animation": "Assets/Animations/all_animations_max_motextr_static/m_cell_phone_talk_01.max.fbx",
-        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
-        "retargetedFrom": "rocketbox-m01/phone-call",
-        "retargetedBy": "peoplemaker/retarget (biped → biped, 엉덩이 높이 비 0.846)"
-      },
-      "tags": [
-        "phone",
-        "talk",
-        "male",
-        "adult",
-        "retargeted"
-      ],
-      "durationS": 31.875,
-      "rootMotion": "in-place",
-      "contacts": [],
-      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
-      "thumb": "thumbs/phone-call.svg"
     },
     {
       "id": "photo",
@@ -750,6 +803,86 @@
       "contacts": [],
       "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
       "thumb": "thumbs/talk.svg"
+    },
+    {
+      "id": "trolley",
+      "name": {
+        "ko": "카트 밀기 (여자아이 01)",
+        "en": "Pushing a trolley (girl 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Children/Female_Child_01/Export/Female_Child_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_trolley_idle.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 크기 비 0.8203)"
+      },
+      "tags": [
+        "hold",
+        "equipment",
+        "female",
+        "child"
+      ],
+      "holds": {
+        "what": "trolley",
+        "hand": "both"
+      },
+      "durationS": 24.7083,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/trolley.svg",
+      "grip": {
+        "bones": {
+          "hand-l": "Bip02 L Hand",
+          "hand-r": "Bip02 R Hand"
+        },
+        "spanM": 0.338,
+        "spanSpreadM": 0.098,
+        "heightM": 0.715,
+        "forwardM": -0.059
+      }
+    },
+    {
+      "id": "umbrella",
+      "name": {
+        "ko": "우산 쓰기 (여자아이 01)",
+        "en": "Holding an umbrella (girl 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Children/Female_Child_01/Export/Female_Child_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/f_umbrella_idle_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
+        "retargetedBy": "peoplemaker/retarget (biped → biped, 크기 비 0.8203)"
+      },
+      "tags": [
+        "hold",
+        "equipment",
+        "female",
+        "child"
+      ],
+      "holds": {
+        "what": "umbrella",
+        "hand": "right"
+      },
+      "durationS": 32.7083,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/umbrella.svg",
+      "grip": {
+        "bones": {
+          "hand-l": "Bip02 L Hand",
+          "hand-r": "Bip02 R Hand"
+        },
+        "spanM": 0.388,
+        "spanSpreadM": 0.025,
+        "heightM": 0.852,
+        "forwardM": 0.046
+      }
     },
     {
       "id": "walk-bruised",
@@ -1009,5 +1142,5 @@
       "thumb": "thumbs/work-table.svg"
     }
   ],
-  "note": "Microsoft Rocketbox 의 Female_Child_01 (MIT — 고지문은 licenses/microsoft-rocketbox.LICENSE.md). 몸과 동작이 원래 다른 파일이라 scripts/import-rocketbox.mjs 가 접붙였다 — 동작은 뼈 이름으로 맞췄고, 텍스처는 2048 TGA 를 1024 PNG 로 줄였다. 한 팩에 한 사람이다: 두 사람을 한 팩에 넣으면 속도에 맞춰 클립을 고르다 걷는 도중 사람이 바뀐다."
+  "note": "Microsoft Rocketbox 의 Female_Child_01 (MIT, Copyright (c) Microsoft Corporation). 몸과 동작이 원래 다른 파일이라 scripts/import-rocketbox.mjs 가 접붙였다 — 동작은 뼈 이름으로 맞췄고, 텍스처는 2048 TGA 를 1024 PNG 로 줄였다. 한 팩에 한 사람이다: 두 사람을 한 팩에 넣으면 속도에 맞춰 클립을 고르다 걷는 도중 사람이 바뀐다."
 }

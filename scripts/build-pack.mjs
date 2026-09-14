@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseGLB } from '../src/lib/gltf.mjs';
 import { attachAnimation } from '../src/lib/gltfWrite.mjs';
-import { deriveClip, applyReach, buildCatalog, deriveBodyDims } from '../src/lib/packBuild.mjs';
+import { deriveClip, applyReach, applyGrip, buildCatalog, deriveBodyDims } from '../src/lib/packBuild.mjs';
 import { bakeClip } from '../src/lib/poseBake.mjs';
 import { skinnedMeshOf, skinPoints } from '../src/lib/bodyMesh.mjs';
 import { silhouetteGrid, thumbSvg, thumbBox } from '../src/lib/thumbnail.mjs';
@@ -154,12 +154,23 @@ if (sources.note) catalog.note = sources.note;
 // 언제 어디까지 뻗는지만 잰다.
 if (typeof catalog.forwardRad === 'number') {
   for (const decl of sources.clips) {
-    if (!(decl.tags || []).includes('reach')) continue;
+    // 손을 쓰는 클립 둘: **뻗는 것**(tags 에 reach)과 **드는 것**(holds).
+    // 처음에 reach 만 돌았더니 장비 클립이 통째로 지나가 grip 이 0개였다.
+    const reaches = (decl.tags || []).includes('reach');
+    const holds = !!decl.holds && decl.holds.what !== 'none';
+    if (!reaches && !holds) continue;
     const clip = catalog.clips.find((c) => c.id === decl.id);
     const doc = docs.find((d) => d.id === decl.id)?.doc;
     if (!clip || !doc) continue;
-    applyReach(clip, doc, decl, { skeleton: sources.skeleton, forwardRad: catalog.forwardRad });
+    if (reaches) applyReach(clip, doc, decl, { skeleton: sources.skeleton, forwardRad: catalog.forwardRad });
+    // 장비를 다루는 클립이면 손이 어디에 있는지도 잰다 (선언한 것만).
+    applyGrip(clip, doc, decl, { skeleton: sources.skeleton, forwardRad: catalog.forwardRad });
+    if (clip.grip) {
+      console.log(`  ${decl.id.padEnd(14)} ${decl.holds.what}(${decl.holds.hand}) · 두 손 사이 ${clip.grip.spanM}m (흔들림 ${clip.grip.spanSpreadM}m)`
+        + ` · 손 높이 ${clip.grip.heightM}m ← 물건을 둘 자리 · 붙일 뼈 ${clip.grip.bones['hand-r']}`);
+    }
     const reach = clip.reach;
+    if (!reaches) continue;
     if (!reach) { console.log(`  ${decl.id.padEnd(14)} 손이 뻗는 자리를 못 찾았다`); continue; }
     console.log(`  ${decl.id.padEnd(14)} 손 ${reach.part} 가 ${reach.atS}s 에 닿아 ${reach.releaseS}s 에 뗀다`
       + ` · 앞으로 ${reach.forwardM}m · 높이 ${reach.heightM}m ← 손잡이를 둘 자리`);

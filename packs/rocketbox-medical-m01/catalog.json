@@ -160,84 +160,6 @@
       "thumb": "thumbs/crouch.svg"
     },
     {
-      "id": "crouch-in",
-      "name": {
-        "ko": "주저앉기 (의료진 남자 01)",
-        "en": "Crouching down (medical man 01)"
-      },
-      "license": "MIT",
-      "source": {
-        "tool": "microsoft/Microsoft-Rocketbox",
-        "avatar": "Assets/Avatars/Adults/Female_Adult_01/Export/Female_Adult_01.fbx",
-        "animation": "Assets/Animations/all_animations_max_motextr_static/f_crouch_in.max.fbx",
-        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
-        "retargetedBy": "peoplemaker/retarget (biped → biped, 엉덩이 높이 비 0.9696)",
-        "retargetedFrom": "rocketbox-f01/crouch-in"
-      },
-      "tags": [
-        "crouch",
-        "transition",
-        "female",
-        "adult",
-        "retargeted"
-      ],
-      "durationS": 2.5,
-      "rootMotion": "in-place",
-      "contacts": [
-        {
-          "atS": 1.45,
-          "part": "foot-l",
-          "kind": "plant"
-        },
-        {
-          "atS": 1.45,
-          "part": "foot-r",
-          "kind": "plant"
-        }
-      ],
-      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
-      "thumb": "thumbs/crouch-in.svg"
-    },
-    {
-      "id": "crouch-out",
-      "name": {
-        "ko": "주저앉았다 일어서기 (의료진 남자 01)",
-        "en": "Standing up from a crouch (medical man 01)"
-      },
-      "license": "MIT",
-      "source": {
-        "tool": "microsoft/Microsoft-Rocketbox",
-        "avatar": "Assets/Avatars/Adults/Female_Adult_01/Export/Female_Adult_01.fbx",
-        "animation": "Assets/Animations/all_animations_max_motextr_static/f_crouch_out.max.fbx",
-        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
-        "retargetedBy": "peoplemaker/retarget (biped → biped, 엉덩이 높이 비 0.9696)",
-        "retargetedFrom": "rocketbox-f01/crouch-out"
-      },
-      "tags": [
-        "crouch",
-        "transition",
-        "female",
-        "adult",
-        "retargeted"
-      ],
-      "durationS": 2.6667,
-      "rootMotion": "in-place",
-      "contacts": [
-        {
-          "atS": 0,
-          "part": "foot-l",
-          "kind": "plant"
-        },
-        {
-          "atS": 0,
-          "part": "foot-r",
-          "kind": "plant"
-        }
-      ],
-      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
-      "thumb": "thumbs/crouch-out.svg"
-    },
-    {
       "id": "documents",
       "name": {
         "ko": "서류 보기 (의료진 남자 01)",
@@ -413,6 +335,47 @@
       "thumb": "thumbs/drink.svg"
     },
     {
+      "id": "file",
+      "name": {
+        "ko": "서류철 들기 (의료진 남자 01)",
+        "en": "Holding a file (medical man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Medical_Male_01/Export/Medical_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_documentfile_idle.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "hold",
+        "equipment",
+        "work",
+        "male",
+        "adult",
+        "medical"
+      ],
+      "holds": {
+        "what": "document",
+        "hand": "right"
+      },
+      "durationS": 34,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/file.svg",
+      "grip": {
+        "bones": {
+          "hand-l": "Bip01 L Hand",
+          "hand-r": "Bip01 R Hand"
+        },
+        "spanM": 0.587,
+        "spanSpreadM": 0.064,
+        "heightM": 0.905,
+        "forwardM": 0.021
+      }
+    },
+    {
       "id": "idle",
       "name": {
         "ko": "서 있기 (의료진 남자 01)",
@@ -512,6 +475,46 @@
       "contacts": [],
       "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
       "thumb": "thumbs/nervous.svg"
+    },
+    {
+      "id": "newspaper",
+      "name": {
+        "ko": "신문 보기 (의료진 남자 01)",
+        "en": "Reading a newspaper (medical man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Medical_Male_01/Export/Medical_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_newspaper_hand_idle.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "hold",
+        "equipment",
+        "male",
+        "adult",
+        "medical"
+      ],
+      "holds": {
+        "what": "newspaper",
+        "hand": "both"
+      },
+      "durationS": 31.375,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/newspaper.svg",
+      "grip": {
+        "bones": {
+          "hand-l": "Bip01 L Hand",
+          "hand-r": "Bip01 R Hand"
+        },
+        "spanM": 0.537,
+        "spanSpreadM": 0.02,
+        "heightM": 0.88,
+        "forwardM": 0.032
+      }
     },
     {
       "id": "phone",
@@ -795,6 +798,86 @@
       "thumb": "thumbs/talk.svg"
     },
     {
+      "id": "trolley",
+      "name": {
+        "ko": "카트 밀기 (의료진 남자 01)",
+        "en": "Pushing a trolley (medical man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Medical_Male_01/Export/Medical_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_trolley_idle.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "hold",
+        "equipment",
+        "male",
+        "adult",
+        "medical"
+      ],
+      "holds": {
+        "what": "trolley",
+        "hand": "both"
+      },
+      "durationS": 32.25,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/trolley.svg",
+      "grip": {
+        "bones": {
+          "hand-l": "Bip01 L Hand",
+          "hand-r": "Bip01 R Hand"
+        },
+        "spanM": 0.545,
+        "spanSpreadM": 0.145,
+        "heightM": 0.877,
+        "forwardM": -0.012
+      }
+    },
+    {
+      "id": "umbrella",
+      "name": {
+        "ko": "우산 쓰기 (의료진 남자 01)",
+        "en": "Holding an umbrella (medical man 01)"
+      },
+      "license": "MIT",
+      "source": {
+        "tool": "microsoft/Microsoft-Rocketbox",
+        "avatar": "Assets/Avatars/Professions/Medical_Male_01/Export/Medical_Male_01.fbx",
+        "animation": "Assets/Animations/all_animations_max_motextr_static/m_umbrella_idle_01.max.fbx",
+        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox"
+      },
+      "tags": [
+        "hold",
+        "equipment",
+        "male",
+        "adult",
+        "medical"
+      ],
+      "holds": {
+        "what": "umbrella",
+        "hand": "right"
+      },
+      "durationS": 42.125,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/umbrella.svg",
+      "grip": {
+        "bones": {
+          "hand-l": "Bip01 L Hand",
+          "hand-r": "Bip01 R Hand"
+        },
+        "spanM": 0.604,
+        "spanSpreadM": 0.015,
+        "heightM": 1.006,
+        "forwardM": 0.076
+      }
+    },
+    {
       "id": "walk-bruised",
       "name": {
         "ko": "절뚝이며 걷기 (의료진 남자 01)",
@@ -917,37 +1000,6 @@
       "thumb": "thumbs/walk-forward.svg"
     },
     {
-      "id": "walk-injured",
-      "name": {
-        "ko": "다쳐서 걷기 (의료진 남자 01)",
-        "en": "Walking injured (medical man 01)"
-      },
-      "license": "MIT",
-      "source": {
-        "tool": "microsoft/Microsoft-Rocketbox",
-        "avatar": "Assets/Avatars/Adults/Female_Adult_01/Export/Female_Adult_01.fbx",
-        "animation": "Assets/Animations/all_animations_max_motextr_xy/f_walk_injured.max.fbx",
-        "convertedBy": "FBX2glTF 0.9.7 + peoplemaker/import-rocketbox",
-        "retargetedFrom": "rocketbox-f01/walk-injured",
-        "retargetedBy": "peoplemaker/retarget (biped → biped, 엉덩이 높이 비 0.9696)"
-      },
-      "tags": [
-        "walk",
-        "travel",
-        "distress",
-        "female",
-        "adult",
-        "retargeted"
-      ],
-      "durationS": 1.125,
-      "rootMotion": "travel",
-      "speedMps": 1.292,
-      "travelHeadingRad": 0,
-      "contacts": [],
-      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
-      "thumb": "thumbs/walk-injured.svg"
-    },
-    {
       "id": "walk-slow",
       "name": {
         "ko": "천천히 걷기 (의료진 남자 01)",
@@ -1038,5 +1090,5 @@
       "thumb": "thumbs/work-table.svg"
     }
   ],
-  "note": "Microsoft Rocketbox 의 Medical_Male_01 (MIT — 고지문은 licenses/microsoft-rocketbox.LICENSE.md). 몸과 동작이 원래 다른 파일이라 scripts/import-rocketbox.mjs 가 접붙였다 — 동작은 뼈 이름으로 맞췄고, 텍스처는 2048 TGA 를 1024 PNG 로 줄였다. 한 팩에 한 사람이다: 두 사람을 한 팩에 넣으면 속도에 맞춰 클립을 고르다 걷는 도중 사람이 바뀐다."
+  "note": "Microsoft Rocketbox 의 Medical_Male_01 (MIT, Copyright (c) Microsoft Corporation). 몸과 동작이 원래 다른 파일이라 scripts/import-rocketbox.mjs 가 접붙였다 — 동작은 뼈 이름으로 맞췄고, 텍스처는 2048 TGA 를 1024 PNG 로 줄였다. 한 팩에 한 사람이다: 두 사람을 한 팩에 넣으면 속도에 맞춰 클립을 고르다 걷는 도중 사람이 바뀐다."
 }

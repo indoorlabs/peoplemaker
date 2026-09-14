@@ -234,6 +234,80 @@ export const MEASURED_FIELDS = ['durationS', 'rootMotion', 'speedMps', 'travelHe
  *
  * @returns { part, atS, releaseS, forwardM, heightM } 또는 null
  */
+/**
+ * **무언가를 들고 있는 클립을 잰다** — 손이 어디에 있고, 두 손이 붙어 있는가.
+ *
+ * 쓰는 쪽이 카트나 가방 모델을 손에 붙이려면 두 가지가 필요하다:
+ * **어느 뼈에 붙일 것인가**(이름)와 **그 손이 몸 어디쯤에 있는가**(높이·앞).
+ *
+ * ## 두 손 사이 거리 — **증명은 못 하고 반증만 한다**
+ *
+ * 처음에는 "양손으로 잡으면 두 손 사이가 안 흔들린다" 로 가르려 했다.
+ * 재 보니 **틀렸다**:
+ *
+ * ```
+ *   여자 01 · 두 손 사이 거리가 흔들리는 폭 (m)
+ *     서기 0.002 · 신문 0.015 · 우산 0.015 · 서류철 0.035
+ *     카트 0.111 · 뛰기 0.111 · 걷기 0.169
+ *     서류 보기 0.340 · 마시기 0.309
+ * ```
+ *
+ * **카트(양손)와 뛰기(빈손)가 똑같이 0.111 이다.** 카트를 미는 동작도 몸을
+ * 흔들기 때문이다 — 이 값으로는 양손인지 알 수 없다.
+ *
+ * 그래도 쓸모가 하나 남는다: **크게 흔들리면 양손일 수 없다.** 서류 보기
+ * (0.34)나 마시기(0.31)는 한 손이 따로 논다. 그래서 계약은 증명이 아니라
+ * **반증**을 한다 — "양손" 이라 적혔는데 0.12 를 넘으면 그 선언이 틀렸다.
+ *
+ * 무엇을 들었는지(카트인지 유모차인지)는 끝까지 **사람이 적는다**(`holds`).
+ */
+export function deriveGrip(doc, { skeleton = 'mixamo', forwardRad = 0, sampleHz = SAMPLE_HZ } = {}) {
+  const durationS = animationDurationS(doc, 0);
+  if (!(durationS > 0)) return null;
+  const parent = parentMap(doc);
+  const hipIdx = matchNode(doc, HIP_NODES[skeleton] || HIP_NODES.mixamo);
+  if (hipIdx == null) return null;
+  const dir = [Math.sin(forwardRad), 0, Math.cos(forwardRad)];
+  const steps = Math.max(4, Math.round(durationS * sampleHz));
+
+  const hands = {};
+  for (const [part, re] of Object.entries(HAND_NODES[skeleton] || HAND_NODES.mixamo)) {
+    const idx = matchNode(doc, re);
+    if (idx != null) hands[part] = { idx, name: doc.json.nodes[idx]?.name };
+  }
+  if (!hands['hand-l'] || !hands['hand-r']) return null;
+
+  const span = [];
+  const h = { 'hand-l': [], 'hand-r': [] };
+  const f = { 'hand-l': [], 'hand-r': [] };
+  for (let i = 0; i < steps; i++) {
+    const sampled = sampleAnimation(doc, 0, (durationS * i) / steps);
+    const hip = nodeWorldPos(doc, hipIdx, sampled, parent);
+    const pos = {};
+    for (const [part, o] of Object.entries(hands)) {
+      const p2 = nodeWorldPos(doc, o.idx, sampled, parent);
+      pos[part] = p2;
+      h[part].push(p2[1]);
+      f[part].push((p2[0] - hip[0]) * dir[0] + (p2[2] - hip[2]) * dir[2]);
+    }
+    const a = pos['hand-l'];
+    const b = pos['hand-r'];
+    span.push(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]));
+  }
+  const mid = (xs) => [...xs].sort((x, y) => x - y)[Math.floor(xs.length / 2)];
+  const round = (x) => +x.toFixed(3);
+  return {
+    // 붙일 뼈 — 쓰는 쪽이 이 이름으로 찾아 물건을 매단다.
+    bones: { 'hand-l': hands['hand-l'].name, 'hand-r': hands['hand-r'].name },
+    // 두 손 사이 거리와 그것이 흔들리는 폭 — 양손으로 잡았는지 가른다.
+    spanM: round(mid(span)),
+    spanSpreadM: round(Math.max(...span) - Math.min(...span)),
+    // 손이 몸 어디쯤에 있는가 — 물건을 둘 자리다.
+    heightM: round((mid(h['hand-l']) + mid(h['hand-r'])) / 2),
+    forwardM: round((mid(f['hand-l']) + mid(f['hand-r'])) / 2),
+  };
+}
+
 export function deriveReach(doc, { skeleton = 'mixamo', forwardRad = 0, sampleHz = SAMPLE_HZ } = {}) {
   const durationS = animationDurationS(doc, 0);
   if (!(durationS > 0)) return null;
@@ -282,6 +356,17 @@ export function deriveReach(doc, { skeleton = 'mixamo', forwardRad = 0, sampleHz
  * @param clip deriveClip 이 낸 클립 (그대로 고쳐서 돌려준다)
  * @param decl sources.json 의 선언 — tags 에 'reach' 가 있을 때만 잰다
  */
+/**
+ * 선언한 클립에만 잰 값을 붙인다 — 굽는 쪽과 게이트가 **같은 함수**를 부른다
+ * (두 군데 적으면 갈린다. 손이 닿는 자리에서 실제로 그렇게 됐다).
+ */
+export function applyGrip(clip, doc, decl, { skeleton = 'mixamo', forwardRad = 0 } = {}) {
+  if (!decl?.holds || decl.holds.what === 'none') return clip;
+  const grip = deriveGrip(doc, { skeleton, forwardRad });
+  if (grip) clip.grip = grip;
+  return clip;
+}
+
 export function applyReach(clip, doc, decl, { skeleton = 'mixamo', forwardRad } = {}) {
   if (!(decl.tags || []).includes('reach')) return clip;
   if (typeof forwardRad !== 'number') return clip;

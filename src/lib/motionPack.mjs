@@ -100,6 +100,33 @@ export const PERSON_SOURCES = [
   'declared-by-hand',    // 사람이 sources.json 에 직접 적었다
 ];
 
+/** 손에 들 수 있는 것 — 적는 값이다 (살을 봐서 알 수 없다). */
+export const HELD_THINGS = ['bag', 'trolley', 'umbrella', 'newspaper', 'document', 'cup', 'phone'];
+
+/** 어느 손으로 드는가. */
+export const HELD_HANDS = ['left', 'right', 'both'];
+
+/**
+ * 양손으로 잡았다면 두 손 사이가 이만큼 넘게 흔들리면 안 된다 (m).
+ *
+ * **이 값은 증명이 아니라 반증이다.** "양손으로 잡으면 두 손 사이가 안
+ * 흔들린다" 로 가르려 했는데, 재 보니 카트(양손 0.111)와 뛰기(빈손 0.111)가
+ * 똑같았다 — 이 값으로 양손인지 **가릴 수는 없다.** 다만 한 손이 따로 노는
+ * 동작은 확실히 더 흔들리므로, 그 사이에 문턱을 둔다.
+ *
+ * 팩 여덟을 재서 골랐다:
+ *
+ * ```
+ *   양손이라 적은 것     신문 0.015~0.020 · 카트 0.098~0.145   ← 가장 큰 것 0.145
+ *   한 손이 따로 노는 것  서류 0.254~0.340 · 마시기 0.309~0.395
+ *                       손 흔들기 0.577~0.735                 ← 가장 작은 것 0.254
+ * ```
+ *
+ * 처음에 여자 01 하나만 보고 0.12 로 뒀더니 **남자 팩 넷의 빌드가 멈췄다**
+ * (남자 카트가 0.145 로 더 흔들린다). 한 팩으로 문턱을 정하면 그렇게 된다.
+ */
+export const BOTH_HANDS_SPREAD_MAX = 0.20;
+
 /**
  * 적힌 사람 정보가 말이 되는가 — `[{ key, why }]` 로 낸다 (없으면 빈 배열).
  *
@@ -247,6 +274,43 @@ export function validateCatalog(catalog, { clipFiles = null, packFiles = null } 
         if (o?.notice || o?.text) fail(`${at}/inline`, '고지문을 글로 옮겨 적어 두었다 — 파일을 가리킬 것');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(o?.checked || '')) fail(`${at}/checked`, `원문을 확인한 날이 '${o?.checked}' 다`);
       }
+    }
+  }
+
+  // **장비를 다루는 클립** — 무엇을 들고 있는가(적는 값)와 손이 어디에
+  // 있는가(잰 값).
+  //
+  // 무엇을 들었는지는 살을 봐서 알 수 없다 — 카트인지 유모차인지는 사람이
+  // 적는다. 두 손 사이 거리는 **증명은 못 하고 반증만 한다**: 카트(양손)와
+  // 뛰기(빈손)가 똑같이 0.111m 흔들려서 양손인지 가릴 수가 없다. 다만 크게
+  // 흔들리면 양손일 수 **없다** (서류 보기 0.34 · 마시기 0.31 은 한 손이
+  // 따로 논다). 그래서 "양손" 이라 적혔는데 문턱을 넘으면 막는다.
+  for (const c of catalog.clips || []) {
+    if (c.holds !== undefined) {
+      const hd = c.holds;
+      if (!hd || typeof hd !== 'object') {
+        fail(`clip/${c.id}/holds`, '드는 것이 값이 아니다');
+      } else {
+        if (!HELD_THINGS.includes(hd.what)) {
+          fail(`clip/${c.id}/holds/what`, `'${hd.what}' 는 아는 것이 아니다 (${HELD_THINGS.join(' · ')})`);
+        }
+        if (!HELD_HANDS.includes(hd.hand)) {
+          fail(`clip/${c.id}/holds/hand`, `어느 손인지가 '${hd.hand}' 다 (${HELD_HANDS.join(' · ')})`);
+        }
+      }
+    }
+    if (c.grip === undefined) continue;
+    const gr = c.grip;
+    if (!gr || typeof gr !== 'object') { fail(`clip/${c.id}/grip`, '잡은 자리가 값이 아니다'); continue; }
+    if (!c.holds) fail(`clip/${c.id}/grip/why`, '무엇을 드는지 안 적었는데 잡은 자리만 재어져 있다');
+    if (!gr.bones || !gr.bones['hand-l'] || !gr.bones['hand-r']) {
+      fail(`clip/${c.id}/grip/bones`, '붙일 뼈 이름이 없다 — 쓰는 쪽이 물건을 못 맨다');
+    }
+    if (!(gr.spanM > 0)) fail(`clip/${c.id}/grip/span`, `두 손 사이가 ${gr.spanM}m 다`);
+    if (!(gr.spanSpreadM >= 0)) fail(`clip/${c.id}/grip/spread`, `두 손 사이가 흔들리는 폭이 ${gr.spanSpreadM}m 다`);
+    if (!(gr.heightM > 0)) fail(`clip/${c.id}/grip/height`, `손 높이가 ${gr.heightM}m 다`);
+    if (c.holds && c.holds.hand === 'both' && gr.spanSpreadM > BOTH_HANDS_SPREAD_MAX) {
+      fail(`clip/${c.id}/grip/both`, `양손으로 잡는다는데 두 손 사이가 ${gr.spanSpreadM}m 흔들린다 (${BOTH_HANDS_SPREAD_MAX}m 넘음)`);
     }
   }
 

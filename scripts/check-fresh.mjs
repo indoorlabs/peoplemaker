@@ -31,6 +31,14 @@ const MUST_RUN = [
 runGate('check-fresh', (g) => {
   let n = 0;
 
+  // **자기 자신 안에서 또 돌지 않는다.** 이 게이트는 저장소를 통째로 베껴
+  // 게이트를 다 돌리는데, 그 안에 이 게이트도 들어 있다 — 처음에 막지 않아
+  // 스스로를 계속 불러 461초가 걸리고 출력이 터졌다.
+  if (process.env.PM_FRESH) {
+    g.skip('새 클론 안에서는 이 게이트를 다시 안 돈다 (스스로를 부르게 된다)');
+    return n;
+  }
+
   const git = (...a) => spawnSync('git', a, { cwd: ROOT, encoding: 'utf8' });
   const tracked = git('ls-files').stdout?.trim().split('\n').filter(Boolean) || [];
   n++;
@@ -64,7 +72,9 @@ runGate('check-fresh', (g) => {
     }
 
     // ── 게이트를 돌려 본다 ──
-    const r = spawnSync(process.execPath, [path.join(tmp, 'scripts', 'check.mjs')], { cwd: tmp, encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [path.join(tmp, 'scripts', 'check.mjs')], {
+      cwd: tmp, encoding: 'utf8', env: { ...process.env, PM_FRESH: '1' },
+    });
     const out = `${r.stdout || ''}${r.stderr || ''}`;
     n++;
     if (r.status !== 0) {
@@ -92,11 +102,15 @@ runGate('check-fresh', (g) => {
     // **몇 군데가 말해야 하는지를 적어 둔다.** "하나라도 말하면 된다" 로
     // 두었더니, 한 군데가 조용해져도 다른 데가 말해서 통과했다 — 일부러
     // 입을 막아 보고 알았다.
-    const WANT_SKIPS = 3;   // 배포(목록·받기) · 옮김(진짜 몸) · 섬네일(자세 가르기)
-    if (notes.length !== WANT_SKIPS) {
-      g.fail('quiet', `팩이 없을 때 건너뛴다고 말하는 자리가 ${notes.length}군데다 — 적어 둔 것은 ${WANT_SKIPS} (조용히 덜 보거나, 볼 수 있게 됐으면 여기를 고칠 것)`);
+    // 배포(목록·받기) · 옮김(진짜 몸) · 섬네일(자세 가르기) · 잡기(드는 클립)
+    const WANT_SKIPS = 4;
+    // **이 게이트 자신의 건너뜀은 빼고 센다** — 팩이 없어서가 아니라 스스로를
+    // 부르지 않으려고 건너뛰는 것이라, 받는 법을 적을 것도 없다.
+    const packNotes = notes.filter((l) => !/check-fresh/.test(l));
+    if (packNotes.length !== WANT_SKIPS) {
+      g.fail('quiet', `팩이 없을 때 건너뛴다고 말하는 자리가 ${packNotes.length}군데다 — 적어 둔 것은 ${WANT_SKIPS} (조용히 덜 보거나, 볼 수 있게 됐으면 여기를 고칠 것)`);
     }
-    if (notes.length && !notes.every((l) => l.includes('fetch-packs'))) {
+    if (packNotes.length && !packNotes.every((l) => l.includes('fetch-packs'))) {
       g.fail('how', '건너뛴다면서 어떻게 받는지를 안 알려 준다');
     }
 
@@ -104,7 +118,7 @@ runGate('check-fresh', (g) => {
       `  [새 클론] 파일 ${tracked.length}개 · 온전한 팩 ${have.join('·')} · `
       + `게이트 ${counts.length}개가 돌아 검사 ${freshChecks}개 (이 기계에서는 더 본다) · 건너뛴 자리 ${notes.length}군데`,
     );
-    for (const l of notes.slice(0, 3)) console.log(`  [새 클론] ${l.trim().replace(HOW_TO_GET_PACKS, '…')}`);
+    for (const l of notes.slice(0, 5)) console.log(`  [새 클론] ${l.trim().replace(HOW_TO_GET_PACKS, '…')}`);
   } finally {
     try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* 지우다 실패해도 게이트는 끝났다 */ }
   }

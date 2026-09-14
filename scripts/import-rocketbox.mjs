@@ -133,6 +133,20 @@ const EXTRAS = [
   { id: 'walk-injured', anim: 'walk_injured', ko: '다쳐서 걷기', en: 'Walking injured', tags: ['walk', 'travel', 'distress'], travel: true, only: 'f' },
   { id: 'run-injured', anim: 'run_injured', ko: '다쳐서 뛰기', en: 'Running injured', tags: ['run', 'travel', 'distress'], travel: true },
   { id: 'walk-bruised', anim: 'walk_bruised', ko: '절뚝이며 걷기', en: 'Walking bruised', tags: ['walk', 'travel', 'distress'], travel: true },
+
+  // ── 장비를 다루는 사람 ────────────────────────────────────
+  //
+  // 건물 안 사람의 절반은 **무언가를 들고 있다** — 카트·가방·우산·서류철.
+  // 그런데 쓰는 쪽이 그 물건을 손에 붙이려면 두 가지를 알아야 한다: 어느
+  // 뼈에 매달 것인가, 그리고 그 손이 몸 어디쯤에 있는가. `holds` 로 무엇을
+  // 드는지 적고, `grip` 을 재서 계약에 싣는다 (lib/packBuild.deriveGrip).
+  //
+  // 가방(hold_bag)은 남녀 파일 이름이 달라(f 는 _01 이 붙는다) 여기 안 넣었다 —
+  // 이름을 하나로 못 적으면 조용히 한쪽만 들어온다.
+  { id: 'trolley', anim: 'trolley_idle', ko: '카트 밀기', en: 'Pushing a trolley', tags: ['hold', 'equipment'], holds: { what: 'trolley', hand: 'both' } },
+  { id: 'umbrella', anim: 'umbrella_idle_01', ko: '우산 쓰기', en: 'Holding an umbrella', tags: ['hold', 'equipment'], holds: { what: 'umbrella', hand: 'right' } },
+  { id: 'newspaper', anim: 'newspaper_hand_idle', ko: '신문 보기', en: 'Reading a newspaper', tags: ['hold', 'equipment'], holds: { what: 'newspaper', hand: 'both' } },
+  { id: 'file', anim: 'documentfile_idle', ko: '서류철 들기', en: 'Holding a file', tags: ['hold', 'equipment', 'work'], holds: { what: 'document', hand: 'right' } },
 ];
 
 const [packId, argAvatar, argWalk, argIdle] = process.argv.slice(2);
@@ -508,6 +522,8 @@ const sources = {
     ...extras.map((x) => ({
       id: x.id, name: { ko: `${x.ko} (${name.ko})`, en: `${x.en} (${name.en})` }, license: 'MIT',
       source: source(`Assets/Animations/all_animations_max_motextr_${x.travel ? 'xy' : 'static'}/${x.file}.max.fbx`, x.id), tags: [...x.tags, ...(preset.tags || [])],
+      // 무엇을 들고 있는지는 **사람이 적는다** — 살을 봐서 알 수 없다.
+      ...(x.holds ? { holds: x.holds } : {}),
     })),
   ],
 };
