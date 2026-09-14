@@ -40,6 +40,36 @@ export const TIERS = {
   },
 };
 
+/**
+ * **올려 둔 것이 어떤 모양으로 놓여 있는가.**
+ *
+ * 파일을 폴더째 올릴 수 있는 자리(정적 호스팅·버킷)면 `packs/<팩>/<경로>` 로
+ * 그대로 둔다. 그런데 **GitHub Release 는 이름에 `/` 를 못 쓴다** — 올린
+ * 파일이 전부 한 자리에 납작하게 놓인다. 그래서 목록이 배치를 말하고, 받는
+ * 쪽이 그대로 주소를 만든다.
+ *
+ * 받아서 **어디에 쓸지는 안 달라진다** — 배치는 주소를 만드는 규칙일 뿐이고,
+ * 저장은 늘 `<받을 곳>/<팩>/<경로>` 다.
+ */
+export const LAYOUTS = {
+  tree: {
+    what: '폴더 그대로 — packs/<팩>/<경로> (정적 호스팅·버킷)',
+    url: (packId, filePath) => `packs/${packId}/${filePath}`,
+  },
+  flat: {
+    what: '한 자리에 납작하게 — <팩>__<경로의 / 를 __ 로> (GitHub Release)',
+    url: (packId, filePath) => `${packId}__${filePath.replace(/\//g, '__')}`,
+  },
+};
+
+/** 목록이 말하는 배치로 이 파일의 주소를 만든다 (안 적혀 있으면 폴더 그대로). */
+export function fileUrl(manifest, packId, filePath) {
+  const layout = manifest?.layout || 'tree';
+  const def = LAYOUTS[layout];
+  if (!def) throw new Error(`모르는 배치: ${layout} (${Object.keys(LAYOUTS).join(' · ')})`);
+  return def.url(packId, filePath);
+}
+
 /** 이 층에 드는 파일의 바이트 합. */
 export function tierBytes(files, tier) {
   const m = TIERS[tier]?.match;
@@ -53,7 +83,8 @@ export function tierBytes(files, tier) {
  * @param packs [{ catalog, files: [{ path, bytes, sha256 }] }]
  * @returns 받는 쪽이 그대로 읽는 값
  */
-export function distManifest(packs, { builtAt = null, version = 1 } = {}) {
+export function distManifest(packs, { builtAt = null, version = 1, layout = 'tree' } = {}) {
+  if (!LAYOUTS[layout]) throw new Error(`모르는 배치: ${layout} (${Object.keys(LAYOUTS).join(' · ')})`);
   const rows = (packs || []).map(({ catalog, files }) => ({
     packId: catalog.packId,
     version: catalog.version,
@@ -81,6 +112,8 @@ export function distManifest(packs, { builtAt = null, version = 1 } = {}) {
   return {
     version,
     ...(builtAt ? { builtAt } : {}),
+    // 폴더 그대로면 굳이 안 적는다 — 안 적힌 목록도 예전처럼 읽힌다.
+    ...(layout === 'tree' ? {} : { layout }),
     note: '팩은 저장소에 없다 — 이 목록이 어디에 무엇이 얼마로 있는지 말한다. loadPack 은 파일마다 따로 받으므로 필요한 것만 받으면 된다.',
     packs: rows,
     tiers,
@@ -160,6 +193,22 @@ export function manifestProblems(manifest) {
   const bad = (key, why) => out.push({ key, why });
   if (!manifest || typeof manifest !== 'object') return [{ key: 'shape', why: '목록이 값이 아니다' }];
   if (!Array.isArray(manifest.packs) || !manifest.packs.length) return [{ key: 'packs', why: '팩이 없다' }];
+  // 배치는 없어도 된다 (안 적히면 폴더 그대로). 다만 적혔으면 **아는 것**이어야
+  // 한다 — 모르는 배치를 만나면 받는 쪽이 엉뚱한 주소를 만들어 전부 404 가 된다.
+  if (manifest.layout !== undefined && !LAYOUTS[manifest.layout]) {
+    bad('layout', `'${manifest.layout}' 는 모르는 배치다 (${Object.keys(LAYOUTS).join(' · ')})`);
+  }
+  // 납작한 자리에 올릴 때 **이름이 겹치면 하나가 다른 하나를 덮는다.**
+  if (manifest.layout === 'flat') {
+    const names = new Map();
+    for (const p of manifest.packs || []) {
+      for (const f of p.files || []) {
+        const u = fileUrl(manifest, p.packId, f.path);
+        if (names.has(u)) bad(`flat/${u}`, `${names.get(u)} 와 이름이 겹친다 — 하나가 덮인다`);
+        else names.set(u, `${p.packId}/${f.path}`);
+      }
+    }
+  }
 
   const seen = new Set();
   for (const p of manifest.packs) {

@@ -43,3 +43,5 @@ __pycache__
 
 # 내보낸 팩 — scripts/build-dist.mjs 가 만든다. 올리는 것은 사람이 정한다.
 dist/
+# 납작한 배치로 내보낸 것 (GitHub Release 에 올리려고 만든다) — 같은 파일이 이름만 다르다.
+dist-flat/

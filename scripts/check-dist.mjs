@@ -21,6 +21,7 @@ import { spawnSync } from 'node:child_process';
 import { runGate, ROOT, fullPacks, HOW_TO_GET_PACKS } from './gate-lib.mjs';
 import {
   TIERS, distManifest, tierBytes, bytesFor, missingClips, manifestProblems, MIN_CLIPS,
+  LAYOUTS, fileUrl,
 } from '../src/lib/dist.mjs';
 
 const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex').slice(0, 16);
@@ -227,7 +228,92 @@ runGate('check-dist', (g) => {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 
-  // ── 5. 층 이름이 문서와 같은가 ──
+  // ── 5. **올린 자리가 폴더를 못 받으면** ──
+  //
+  // GitHub Release 는 파일 이름에 '/' 를 못 쓴다 — 올린 것이 전부 한 자리에
+  // 납작하게 놓인다. 그래서 목록이 배치를 말하고 받는 쪽이 그대로 주소를
+  // 만든다. **받아서 저장하는 모양은 안 달라진다** (늘 <팩>/<경로>).
+  {
+    const one = { packId: 'p', version: '1', skeleton: 'biped', clips: ['idle'] };
+    const files = [
+      { path: 'catalog.json', bytes: 10, sha256: 'aaaaaaaa' },
+      { path: 'clips/idle.glb', bytes: 10, sha256: 'bbbbbbbb' },
+    ];
+    const tree = distManifest([{ catalog: one, files }], {});
+    const flat = distManifest([{ catalog: one, files }], { layout: 'flat' });
+    n++;
+    // 안 적힌 목록은 예전처럼 읽힌다 — 이미 올려 둔 목록을 깨면 안 된다.
+    if (tree.layout !== undefined) g.fail('layout/tree', '폴더 그대로인데 배치를 굳이 적는다');
+    n++;
+    if (flat.layout !== 'flat') g.fail('layout/flat', '납작한 배치를 목록이 안 말한다');
+    n++;
+    if (fileUrl(tree, 'p', 'clips/idle.glb') !== 'packs/p/clips/idle.glb') {
+      g.fail('layout/tree-url', `폴더 배치의 주소가 ${fileUrl(tree, 'p', 'clips/idle.glb')} 다`);
+    }
+    n++;
+    // 납작한 이름에 '/' 가 하나라도 남으면 Release 가 안 받는다.
+    const u = fileUrl(flat, 'p', 'clips/idle.glb');
+    if (u.includes('/')) g.fail('layout/flat-url', `납작하다면서 주소에 '/' 가 있다 — ${u}`);
+    n++;
+    if (u !== 'p__clips__idle.glb') g.fail('layout/flat-name', `납작한 이름이 ${u} 다`);
+    n++;
+    // 모르는 배치를 만나면 받는 쪽이 엉뚱한 주소로 전부 404 가 된다.
+    if (!manifestProblems({ ...tree, layout: 'zip' }).some((x) => x.key === 'layout')) {
+      g.fail('layout/unknown', "모르는 배치 'zip' 을 안 막는다");
+    }
+    n++;
+    // **납작한 자리에서 이름이 겹치면 하나가 다른 하나를 덮는다.**
+    const clash = distManifest([
+      { catalog: { ...one, packId: 'a' }, files: [{ path: 'catalog.json', bytes: 1, sha256: 'aaaaaaaa' }, { path: 'b__c.glb', bytes: 1, sha256: 'cccccccc' }] },
+      { catalog: { ...one, packId: 'a__b' }, files: [{ path: 'catalog.json', bytes: 1, sha256: 'aaaaaaaa' }, { path: 'c.glb', bytes: 1, sha256: 'cccccccc' }] },
+    ], { layout: 'flat' });
+    if (!manifestProblems(clash).some((x) => x.key.startsWith('flat/'))) {
+      g.fail('layout/clash', '납작한 이름이 겹치는데 안 잡는다 — 하나가 덮인다');
+    }
+    // **납작한 자리로 실제로 내보내고 받아 본다.**
+    //
+    // 위는 전부 수를 본 것이다. 일부러 "받는 쪽이 배치를 무시하게" 깨 봤더니
+    // 이 게이트가 그대로 통과했다 — 왽복 시험이 폴더 배치만 돌았기 때문이다.
+    const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), 'pm-flat-'));
+    try {
+      const one2 = 'ref-synthetic';
+      n++;
+      const bf = spawnSync(process.execPath, [
+        path.join(ROOT, 'scripts', 'build-dist.mjs'), path.join(tmp2, 'out'), '--layout', 'flat',
+      ], { encoding: 'utf8' });
+      if (bf.status !== 0) g.fail('flat/build', `납작하게 내보내기가 실패했다 — ${(bf.stderr || '').slice(0, 120)}`);
+      else {
+        n++;
+        // 올려 둔 자리에 폴더가 없어야 한다 — Release 는 그것을 못 받는다.
+        const deep = fs.readdirSync(path.join(tmp2, 'out'))
+          .filter((x) => x !== 'licenses' && fs.statSync(path.join(tmp2, 'out', x)).isDirectory());
+        if (deep.length) g.fail('flat/dirs', `납작하게 내보냈는데 폴더가 남았다 — ${deep.join(' · ')}`);
+        n++;
+        const ff = spawnSync(process.execPath, [
+          path.join(ROOT, 'scripts', 'fetch-packs.mjs'), path.join(tmp2, 'out', 'packs.json'),
+          '--tier', 'far', '--pack', one2, '--clips', 'all', '--to', path.join(tmp2, 'recv'),
+        ], { encoding: 'utf8' });
+        if (ff.status !== 0) g.fail('flat/fetch', `납작한 자리에서 받기가 실패했다 — ${((ff.stdout || '') + (ff.stderr || '')).slice(-200)}`);
+        else {
+          n++;
+          // **받아서 저장하는 모양은 안 달라진다** — 늘 <팩>/<경로> 다.
+          const got2 = path.join(tmp2, 'recv', one2);
+          if (!fs.existsSync(path.join(got2, 'catalog.json'))) {
+            g.fail('flat/shape', '납작한 자리에서 받았더니 저장된 모양까지 납작하다');
+          }
+          n++;
+          const nClips = fs.existsSync(path.join(got2, 'clips')) ? fs.readdirSync(path.join(got2, 'clips')).length : 0;
+          if (!nClips) g.fail('flat/clips', '납작한 자리에서 클립을 하나도 못 받았다');
+          console.log(`  [배포] 납작한 자리로 내보내서 받았다: ${one2} · 클립 ${nClips}개 · 저장된 모양은 폴더 그대로`);
+        }
+      }
+    } finally {
+      fs.rmSync(tmp2, { recursive: true, force: true });
+    }
+    console.log(`  [배포] 배치 ${Object.keys(LAYOUTS).join(' · ')} — 납작한 자리(Release)에서는 ${u} 로 올리고 p/clips/idle.glb 로 받는다`);
+  }
+
+  // ── 6. 층 이름이 문서와 같은가 ──
   n++;
   if (Object.keys(TIERS).join() !== 'far,near,all,sheet') {
     g.fail('tier/names', `층이 ${Object.keys(TIERS).join()} 다 — 이름이 바뀌면 소비처의 스크립트가 깨진다`);

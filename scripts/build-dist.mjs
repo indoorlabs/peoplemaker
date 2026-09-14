@@ -26,10 +26,24 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { distManifest, bytesFor, MIN_CLIPS } from '../src/lib/dist.mjs';
+import { distManifest, bytesFor, MIN_CLIPS, fileUrl, LAYOUTS } from '../src/lib/dist.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const out = path.resolve(process.argv[2] || path.join(ROOT, 'dist'));
+const argv = process.argv.slice(2);
+// **어떤 모양으로 놓을 것인가** — 올릴 자리가 폴더를 못 받으면 납작하게 낸다.
+// GitHub Release 는 파일 이름에 '/' 를 못 써서 전부 한 자리에 놓인다.
+const li = argv.indexOf('--layout');
+const layout = li >= 0 ? argv[li + 1] : 'tree';
+if (!LAYOUTS[layout]) {
+  console.error(`모르는 배치 '${layout}' — ${Object.keys(LAYOUTS).join(' · ')}`);
+  process.exit(2);
+}
+// 깃발이 아닌 첫 인자가 내보낼 자리다. **깃발의 값도 빼야 한다** — 처음에
+// `i !== li + 1` 로 뺐더니 깃발이 없을 때(li = -1) 그것이 `i !== 0` 이 돼서
+// 첫 인자를 통째로 삼켰다 (게이트가 바로 잡았다).
+const out = path.resolve(
+  argv.filter((a, i) => !a.startsWith('--') && !(li >= 0 && i === li + 1))[0] || path.join(ROOT, 'dist'),
+);
 
 const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex').slice(0, 16);
 
@@ -61,15 +75,17 @@ for (const id of fs.readdirSync(path.join(ROOT, 'packs'))) {
   packs.push({ catalog, files });
 
   // 파일을 그대로 옮긴다 — 묶지도 압축하지도 않는다 (받는 쪽이 골라 받는다).
+  // **놓는 자리는 목록이 말하는 배치를 따른다** (받는 쪽이 같은 규칙으로 주소를
+  // 만든다). 납작한 배치에서는 폴더가 없으므로 이름에 팩과 경로가 다 들어간다.
   for (const f of files) {
-    const dst = path.join(out, 'packs', id, f.path);
+    const dst = path.join(out, fileUrl({ layout }, id, f.path));
     fs.mkdirSync(path.dirname(dst), { recursive: true });
     fs.copyFileSync(path.join(dir, f.path), dst);
   }
 }
 if (!packs.length) { console.error('내보낼 팩이 없다'); process.exit(1); }
 
-const manifest = distManifest(packs, { builtAt: new Date().toISOString().slice(0, 10) });
+const manifest = distManifest(packs, { builtAt: new Date().toISOString().slice(0, 10), layout });
 fs.mkdirSync(out, { recursive: true });
 fs.writeFileSync(path.join(out, 'packs.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
@@ -85,7 +101,7 @@ if (fs.existsSync(path.join(ROOT, 'licenses'))) {
 }
 
 const kb = (b) => (b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)}MB` : `${Math.round(b / 1024)}KB`);
-console.log(`${path.relative(ROOT, out)}/ · 팩 ${manifest.packs.length} · 파일 ${manifest.totalFiles} · ${kb(manifest.totalBytes)}`);
+console.log(`${path.relative(ROOT, out)}/ · 팩 ${manifest.packs.length} · 파일 ${manifest.totalFiles} · ${kb(manifest.totalBytes)} · 배치 ${layout} (${LAYOUTS[layout].what})`);
 for (const t of Object.keys(manifest.tiers)) {
   console.log(`  ${t.padEnd(10)} 팩 하나 ${kb(manifest.tiers[t].perPackBytes)} · 열둘 ${kb(manifest.tiers[t].allBytes)} — ${manifest.tiers[t].what}`);
 }

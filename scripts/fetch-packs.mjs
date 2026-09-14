@@ -22,7 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { TIERS, manifestProblems, MIN_CLIPS, missingClips, bytesFor } from '../src/lib/dist.mjs';
+import { TIERS, manifestProblems, MIN_CLIPS, missingClips, bytesFor, fileUrl } from '../src/lib/dist.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -90,7 +90,8 @@ for (const p of manifest.packs) {
     const dst = path.join(to, p.packId, f.path);
     // 이미 있고 해시가 같으면 다시 안 받는다.
     if (fs.existsSync(dst) && sha(fs.readFileSync(dst)) === f.sha256) { skipped++; continue; }
-    const buf = await get(`packs/${p.packId}/${f.path}`);
+    // 주소는 목록이 말하는 배치로 만든다 — 저장하는 자리는 안 달라진다.
+    const buf = await get(fileUrl(manifest, p.packId, f.path));
     if (sha(buf) !== f.sha256) {
       console.error(`  ✗ ${p.packId}/${f.path} — 받은 것이 목록과 다르다 (받다 끊기면 이상한 자세로 열린다)`);
       broken++;
