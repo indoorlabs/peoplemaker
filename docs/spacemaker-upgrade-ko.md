@@ -92,8 +92,11 @@ idle · walk-forward · run 뿐이다. 있는 것만 달라고 하거나(clips: 
 채워 놓으면 저쪽 `PEOPLE_CLIPS` 가 그대로 돈다. 열어서 확인했다:
 
 ```sh
-node scripts/fetch-packs.mjs <목록 주소> --tier far \
-     --clips idle,walk-forward,walk-fast,walk-slow,run,run-injured,walk-injured,walk-bruised
+node node_modules/peoplemaker/scripts/fetch-packs.mjs \
+  https://github.com/indoorlabs/peoplemaker/releases/download/packs-2026-09-14/packs.json \
+  --tier far \
+  --clips idle,walk-forward,walk-fast,walk-slow,run,run-injured,walk-injured,walk-bruised \
+  --to public/packs
 ```
 
 ```
@@ -102,9 +105,11 @@ rocketbox-f01 을 저쪽 고르개로 열어 보니: 고른 것 8, 받은 것 8 
 1.2m/s → walk-forward ×0.9917 (다친 걸음 셋이 섞여 있는데 안 골랐다)
 ```
 
-지금 `public/packs/` 가 23MB 니 **여전히 3분의 1 이하**다. 다만 이 갈래는
-목록(`packs.json`)을 올릴 자리가 있어야 한다 (아래 "안 해도 되는 것" 참고).
-올릴 자리가 아직 없으면 아래 둘 중 하나로 간다.
+지금 `public/packs/` 가 23MB 니 **여전히 3분의 1 이하**다.
+
+올릴 자리는 만들어 뒀다 — 위 주소가 공개 Release 다 (팩 13 · 파일 878 ·
+174.7MB). 받을 때 **파일마다 SHA-256 을 견주므로** 받다 끊긴 GLB 가 이상한
+자세로 열리는 일이 없다. 아래 둘은 그 주소를 안 쓰고 싶을 때의 길이다.
 
 **갈래 1 — 카탈로그를 온 파일에 맞춘다** (코드 수정 없음).
 복사한 뒤 카탈로그에서 파일이 없는 클립을 지운다:
@@ -217,15 +222,16 @@ catalog.bodyFar?.length   // 2 면 먼 층이 열린다
   함수와 다섯 메서드가 그대로 도는 것을 게이트가 검사 46으로 증명한다.
 - **three 올리기** — 저쪽은 0.183.2, 이쪽 개발은 0.186 이다. 저쪽 판으로
   열어 보는 시험이 따로 있다 (`npm run smoke -- ../spacemaker/node_modules/three`).
-- **호스팅** — 먼 층은 저장소에 들어 있어 `node_modules` 에 그냥 온다.
-  그보다 더 받으려면(갈래 0, 또는 대피·회의 동작) 목록(`packs.json`)을 올릴
-  자리가 필요하다. 묶음은 만들어 놓았다:
+- **호스팅** — 올려 뒀다. 먼 층은 저장소에 들어 있어 `node_modules` 에 그냥
+  오고, 그보다 더 받으려면 공개 Release 를 쓴다:
 
   ```
-  dist/ · 팩 13 · 파일 878 · 174.7MB   (2026-09-14)
-    far    2.1MB    near  43.6MB    all  172.5MB    sheet  174.7MB
+  https://github.com/indoorlabs/peoplemaker/releases/tag/packs-2026-09-14
+    팩 13 · 파일 878 · 174.7MB
+    far 2.1MB · near 43.6MB · all 172.5MB · sheet 174.7MB
   ```
 
-  `fetch-packs.mjs` 는 목록 주소만 있으면 되고 **파일마다 SHA-256 을 견준다**
-  (받다 끊긴 GLB 는 터지지 않고 이상한 자세로 열린다). `file://` 로 끝까지
-  돌려 확인했다 — 올릴 자리만 정하면 된다.
+  Release 는 파일 이름에 `/` 를 못 써서 **납작하게** 올라가 있다
+  (`rocketbox-f01__clips__idle.glb`). `packs.json` 이 `layout: "flat"` 으로
+  그 사실을 말하고, `fetch-packs.mjs` 가 그 규칙으로 주소를 만든다 —
+  **받아서 저장하는 모양은 폴더 그대로**라 쓰는 쪽은 몰라도 된다.
