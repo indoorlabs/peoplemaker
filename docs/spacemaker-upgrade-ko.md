@@ -33,6 +33,21 @@
 npm i github:indoorlabs/peoplemaker   # spacemaker
 ```
 
+### 올렸는데도 옛 것이 도는 세 함정 — 2026-09-14 에 셋 다 밟았다
+
+로봇 팩(`unitree-g1`)을 spacemaker 에 세우다가 **화면에는 상자만 남고 아무
+말도 없는** 것을 보았다. 원인은 셋이 겹친 것이고, 하나씩 잡는 벤치를 저쪽에
+두었다 (`scripts/served-packs-bench.mjs`, 12 ok).
+
+| 함정 | 무슨 일이 | 어떻게 아는가 | 고치는 법 |
+| --- | --- | --- | --- |
+| **잠금 파일이 옛 커밋을 문다** — `package-lock.json` 이 9월 11일 `2c0cf83` 을 가리켜 `npm i` 로는 안 올라간다 | 설치본이 `urdf` 골격을 몰라 `loadPack` 이 카탈로그를 거부한다. `PeopleAgentBodies` 의 `.catch` 가 삼켜 조용하다 | 벤치가 **설치된** `peoplemaker/lib` 의 `validateCatalog` 로 서비스되는 카탈로그를 검사한다 — 옛 사본이면 `catalog/skeleton(… mixamo 또는 vrm 또는 biped 여야 한다)` | `npm update peoplemaker --legacy-peer-deps` (peer 충돌은 `web-ifc-three` ↔ `three@0.183` 의 것으로 이 팩과 무관하다). 잠금 파일 한 줄이 `f53c244` 로 바뀐다 |
+| **webpack 캐시가 옛 번들을 낸다** — 버전이 양쪽 다 `0.1.0` 이라 `.next/cache` 가 `node_modules/peoplemaker` 를 안 바뀐 것으로 본다 | 설치본은 새것인데 브라우저가 받는 `pages/index.js` 에는 옛 `motionPack` 이 들어 있다 | 번들에 `bodySource` 문자열이 없으면 옛것이다 (`curl localhost:3000/_next/static/chunks/pages/index.js \| grep -c bodySource`) | 개발 서버를 끄고 `.next`(이쪽 설정이면 `.next-3001`)를 지운 뒤 다시 띄운다 |
+| **온몸(`body.glb`)이 안 복사됐다** — 먼 몸(`body-far*.glb`)만 두면 404 | `PeopleAgentBodies` 는 `body:'far'` 를 안 주므로 `loadPack` 이 받는 것은 `catalog.body` 다 | 벤치가 `catalog.body` 파일이 `public/packs/<id>/` 에 있는지 본다 | `packs/unitree-g1/body.glb`(449KB) 를 `public/packs/unitree-g1/` 에 복사한다 |
+
+셋을 다 잡은 뒤 브라우저가 받은 것: `catalog.json · body.glb · clips/{idle,
+walk-forward, walk-carry, reach}.glb` — 그제서야 로봇 셋이 방에 섰다.
+
 저쪽이 부르는 것은 아홉 개의 함수와 다섯 개의 메서드다:
 
 ```
