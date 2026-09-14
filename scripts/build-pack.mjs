@@ -155,6 +155,8 @@ const catalog = buildCatalog({
   person: sources.person,
   // 표기 의무의 뿌리 — 사람이 적는다.
   origins: sources.origins,
+  // 몸이 클립과 다른 데서 왔으면 — 사람이 적는다.
+  bodySource: sources.bodySource,
   body: split ? 'body.glb' : undefined,
   // 먼 몸은 굽는 쪽(import-rocketbox)이 만들어 sources.json 에 적어 둔다.
   // 먼 몸은 굽는 쪽(build-far)이 만들어 sources.json 에 단계 목록으로 적어 둔다.

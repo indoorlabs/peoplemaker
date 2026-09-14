@@ -106,6 +106,9 @@ export const FOOT_NODES = {
   // 어린이 몸은 Bip02 다. 같은 규약이므로 번호는 안 본다 (retarget.mjs 는
   // 처음부터 그렇게 하고 있었다).
   biped: { 'foot-l': /^Bip\d\d L Toe0$/, 'foot-r': /^Bip\d\d R Toe0$/ },
+  // 로봇(URDF): 발목이 아니라 **발바닥 노드**다 — 리그를 만들 때 발목 살의 가장
+  // 낮은 점에 둔다 (lib/urdfRig.mjs withSoles). Biped 와 같은 까닭이다.
+  urdf: { 'foot-l': /^left_sole$/, 'foot-r': /^right_sole$/ },
 };
 
 /**
@@ -118,6 +121,7 @@ export const HIP_NODES = {
   mixamo: /(^|:)Hips$/,
   vrm: /^hips$/,
   biped: /^Bip\d\d Pelvis$/,
+  urdf: /^pelvis$/,
 };
 
 /** 엉덩이가 쉬는 자세의 이 비율 아래로 내려가 머물면 앉은 것이다. */
@@ -147,6 +151,7 @@ export const HAND_NODES = {
   mixamo: { 'hand-l': /(^|:)LeftHand$/, 'hand-r': /(^|:)RightHand$/ },
   vrm: { 'hand-l': /^leftHand$/, 'hand-r': /^rightHand$/ },
   biped: { 'hand-l': /^Bip\d\d L Hand$/, 'hand-r': /^Bip\d\d R Hand$/ },
+  urdf: { 'hand-l': /^left_wrist_yaw_link$/, 'hand-r': /^right_wrist_yaw_link$/ },
 };
 
 /**
@@ -167,6 +172,8 @@ export const ROOT_NODES = {
   // Biped 는 몸 전체가 Bip01(또는 Bip02 …)에 매달려 있고 이동도 거기 실린다
   // (Pelvis 는 그 아이다). 걷는 클립 하나를 재 보니 1.167s 에 1.412m 갔다.
   biped: /^Bip\d\d$/,
+  // 로봇은 골반이 곧 뿌리다 — 이동이 거기 실린다.
+  urdf: /^pelvis$/,
 };
 
 const matchNode = (doc, re) => {
@@ -385,6 +392,8 @@ export const EYE_NODES = {
   biped: /^Bip\d\d [LR] ?Eye$/,
   mixamo: /(^|:)(LeftEye|RightEye)$/,
   vrm: /^(leftEye|rightEye)$/,
+  // 로봇의 눈은 머리 카메라다 — G1 의 d435(RGB-D) 링크. 그 높이가 곧 시야 높이다.
+  urdf: /^d435_link$/,
 };
 
 /**
@@ -628,7 +637,7 @@ export function deriveClip(doc, decl, { skeleton = 'mixamo' } = {}) {
  * 바뀌어서 무엇이 달라졌는지 안 보인다.
  */
 export function buildCatalog({
-  packId, version, skeleton, clips, body, bodyFar, bodyDims, person, origins, builtAt, builtFrom,
+  packId, version, skeleton, clips, body, bodyFar, bodyDims, person, origins, bodySource, builtAt, builtFrom,
 }) {
   return {
     packId,
@@ -648,6 +657,8 @@ export function buildCatalog({
     // **표기 의무의 뿌리** — 이 팩의 자산이 어디서 왔는가. 고지문은 글로
     // 안 적고 licenses/ 의 파일을 가리킨다 (lib/attribution.mjs).
     ...(origins?.length ? { origins } : {}),
+    // **몸의 출처** — 클립과 다를 때만 적는다 (로봇 팩: 몸 BSD-3 · 클립 CC0).
+    ...(bodySource ? { bodySource } : {}),
     forwardRad: packForwardRad(clips),
     builtBy: 'peoplemaker/build-pack',
     // **언제 · 어느 커밋으로 구웠는가.**

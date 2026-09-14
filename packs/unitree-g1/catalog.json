@@ -1,0 +1,154 @@
+{
+  "packId": "unitree-g1",
+  "version": "0.1.0",
+  "skeleton": "urdf",
+  "body": "body.glb",
+  "bodyFar": [
+    {
+      "file": "body-far.glb",
+      "ratio": 0.25,
+      "vertices": 1494,
+      "triangles": 3073,
+      "from": {
+        "vertices": 6104,
+        "triangles": 12295
+      }
+    },
+    {
+      "file": "body-far-10.glb",
+      "ratio": 0.1,
+      "vertices": 1038,
+      "triangles": 2160,
+      "from": {
+        "vertices": 6104,
+        "triangles": 12295
+      }
+    }
+  ],
+  "bodyDims": {
+    "source": "measured-from-pack",
+    "pose": "idle",
+    "heightM": 1.322,
+    "widthM": 0.362,
+    "depthM": 0.434,
+    "eyeHeightM": 1.266,
+    "walkWidthM": 0.376,
+    "maxWidthM": 0.376
+  },
+  "origins": [
+    {
+      "tool": "unitreerobotics/unitree_ros",
+      "license": "BSD-3-Clause",
+      "ko": "Unitree Robotics — G1 description",
+      "en": "Unitree Robotics — G1 description",
+      "url": "https://github.com/unitreerobotics/unitree_ros",
+      "noticeFile": "licenses/unitree-robotics.LICENSE.md",
+      "noticeUrl": "https://raw.githubusercontent.com/unitreerobotics/unitree_ros/master/LICENSE",
+      "checked": "2026-09-14"
+    }
+  ],
+  "bodySource": {
+    "tool": "unitreerobotics/unitree_ros",
+    "license": "BSD-3-Clause",
+    "file": "g1_29dof_rev_1_0.urdf",
+    "meshes": 35
+  },
+  "forwardRad": 0,
+  "builtBy": "peoplemaker/build-pack",
+  "builtAt": "2026-09-14",
+  "builtFrom": "22b9979-dirty",
+  "clips": [
+    {
+      "id": "idle",
+      "name": {
+        "ko": "서 있기 (G1)",
+        "en": "Idle (G1)"
+      },
+      "license": "CC0-1.0",
+      "source": {
+        "tool": "peoplemaker/make-g1-pack",
+        "synthetic": true
+      },
+      "tags": [
+        "idle"
+      ],
+      "durationS": 4,
+      "rootMotion": "in-place",
+      "contacts": [],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/idle.svg"
+    },
+    {
+      "id": "reach",
+      "name": {
+        "ko": "오른손 뻗기 (G1)",
+        "en": "Reach with the right hand (G1)"
+      },
+      "license": "CC0-1.0",
+      "source": {
+        "tool": "peoplemaker/make-g1-pack",
+        "synthetic": true
+      },
+      "tags": [
+        "reach"
+      ],
+      "durationS": 2.4,
+      "rootMotion": "in-place",
+      "contacts": [
+        {
+          "atS": 0.45,
+          "part": "hand-r",
+          "kind": "touch"
+        },
+        {
+          "atS": 2.05,
+          "part": "hand-r",
+          "kind": "release"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/reach.svg",
+      "reach": {
+        "part": "hand-r",
+        "atS": 0.45,
+        "releaseS": 2.05,
+        "forwardM": 0.333,
+        "heightM": 1.077
+      }
+    },
+    {
+      "id": "walk-forward",
+      "name": {
+        "ko": "앞으로 걷기 (G1)",
+        "en": "Walk forward (G1)"
+      },
+      "license": "CC0-1.0",
+      "source": {
+        "tool": "peoplemaker/make-g1-pack",
+        "synthetic": true
+      },
+      "tags": [
+        "walk"
+      ],
+      "durationS": 0.8,
+      "rootMotion": "travel",
+      "speedMps": 1.35,
+      "travelHeadingRad": 0,
+      "contacts": [
+        {
+          "atS": 0.067,
+          "part": "foot-l",
+          "kind": "plant"
+        },
+        {
+          "atS": 0.467,
+          "part": "foot-r",
+          "kind": "plant"
+        }
+      ],
+      "measuredBy": "peoplemaker/packBuild 60Hz · travel≥0.15m/s · plant≤0.06m for ≥0.2s · seat<0.8×rest",
+      "thumb": "thumbs/walk-forward.svg"
+    }
+  ],
+  "note": "Unitree G1 — unitree_ros/robots/g1_description 의 g1_29dof_rev_1_0.urdf (BSD-3-Clause, Copyright (c) 2016-2022 HangZhou YuShu TECHNOLOGY CO.,LTD.). 시각 STL 35개를 393270 → 12307 삼각형으로 줄여 스킨 하나로 접붙였다. 동작은 모션 캡처가 아니라 관절 함수다 — 사람 클립을 로봇에 씌우지 않는다. 걷는 속도 1.35m/s 는 기준 팩에서 빌린 값이고, Unitree 의 값이 오면 lib/urdfRig.mjs 의 ROBOT_CLIPS 하나만 바꾼다."
+}

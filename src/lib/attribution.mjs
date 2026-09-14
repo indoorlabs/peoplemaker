@@ -36,14 +36,21 @@ import { LICENSES } from './motionPack.mjs';
  */
 export function attributionNeeds(catalog) {
   const byTool = new Map();
+  const need = (tool, license) => {
+    const key = `${tool}|${license}`;
+    if (!byTool.has(key)) byTool.set(key, { tool, license, clips: [], body: false });
+    return byTool.get(key);
+  };
   for (const c of catalog?.clips || []) {
     const lic = LICENSES[c.license];
     if (!lic?.attribution) continue;
-    const tool = c.source?.tool || '(출처 없음)';
-    const key = `${tool}|${c.license}`;
-    if (!byTool.has(key)) byTool.set(key, { tool, license: c.license, clips: [] });
-    byTool.get(key).clips.push(c.id);
+    need(c.source?.tool || '(출처 없음)', c.license).clips.push(c.id);
   }
+  // **몸의 출처는 클립과 다를 수 있다.** 로봇 팩이 처음이다 — 클립은 우리가
+  // 함수로 만든 CC0 이고 몸은 Unitree 의 BSD-3 다. 클립만 보면 표기가 "0건"
+  // 으로 나와 저작권 표시가 빠진다. 그래서 카탈로그의 bodySource 도 센다.
+  const bs = catalog?.bodySource;
+  if (bs && LICENSES[bs.license]?.attribution) need(bs.tool || '(출처 없음)', bs.license).body = true;
   const origins = catalog?.origins || [];
   return [...byTool.values()]
     .map((x) => ({ ...x, origin: origins.find((o) => o.tool === x.tool && o.license === x.license) || null }))
@@ -62,7 +69,8 @@ export function attributionProblems(catalog) {
 
   for (const nd of needs) {
     if (!nd.origin) {
-      bad(`origin/${nd.tool}`, `${nd.license} 클립 ${nd.clips.length}개(${nd.tool})가 표기를 요구하는데 출처 선언(origins)이 없다`);
+      const what = [nd.clips.length ? `클립 ${nd.clips.length}개` : null, nd.body ? '몸' : null].filter(Boolean).join('과 ');
+      bad(`origin/${nd.tool}`, `${nd.license} ${what}(${nd.tool})이 표기를 요구하는데 출처 선언(origins)이 없다`);
       continue;
     }
     const o = nd.origin;
@@ -96,10 +104,11 @@ export function attributionsFor(catalogs) {
     const cat = c?.catalog || c;
     for (const nd of attributionNeeds(cat)) {
       const key = `${nd.tool}|${nd.license}`;
-      if (!merged.has(key)) merged.set(key, { ...nd, clips: [], packs: [] });
+      if (!merged.has(key)) merged.set(key, { ...nd, clips: [], packs: [], bodies: [] });
       const m = merged.get(key);
       m.clips.push(...nd.clips.map((id) => `${cat.packId}/${id}`));
       m.packs.push(cat.packId);
+      if (nd.body) m.bodies.push(cat.packId);
       if (!m.origin && nd.origin) m.origin = nd.origin;
     }
   }
@@ -115,15 +124,18 @@ export function attributionTally(catalogs) {
   const byLicense = {};
   let total = 0;
   let needing = 0;
+  let bodiesNeeding = 0;
   for (const c of catalogs || []) {
     const cat = c?.catalog || c;
+    // 몸이 따로 표기를 요구하는 팩 — 클립 수에는 안 들어간다.
+    if (LICENSES[cat.bodySource?.license]?.attribution) bodiesNeeding++;
     for (const clip of cat.clips || []) {
       total++;
       byLicense[clip.license] = (byLicense[clip.license] || 0) + 1;
       if (LICENSES[clip.license]?.attribution) needing++;
     }
   }
-  return { total, needing, free: total - needing, byLicense };
+  return { total, needing, free: total - needing, byLicense, bodiesNeeding };
 }
 
 /**
@@ -141,7 +153,8 @@ export function attributionsMarkdown(catalogs, { readNotice, generatedBy = 'peop
   L.push('이 파일은 **손으로 적지 않는다** — `node scripts/build-attributions.mjs` 가 팩의');
   L.push('카탈로그에서 만든다. 클립마다 적힌 라이선스와 출처가 그대로 올라온다.');
   L.push('');
-  L.push(`클립 ${tally.total}개 중 **표기가 필요한 것 ${tally.needing}개** · 필요 없는 것 ${tally.free}개.`);
+  L.push(`클립 ${tally.total}개 중 **표기가 필요한 것 ${tally.needing}개** · 필요 없는 것 ${tally.free}개.`
+    + (tally.bodiesNeeding ? ` 몸이 따로 표기를 요구하는 팩 ${tally.bodiesNeeding}개.` : ''));
   L.push('');
   L.push('| 라이선스 | 클립 |');
   L.push('|---|---|');
@@ -167,7 +180,7 @@ export function attributionsMarkdown(catalogs, { readNotice, generatedBy = 'peop
     L.push('');
     L.push(`- 출처: ${o ? `[${o.en}](${o.url})` : it.tool}`);
     L.push(`- 라이선스: \`${it.license}\``);
-    L.push(`- 쓰는 팩 ${new Set(it.packs).size}개 · 클립 ${it.clips.length}개`);
+    L.push(`- 쓰는 팩 ${new Set(it.packs).size}개 · 클립 ${it.clips.length}개${it.bodies?.length ? ` · 몸 ${it.bodies.length}개` : ''}`);
     if (o?.checked) L.push(`- 고지문 원문을 확인한 날: ${o.checked} (\`${o.noticeFile}\`)`);
     L.push('');
     if (o?.noticeFile && readNotice) {

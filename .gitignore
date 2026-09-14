@@ -34,6 +34,19 @@ packs/rocketbox-*/clips/*
 !packs/rocketbox-*/clips/walk-forward.glb
 !packs/rocketbox-*/clips/run.glb
 
+# 로봇 팩도 같은 겹이다. 몸(Unitree BSD-3)은 크고, 클립은 우리가 함수로 만든
+# 것이라 작다. **URDF 는 둔다** — 몸이 어디서 왔는지의 원문이고 34KB 이며,
+# 게이트가 glTF 없이 그것으로 순운동학을 돌려 잰 값과 견준다.
+packs/unitree-*/*
+!packs/unitree-*/catalog.json
+!packs/unitree-*/body-far.glb
+!packs/unitree-*/body-far-10.glb
+!packs/unitree-*/*.urdf
+!packs/unitree-*/clips/
+packs/unitree-*/clips/*
+!packs/unitree-*/clips/idle.glb
+!packs/unitree-*/clips/walk-forward.glb
+
 # 기준 팩은 우리가 함수로 만든 CC0 이고 작다 — 통째로 둔다.
 
 # 파이썬 파이프라인 (P2~)

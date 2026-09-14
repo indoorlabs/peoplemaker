@@ -24,6 +24,9 @@ export const SKELETONS = {
   mixamo: 'Mixamo 본 이름 규약 (mixamorig:Hips …) — Blender·three.js·Unreal 이 그대로 읽는다',
   vrm: 'VRM 휴머노이드 본 매핑 — 아바타 교체가 가장 쉽다',
   biped: '3ds Max Biped 본 이름 규약 (Bip01 · Bip02 … — 번호는 장면마다 매겨진다) — Microsoft Rocketbox(MIT) 가 쓴다',
+  // 로봇. 노드 = URDF 링크, 관절 = 그 노드의 회전 (lib/urdfRig.mjs). 발은 발목이
+  // 아니라 리그를 만들 때 더한 발바닥 노드(left_sole)로 잰다.
+  urdf: 'URDF 링크 이름 규약 (pelvis · left_hip_pitch_link …) — Unitree G1(BSD-3) 이 쓴다',
 };
 
 /**
@@ -165,6 +168,9 @@ export const LICENSES = {
   'CC-BY-NC-4.0': { commercial: false, attribution: true },
   'Apache-2.0': { commercial: true, attribution: true },
   'MIT': { commercial: true, attribution: true },
+  // Unitree 의 로봇 형상(unitree_ros 의 g1_description)이 이것이다. 조건은 MIT 와
+  // 같다 — 저작권 표시와 고지문을 그대로 함께 둔다. 2026-09-14 에 넣기로 했다.
+  'BSD-3-Clause': { commercial: true, attribution: true },
   // Tencent Hunyuan Community — HY-Motion 1.0 이 이것이다. 상업 사용을
   // 허용하되 조건이 붙는다(사용자 수 상한 등). 조건이 있다는 사실을 값으로
   // 남긴다.
@@ -258,6 +264,23 @@ export function validateCatalog(catalog, { clipFiles = null, packFiles = null } 
   if (catalog.person !== undefined) {
     for (const { key, why } of personProblems(catalog.person)) {
       fail(`catalog/person/${key}`, why);
+    }
+  }
+
+  // **몸의 출처** — 클립과 다를 수 있다. 로봇 팩이 처음이다: 클립은 우리가
+  // 함수로 만든 CC0 이고 몸은 Unitree 의 BSD-3 다. 클립만 보면 표기가 0건이
+  // 되어 저작권 표시가 빠진다. 없어도 된다(지금까지의 팩은 몸과 클립이 한
+  // 출처다). 있으면 아는 라이선스여야 하고, 표기가 필요하면 출처 선언이 있어야 한다.
+  if (catalog.bodySource !== undefined) {
+    const bs = catalog.bodySource;
+    if (!bs || typeof bs !== 'object') fail('catalog/bodySource', '몸의 출처가 값이 아니다');
+    else {
+      if (!bs.tool) fail('catalog/bodySource/tool', '몸이 어느 도구·저장소에서 왔는지가 없다');
+      if (!LICENSES[bs.license]) fail('catalog/bodySource/license', `몸의 라이선스가 '${bs.license}' 다 — 표에 먼저 넣을 것`);
+      else if (LICENSES[bs.license].attribution
+        && !(catalog.origins || []).some((o) => o?.tool === bs.tool && o?.license === bs.license)) {
+        fail('catalog/bodySource/origin', `몸(${bs.tool}, ${bs.license})이 표기를 요구하는데 출처 선언(origins)이 없다`);
+      }
     }
   }
 

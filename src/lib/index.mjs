@@ -30,4 +30,6 @@ export * from './scenario.mjs';
 export * from './thumbnail.mjs';
 export * from './attribution.mjs';
 export * from './dist.mjs';
+// 로봇 — URDF 를 리그·몸·함수 생성 클립으로 (Unitree G1 이 첫 사용처).
+export * from './urdfRig.mjs';
 export * from './clipPack.mjs';

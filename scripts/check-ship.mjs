@@ -54,9 +54,13 @@ runGate('check-ship', (g) => {
   // ── 2. 안 둘 것이 따라가지 않는가 ──
   {
     const allowed = new Set(SHIP_FILES);
+    // 로봇 팩(unitree-*)은 같은 규칙에 **URDF 하나**를 더 둔다 — 몸의 원문이고
+    // 게이트가 그것으로 순운동학을 돌린다. 그 밖의 것이 따라가면 여기서 잡힌다.
     const stray = tracked.filter((t) => {
-      const m = /^packs\/(rocketbox-[^/]+)\/(.+)$/.exec(t);
-      return m && !allowed.has(m[2]);
+      const m = /^packs\/((?:rocketbox|unitree)-[^/]+)\/(.+)$/.exec(t);
+      if (!m) return false;
+      if (/^unitree-/.test(m[1]) && /^[^/]+\.urdf$/.test(m[2])) return false;
+      return !allowed.has(m[2]);
     });
     n++;
     if (stray.length) {
