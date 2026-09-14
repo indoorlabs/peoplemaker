@@ -56,6 +56,8 @@
   ],
   "forwardRad": 0.0759,
   "builtBy": "peoplemaker/build-pack",
+  "builtAt": "2026-09-14",
+  "builtFrom": "4a0fc56",
   "clips": [
     {
       "id": "angry",
